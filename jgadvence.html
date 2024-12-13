@@ -1,0 +1,1218 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,100..900;1,100..900&family=Noto+Serif+SC:wght@200..900&family=Noto+Serif+TC:wght@200..900&display=swap"
+            rel="stylesheet"
+        />
+
+        <title>Document</title>
+        <style>
+            @keyframes wave {
+                0% {
+                    transform: translateX(-50%) translateY(-50%);
+                    opacity: 1;
+                }
+                25% {
+                    transform: translateX(-38%) translateY(-48%);
+                    opacity: 0.5;
+                }
+                50% {
+                    transform: translateX(-26%) translateY(-50%);
+                    opacity: 0.75;
+                }
+                75% {
+                    transform: translateX(-13%) translateY(-52%);
+                    opacity: 0.5;
+                }
+                100% {
+                    transform: translateX(0%) translateY(-50%);
+                    opacity: 1;
+                }
+            }
+            :root {
+                --primary: #eee;
+                --bg: #333;
+                --line: #626262;
+                --top: #d63f51;
+                --bottom: #4541b1;
+            }
+            ::selection {
+                background-color: transparent;
+            }
+            html {
+                background-color: #1b1b1b;
+            }
+            * {
+                box-sizing: border-box;
+                margin: 0;
+                padding: 0;
+                /* outline: 1px solid rgba(0, 255, 0, 0.1); */
+            }
+            body {
+                margin: 0 auto;
+                width: 100vw;
+                height: 100vh;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                position: relative;
+                font-family: 'Noto Serif TC', serif;
+                font-optical-sizing: auto;
+                font-style: normal;
+
+                .container {
+                    width: min(calc(100vw - 4rem), calc(100vh - 4rem));
+                    height: min(calc(100vw - 4rem), calc(100vh - 4rem));
+                    aspect-ratio: 1 / 1;
+                    position: relative;
+                    background-color: var(--bg);
+                    display: grid;
+                    grid-template-columns: repeat(9, 1fr);
+                    grid-template-rows: repeat(10, 1fr);
+                    overflow: hidden;
+                    z-index: 1;
+                }
+
+                .cell {
+                    position: relative;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+
+                    &:after {
+                        content: '';
+                        display: block;
+                        position: absolute;
+                        width: 200%;
+                        height: 0px;
+                        border-top: 1px solid var(--line);
+                        border-bottom: 1px solid rgba(0, 0, 0, 0.5);
+                        top: calc(50% - 1px);
+                        left: -50%;
+                    }
+                    &:before {
+                        content: '';
+                        display: block;
+                        position: absolute;
+                        width: 0px;
+                        height: 200%;
+                        border-left: 1px solid var(--line);
+                        border-right: 1px solid rgba(0, 0, 0, 0.5);
+                        top: -50%;
+                        left: calc(50% - 1px);
+                    }
+
+                    &.no_block {
+                        &:before {
+                            display: none;
+                        }
+                    }
+                    &.no_inline {
+                        &:after {
+                            display: none;
+                        }
+                    }
+                }
+
+                .kingzone {
+                    position: relative;
+                    width: 100%;
+                    height: 100%;
+
+                    &:after {
+                        content: '';
+                        display: block;
+                        position: absolute;
+                        width: 1px;
+                        height: 297%;
+                        border-left: 0.5px solid var(--line);
+                        border-right: 0.5px solid rgba(0, 0, 0, 0.5);
+                        top: -98%;
+                        left: 50%;
+                        rotate: 48deg;
+                    }
+                    &:before {
+                        content: '';
+                        display: block;
+                        position: absolute;
+                        width: 1px;
+                        height: 297%;
+                        border-left: 0.5px solid var(--line);
+                        border-right: 0.5px solid rgba(0, 0, 0, 0.5);
+                        top: -99%;
+                        left: 50%;
+                        rotate: -48deg;
+                    }
+                }
+
+                .point {
+                    width: 14%;
+                    height: 14%;
+                    border-radius: 50%;
+                    background-color: rgba(0, 0, 0, 0.5);
+                    margin-top: -1px;
+                    margin-left: -1px;
+                }
+
+                .unit_place {
+                    position: absolute;
+                    z-index: 20;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    width: 100%;
+                    height: 100%;
+
+                    /* user-select: none;
+                    pointer-events: none; */
+                }
+                .unit {
+                    position: absolute;
+                    aspect-ratio: 1 / 1;
+                    top: 0;
+                    left: 0;
+                    clip-path: polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%);
+                    transition: top 0.3s, left 0.3s;
+                    background-color: #1d1d1d;
+                    font-weight: 700;
+                    box-shadow: 3px 3px 5px 0 rgba(0, 0, 0, 0.8);
+                    text-shadow: -1px -1px 1px rgba(0, 0, 0, 0.9), 1px 1px 1px rgba(255, 255, 255, 0.2);
+                    border: 1vw inset rgba(0, 0, 0, 0.3);
+                    line-height: 0;
+                    font-family: inherit;
+
+                    &.zol,
+                    &.sa {
+                        width: 4.5%;
+                        font-size: 2vw;
+                    }
+
+                    &.po,
+                    &.cha,
+                    &.ma,
+                    &.sang {
+                        width: 6%;
+                        font-size: 3vw;
+                    }
+                    &.king {
+                        width: 8%;
+                        font-size: 4.5vw;
+                    }
+
+                    &[team='top'] {
+                        color: var(--top);
+                        rotate: 180deg;
+
+                        &.zol,
+                        &.sa {
+                            transform: translate(20%, 20%);
+                        }
+                        &.po,
+                        &.cha,
+                        &.ma,
+                        &.sang {
+                            transform: translate(15%, 15%);
+                        }
+                        &.king {
+                            transform: translate(10%, 12%);
+                        }
+                    }
+                    &[team='bottom'] {
+                        color: var(--bottom);
+
+                        &.zol,
+                        &.sa {
+                            transform: translate(-20%, -20%);
+                        }
+                        &.po,
+                        &.cha,
+                        &.ma,
+                        &.sang {
+                            transform: translate(-15%, -15%);
+                        }
+                        &.king {
+                            transform: translate(-10%, -12%);
+                        }
+                    }
+
+                    &[disabled] {
+                        &:after {
+                            position: absolute;
+                            content: '';
+                            display: block;
+                            width: 100%;
+                            height: 100%;
+                            top: 0;
+                            left: 0;
+                            background-color: rgba(0, 0, 0, 0.5);
+                            mix-blend-mode: color-burn;
+                        }
+                    }
+                }
+
+                .target {
+                    width: 4%;
+                    position: absolute;
+                    aspect-ratio: 1 / 1;
+                    top: 0;
+                    left: 0;
+                    background-color: rgba(0, 255, 0, 0.5);
+                    border: 0;
+                    border-radius: 50%;
+                }
+
+                .col_coordi {
+                    position: absolute;
+                    top: 0.25rem;
+                    font-size: 0.75rem;
+                    color: white;
+                }
+
+                .row_coordi {
+                    position: absolute;
+                    left: 0.25rem;
+                    font-size: 0.75rem;
+                    color: white;
+                }
+
+                .river {
+                    position: absolute;
+                    width: 200%;
+                    left: 0;
+                    height: 5vw;
+                    display: flex;
+                    flex-direction: column;
+                    top: 50%;
+                    transform: translateX(-50%) translateY(-50%);
+                    animation: wave 10s linear infinite;
+                    mix-blend-mode: hard-light;
+                }
+
+                .river-top {
+                }
+
+                .river-bottom {
+                    transform: rotate(180deg);
+                }
+
+                .popup {
+                    position: fixed;
+                    width: 100%;
+                    height: 100%;
+                    background-color: rgba(0, 0, 0, 0.8);
+                    top: 0;
+                    left: 0;
+                    display: flex;
+                    flex-direction: column;
+                    backdrop-filter: blur(15px);
+                    z-index: 2;
+
+                    h2 {
+                        font-size: 1.5rem;
+                        text-align: center;
+                        color: white;
+                    }
+
+                    .position {
+                        height: 50%;
+                        flex: 1;
+                        position: relative;
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        gap: 5%;
+
+                        .positioner {
+                            position: relative;
+                            width: 15%;
+                            transform: none;
+                            font-size: 7vw;
+                            border-width: 2vw;
+
+                            &.top {
+                                color: var(--top);
+                                rotate: 180deg;
+                            }
+                            &.bottom {
+                                color: var(--bottom);
+                            }
+
+                            &.selected {
+                                background-color: var(--line);
+                            }
+                        }
+                    }
+
+                    .start {
+                        padding: 1vw;
+                        font-size: 5vw;
+                        width: 80%;
+                        margin: 0 auto;
+                        background-color: var(--bg);
+                        color: var(--line);
+                        font-weight: 1000;
+                        text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.5), -1px -1px 0 rgba(255, 255, 255, 0.1);
+                    }
+                }
+
+                .reverse {
+                    rotate: 180deg;
+                }
+
+                .turn_box {
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    z-index: -1;
+                    font-size: 100vw;
+                    opacity: 0.5;
+                    mix-blend-mode: soft-light;
+
+                    &.top {
+                        color: var(--top);
+                        rotate: 180deg;
+                        text-shadow: 0 0 5vw var(--bg);
+                    }
+
+                    &.bottom {
+                        color: var(--bottom);
+                        text-shadow: 0 0 5vw var(--bg);
+                    }
+                }
+            }
+        </style>
+        <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+        <link href="https://cdn.jsdelivr.net/npm/@sweetalert2/theme-dark/dark.css" rel="stylesheet" />
+    </head>
+    <body>
+        <div class="container" id="container">
+            <div class="unit_place" id="unitPlace"></div>
+            <div class="river">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 28" preserveAspectRatio="none" class="river-top">
+                    <defs>
+                        <linearGradient id="waveGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" stop-color="rgba(87, 155, 179,0.5)" />
+                            <stop offset="25%" stop-color="rgba(87, 155, 179,1)" />
+                            <stop offset="50%" stop-color="rgba(87, 155, 179,0.5)" />
+                            <stop offset="75%" stop-color="rgba(87, 155, 179,1)" />
+                            <stop offset="100%" stop-color="rgba(87, 155, 179,0.5)" />
+                        </linearGradient>
+                    </defs>
+                    <path
+                        d="M0,14 Q10,28 20,14 T40,14 T60,14 T80,14 T100,14 T120,14 T140,14 T160,14 T180,14 T200,14 T220,14 T240,14 V28 H0 Z"
+                        fill="url(#waveGradient)"
+                    />
+                </svg>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 28" preserveAspectRatio="none" class="river-bottom">
+                    <defs>
+                        <linearGradient id="waveGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" stop-color="rgba(87, 155, 179,0.5)" />
+                            <stop offset="25%" stop-color="rgba(87, 155, 179,1)" />
+                            <stop offset="50%" stop-color="rgba(87, 155, 179,0.5)" />
+                            <stop offset="75%" stop-color="rgba(87, 155, 179,1)" />
+                            <stop offset="100%" stop-color="rgba(87, 155, 179,0.5)" />
+                        </linearGradient>
+                    </defs>
+                    <path
+                        d="M0,14 Q10,28 20,14 T40,14 T60,14 T80,14 T100,14 T120,14 T140,14 T160,14 T180,14 T200,14 T220,14 T240,14 V28 H0 Z"
+                        fill="url(#waveGradient)"
+                    />
+                </svg>
+            </div>
+
+            <div class="turn_box" id="turnBox">楚</div>
+        </div>
+
+        <div id="popup" class="popup">
+            <h2>SELECT POSITION</h2>
+            <div class="position top">
+                <button type="button" class="positioner unit top ma">馬</button>
+                <button type="button" class="positioner unit top sang">象</button>
+                <button type="button" class="positioner unit top sang">象</button>
+                <button type="button" class="positioner unit top ma">馬</button>
+            </div>
+            <button type="button" class="start" id="start">
+                <p class="reverse">START</p>
+                /
+                <p>START</p>
+            </button>
+            <div class="position bottom">
+                <button type="button" class="positioner unit bottom ma">馬</button>
+                <button type="button" class="positioner unit bottom sang">象</button>
+                <button type="button" class="positioner unit bottom sang">象</button>
+                <button type="button" class="positioner unit bottom ma">馬</button>
+            </div>
+            <h2 class="reverse">SELECT POSITION</h2>
+        </div>
+        <script>
+            let turn = 'bottom';
+            const overUnits = [
+                { x: 1, y: 4, type: 'zol' },
+                { x: 3, y: 4, type: 'zol' },
+                { x: 5, y: 4, type: 'zol' },
+                { x: 7, y: 4, type: 'zol' },
+                { x: 9, y: 4, type: 'zol' },
+                { x: 4, y: 1, type: 'sa' },
+                { x: 6, y: 1, type: 'sa' },
+                { x: 5, y: 2, type: 'king' },
+                { x: 1, y: 1, type: 'cha' },
+                { x: 9, y: 1, type: 'cha' },
+                { x: 2, y: 3, type: 'po' },
+                { x: 8, y: 3, type: 'po' },
+            ];
+            const underUnits = [
+                { x: 1, y: 7, type: 'zol' },
+                { x: 3, y: 7, type: 'zol' },
+                { x: 5, y: 7, type: 'zol' },
+                { x: 7, y: 7, type: 'zol' },
+                { x: 9, y: 7, type: 'zol' },
+                { x: 4, y: 10, type: 'sa' },
+                { x: 6, y: 10, type: 'sa' },
+                { x: 5, y: 9, type: 'king' },
+                { x: 1, y: 10, type: 'cha' },
+                { x: 9, y: 10, type: 'cha' },
+                { x: 2, y: 8, type: 'po' },
+                { x: 8, y: 8, type: 'po' },
+            ];
+            let selectedUnit = null;
+            let firstSelectedUnit = null;
+
+            const handlePositionClick = (unit) => {
+                const unitGroup = unit.classList.contains('top') ? 'top' : 'bottom';
+                const unitsInGroup = Array.from(document.querySelectorAll(`.position.${unitGroup} .positioner`));
+
+                if (!firstSelectedUnit) {
+                    // 첫 번째 유닛 선택
+                    firstSelectedUnit = unit;
+                    unit.classList.add('selected');
+                    return;
+                }
+
+                // 동일한 유닛 클릭 시 선택 취소
+                if (firstSelectedUnit === unit) {
+                    clearSelection();
+                    return;
+                }
+
+                // 다른 그룹 클릭 시 선택 취소
+                if (unitGroup !== (firstSelectedUnit.classList.contains('top') ? 'top' : 'bottom')) {
+                    console.log('같은 그룹 내에서만 이동 가능합니다.');
+                    clearSelection();
+                    return;
+                }
+
+                // 자리 교환 시도
+                const updatedUnits = swapAndValidate(unitsInGroup, firstSelectedUnit, unit);
+                if (!updatedUnits) {
+                    console.log('형태가 올바르지 않습니다. 이동이 취소됩니다.');
+                    clearSelection();
+                    return;
+                }
+
+                // 자리 교환
+                swapUnits(firstSelectedUnit, unit);
+
+                // 선택 초기화
+                clearSelection();
+            };
+
+            // 선택 초기화 함수
+            const clearSelection = () => {
+                if (firstSelectedUnit) {
+                    firstSelectedUnit.classList.remove('selected');
+                    firstSelectedUnit = null;
+                }
+            };
+
+            // 자리 교환 및 유효성 검사 함수
+            const swapAndValidate = (unitsInGroup, unit1, unit2) => {
+                const tempUnits = [...unitsInGroup];
+                const index1 = tempUnits.indexOf(unit1);
+                const index2 = tempUnits.indexOf(unit2);
+
+                // 자리 교환
+                [tempUnits[index1], tempUnits[index2]] = [tempUnits[index2], tempUnits[index1]];
+
+                // 유효성 검사
+                return isValidGroup(tempUnits) ? tempUnits : null;
+            };
+
+            const isValidGroup = (units) => {
+                // 각 유닛의 타입을 가져옴
+                const types = units.map((unit) => (unit.classList.contains('ma') ? 'ma' : 'sang'));
+
+                // 짝수-홀수 인덱스 조합이 [마,상] 또는 [상,마]인지 확인
+                return types.every((type, index) => {
+                    if (index % 2 === 0) {
+                        return (type === 'ma' && types[index + 1] === 'sang') || (type === 'sang' && types[index + 1] === 'ma');
+                    }
+                    return true; // 홀수 인덱스는 짝수 인덱스에서 이미 확인되므로 스킵
+                });
+            };
+
+            const swapUnits = (unit1, unit2) => {
+                const parent1 = unit1.parentNode;
+                const parent2 = unit2.parentNode;
+
+                const next1 = unit1.nextSibling;
+                const next2 = unit2.nextSibling;
+
+                // 자리 변경
+                if (next1) {
+                    parent1.insertBefore(unit2, next1);
+                } else {
+                    parent1.appendChild(unit2);
+                }
+
+                if (next2) {
+                    parent2.insertBefore(unit1, next2);
+                } else {
+                    parent2.appendChild(unit1);
+                }
+            };
+
+            const drawPlace = (topMaSang, bottomMaSang) => {
+                const container = document.getElementById('container');
+                if (!container) {
+                    console.error('컨테이너를 찾을 수 없습니다.');
+                    return;
+                }
+
+                // 셀 생성
+                for (let i = 0; i < 90; i++) {
+                    const row = Math.floor(i / 9) + 1;
+                    const col = (i % 9) + 1;
+                    const cell = document.createElement('div');
+                    cell.classList.add('cell');
+                    cell.setAttribute('row', row);
+                    cell.setAttribute('col', col);
+
+                    // Kingzone
+                    if ([13, 76].includes(i)) {
+                        const kingzone = document.createElement('div');
+                        kingzone.classList.add('kingzone');
+                        cell.appendChild(kingzone);
+                    }
+
+                    // No block
+                    if (row === 1 || row === 10) {
+                        cell.classList.add('no_block');
+                    }
+
+                    // No inline
+                    if (col === 1 || col === 9) {
+                        cell.classList.add('no_inline');
+                    }
+
+                    // X 좌표 레이블
+                    if (row === 1) {
+                        const xCoord = document.createElement('div');
+                        xCoord.classList.add('col_coordi');
+                        xCoord.innerHTML = col;
+                        cell.appendChild(xCoord);
+                    }
+
+                    // Y 좌표 레이블
+                    if (col === 1) {
+                        const yCoord = document.createElement('div');
+                        yCoord.classList.add('row_coordi');
+                        yCoord.innerHTML = row;
+                        cell.appendChild(yCoord);
+                    }
+
+                    // 특정 위치에 점 표시
+                    const pointIndices = [19, 25, 27, 29, 31, 33, 35, 54, 56, 58, 60, 62, 64, 70];
+                    if (pointIndices.includes(i)) {
+                        const point = document.createElement('div');
+                        point.classList.add('point');
+                        cell.appendChild(point);
+                    }
+
+                    container.appendChild(cell);
+                }
+
+                // 유닛 생성
+                if (typeof createUnits === 'function') {
+                    createUnits([...overUnits, ...topMaSang], 'top');
+                    createUnits([...underUnits, ...bottomMaSang], 'bottom');
+                } else {
+                    console.error('createUnits 함수가 정의되어 있지 않습니다.');
+                }
+            };
+
+            const initialUnitEventListener = () => {
+                document.querySelectorAll('.unit').forEach((unit) => {
+                    // 기존 이벤트 제거
+                    const clonedUnit = unit.cloneNode(false); // 속성과 자식 노드 복사 없이 복제
+                    clonedUnit.innerHTML = unit.innerHTML; // 텍스트 복사
+                    Array.from(unit.attributes).forEach((attr) => {
+                        clonedUnit.setAttribute(attr.name, attr.value); // 모든 속성 복사
+                    });
+
+                    // 기존 DOM 교체
+                    unit.parentNode.replaceChild(clonedUnit, unit);
+
+                    // 새롭게 이벤트 리스너 등록
+                    clonedUnit.addEventListener('click', () => handleUnitClick(clonedUnit));
+                });
+            };
+
+            const getAllUnits = () => {
+                return Array.from(document.querySelectorAll('.unit')).map((unit) => ({
+                    x: parseInt(unit.getAttribute('col'), 10),
+                    y: parseInt(unit.getAttribute('row'), 10),
+                    team: unit.getAttribute('team'),
+                    type: unit.getAttribute('type'),
+                }));
+            };
+
+            const handleUnitClick = (unit) => {
+                const team = unit.getAttribute('team');
+
+                // 현재 턴의 팀이 아닌 유닛 클릭 시 무시
+                if (team !== turn) return;
+
+                // 동일한 유닛 클릭 시 초기화
+                if (selectedUnit === unit) {
+                    resetUnitSelection();
+                    return;
+                }
+
+                // 유닛 선택 업데이트
+                selectedUnit = unit;
+                const type = unit.getAttribute('type');
+                const row = parseInt(unit.getAttribute('row'), 10);
+                const col = parseInt(unit.getAttribute('col'), 10);
+                const allUnits = getAllUnits();
+
+                // 이동 가능 위치 계산
+                const moves = calculateMove(type, row, col, team, allUnits);
+                console.log(`유닛(${row}, ${col})의 이동 가능 위치, 팀 ${team}:`, moves);
+
+                // 모든 유닛 비활성화 후 선택된 유닛만 활성화
+                updateUnitStates(unit);
+
+                // 이동 가능 타겟 생성
+                createTarget(moves, unit);
+            };
+
+            // 선택 초기화 함수
+            const resetUnitSelection = () => {
+                document.querySelectorAll('.unit').forEach((u) => (u.disabled = false));
+                document.querySelectorAll('.target').forEach((t) => t.remove());
+                selectedUnit = null;
+            };
+
+            // 유닛 상태 업데이트 함수
+            const updateUnitStates = (unit) => {
+                document.querySelectorAll('.unit').forEach((u) => {
+                    u.disabled = true; // 모든 유닛 비활성화
+                });
+                unit.disabled = false; // 선택된 유닛만 활성화
+            };
+
+            const setUnitPosition = (unit, x, y) => {
+                const lineWidth = 4;
+                const targetCell = document.querySelector(`[row="${y}"][col="${x}"]`);
+                const targetWidth = targetCell.clientWidth;
+                const targetHeight = targetCell.clientHeight;
+                const xPosition = targetCell.offsetLeft + targetWidth / 2 - unit.clientHeight / 2;
+                const yPosition = targetCell.offsetTop + targetHeight / 2 - unit.clientWidth / 2;
+                unit.setAttribute('row', y);
+                unit.setAttribute('col', x);
+
+                unit.style.top = `${yPosition}px`;
+                unit.style.left = `${xPosition}px`;
+            };
+
+            const createUnits = (unitGroup, team) => {
+                const unitPlace = document.getElementById('unitPlace');
+
+                if (!unitPlace) {
+                    console.error('유닛 배치 컨테이너(unitPlace)가 존재하지 않습니다.');
+                    return;
+                }
+
+                // 유닛 타입별 텍스트 맵
+                const unitTextMap = {
+                    king: { top: '漢', bottom: '楚' },
+                    zol: { top: '兵', bottom: '卒' },
+                    cha: '車',
+                    sang: '象',
+                    po: '包',
+                    ma: '馬',
+                    sa: '士',
+                };
+
+                unitGroup.forEach(({ x, y, type }) => {
+                    const unit = document.createElement('button');
+                    unit.setAttribute('type', 'button');
+                    unit.classList.add('unit', type);
+                    unit.setAttribute('team', team);
+                    unit.setAttribute('type', type);
+
+                    // 유닛 텍스트 설정
+                    const text = unitTextMap[type]?.[team] || unitTextMap[type] || '';
+                    unit.innerHTML = text;
+
+                    // 유닛 배치
+                    unitPlace.appendChild(unit);
+                    setUnitPosition(unit, x, y);
+                });
+
+                // 이벤트 리스너 초기화
+                initialUnitEventListener();
+            };
+
+            const createTarget = (targetGroup, currentUnit) => {
+                const unitPlace = document.getElementById('unitPlace');
+
+                if (!unitPlace) {
+                    console.error('유닛 배치 컨테이너(unitPlace)가 존재하지 않습니다.');
+                    return;
+                }
+
+                // 기존 타겟 버튼 제거
+                document.querySelectorAll('.target').forEach((target) => target.remove());
+
+                // 새 타겟 버튼 생성
+                targetGroup.forEach(({ x, y, type }) => {
+                    const target = document.createElement('button');
+                    target.classList.add('target', type);
+                    target.setAttribute('type', type);
+
+                    // 타겟 버튼 추가 및 위치 설정
+                    unitPlace.appendChild(target);
+                    setUnitPosition(target, x, y);
+
+                    // 타겟 클릭 이벤트 등록
+                    target.addEventListener('click', () => handleTargetClick(target, currentUnit));
+                });
+            };
+
+            const handleTargetClick = (target, currentUnit) => {
+                const targetRow = parseInt(target.getAttribute('row'), 10);
+                const targetCol = parseInt(target.getAttribute('col'), 10);
+
+                const targetUnit = document.querySelector(`.unit[row="${targetRow}"][col="${targetCol}"]`);
+
+                if (targetUnit) {
+                    const targetTeam = targetUnit.getAttribute('team');
+                    const currentTeam = currentUnit.getAttribute('team');
+                    const targetType = targetUnit.getAttribute('type');
+
+                    // 적군 유닛 제거
+                    if (targetTeam !== currentTeam) {
+                        if (targetType === 'king') {
+                            // 적군 유닛이 king일 경우 게임 종료
+                            setTimeout(() => {
+                                Swal.fire({
+                                    html: `${currentTeam === 'top' ? '楚' : '漢'} Win! Game Finish`,
+                                });
+
+                                // 게임 종료 처리
+                                endGame();
+                            }, 300);
+                        }
+
+                        // king이 아닌 경우 유닛 제거
+                        targetUnit.remove();
+                    }
+                }
+
+                // 유닛 이동
+                setUnitPosition(currentUnit, targetCol, targetRow);
+
+                // 타겟 버튼 제거 및 유닛 초기화
+                clearTargetsAndEnableUnits();
+
+                // 현재 플레이어가 상대방 왕을 장군하는지 체크
+                const opponentTeam = turn === 'bottom' ? 'top' : 'bottom';
+                if (isWarningCheck(opponentTeam)) {
+                    setTimeout(() => {
+                        console.log('장군!');
+                        Swal.fire({
+                            html: 'Check!',
+                        });
+                    }, 300);
+                }
+
+                // 턴 전환
+                turn = turn === 'bottom' ? 'top' : 'bottom';
+                setCurrentTeam();
+
+                // 선택된 유닛 초기화
+                selectedUnit = null;
+
+                // 체크메이트 체크
+                if (isCheckmate(turn)) {
+                    setTimeout(() => {
+                        console.log('체크메이트!');
+                        Swal.fire({
+                            html: `${turn === 'bottom' ? '漢' : '楚'}Lose, Game Finish`,
+                        });
+
+                        // 게임 종료 처리
+                        endGame();
+                    }, 300);
+                }
+            };
+
+            const isWarningCheck = (opponentTurn) => {
+                const opponentKing = document.querySelector(`.unit.king[team="${opponentTurn}"]`);
+                if (!opponentKing) return false;
+
+                const kingRow = parseInt(opponentKing.getAttribute('row'), 10);
+                const kingCol = parseInt(opponentKing.getAttribute('col'), 10);
+
+                const currentTeamUnits = document.querySelectorAll(`.unit[team="${turn}"]`);
+                const allUnits = getAllUnits();
+
+                for (let unit of currentTeamUnits) {
+                    const unitType = unit.getAttribute('type');
+                    const unitRow = parseInt(unit.getAttribute('row'), 10);
+                    const unitCol = parseInt(unit.getAttribute('col'), 10);
+
+                    const moves = calculateMove(unitType, unitRow, unitCol, turn, allUnits);
+                    if (moves.some(({ x, y }) => x === kingCol && y === kingRow)) {
+                        return true; // 장군 상태
+                    }
+                }
+                return false; // 장군 아님
+            };
+
+            const isCheckmate = (currentTurn) => {
+                const opponentTeam = currentTurn === 'bottom' ? 'top' : 'bottom';
+
+                const allOpponentUnits = document.querySelectorAll(`.unit[team="${opponentTeam}"]`);
+                const opponentKing = document.querySelector(`.unit.king[team="${opponentTeam}"]`);
+
+                if (!opponentKing) return false; // 왕이 없는 경우 (비정상적인 상황)
+
+                const kingRow = parseInt(opponentKing.getAttribute('row'), 10);
+                const kingCol = parseInt(opponentKing.getAttribute('col'), 10);
+
+                const allUnits = getAllUnits();
+
+                // 상대방 모든 유닛의 이동 가능한 경로 확인
+                for (let unit of allOpponentUnits) {
+                    const unitType = unit.getAttribute('type');
+                    const unitRow = parseInt(unit.getAttribute('row'), 10);
+                    const unitCol = parseInt(unit.getAttribute('col'), 10);
+
+                    const moves = calculateMove(unitType, unitRow, unitCol, opponentTeam, allUnits);
+
+                    for (let { x, y } of moves) {
+                        // 왕이 이동할 수 있는 경로인지 확인
+                        if (canEscapeCheck(x, y, currentTurn)) {
+                            return false; // 탈출 가능한 경로가 하나라도 있으면 체크메이트 아님
+                        }
+                    }
+                }
+
+                return true; // 상대방 모든 유닛이 이동 불가능, 체크메이트
+            };
+
+            const canEscapeCheck = (x, y, currentTurn) => {
+                const simulatedKing = { x, y };
+
+                const allCurrentUnits = document.querySelectorAll(`.unit[team="${currentTurn}"]`);
+                const allUnits = getAllUnits();
+
+                for (let unit of allCurrentUnits) {
+                    const unitType = unit.getAttribute('type');
+                    const unitRow = parseInt(unit.getAttribute('row'), 10);
+                    const unitCol = parseInt(unit.getAttribute('col'), 10);
+
+                    const moves = calculateMove(unitType, unitRow, unitCol, currentTurn, allUnits);
+
+                    // 왕의 위치가 공격 가능 경로에 포함되면 탈출 불가
+                    if (moves.some((move) => move.x === simulatedKing.x && move.y === simulatedKing.y)) {
+                        return false;
+                    }
+                }
+
+                return true; // 왕이 탈출 가능한 위치
+            };
+
+            const endGame = () => {
+                Swal.fire({
+                    html: 'Restart?',
+                }).then((r) => {
+                    if (r.isConfirmed) {
+                        location.reload();
+                    }
+                });
+            };
+
+            // 타겟 제거 및 유닛 활성화 함수
+            const clearTargetsAndEnableUnits = () => {
+                document.querySelectorAll('.target').forEach((t) => t.remove());
+                document.querySelectorAll('.unit').forEach((u) => {
+                    u.disabled = false;
+                });
+            };
+
+            const calculateMove = (type, row, col, team, allUnits) => {
+                const moves = [];
+                const BOARD_WIDTH = 9;
+                const BOARD_HEIGHT = 10;
+
+                const directions = [
+                    { dx: 1, dy: 0 }, // 오른쪽
+                    { dx: -1, dy: 0 }, // 왼쪽
+                    { dx: 0, dy: 1 }, // 아래
+                    { dx: 0, dy: -1 }, // 위
+                ];
+
+                const isWithinBounds = (x, y) => x >= 1 && x <= BOARD_WIDTH && y >= 1 && y <= BOARD_HEIGHT;
+                const getUnitAt = (x, y) => allUnits.find((unit) => unit.x === x && unit.y === y);
+                const isAllyAt = (x, y) => {
+                    const unitAt = getUnitAt(x, y);
+                    return unitAt && unitAt.team === team;
+                };
+
+                const isWithinKingSaArea = (x, y) => {
+                    const diagonalMoves = [
+                        { x: 4, y: 1 },
+                        { x: 5, y: 2 },
+                        { x: 6, y: 1 },
+                        { x: 4, y: 3 },
+                        { x: 6, y: 3 },
+                        { x: 4, y: 8 },
+                        { x: 5, y: 9 },
+                        { x: 6, y: 8 },
+                        { x: 4, y: 10 },
+                        { x: 6, y: 10 },
+                    ];
+                    return diagonalMoves.some((move) => move.x === x && move.y === y);
+                };
+
+                const isWithinBasicArea = (x, y, team) => {
+                    return team === 'top' ? x >= 4 && x <= 6 && y >= 1 && y <= 3 : x >= 4 && x <= 6 && y >= 8 && y <= 10;
+                };
+
+                // Helper function to add a move if valid
+                const addMoveIfValid = (x, y) => {
+                    if (isWithinBounds(x, y) && !isAllyAt(x, y)) {
+                        moves.push({ x, y, type: 'highlight' });
+                    }
+                };
+
+                switch (type) {
+                    case 'zol': {
+                        const forward = team === 'top' ? 1 : -1;
+                        addMoveIfValid(col, row + forward); // 전진
+                        addMoveIfValid(col - 1, row); // 좌측
+                        addMoveIfValid(col + 1, row); // 우측
+
+                        if (isWithinKingSaArea(col, row)) {
+                            const kingSaMoves = [
+                                { x: col - 1, y: row + forward },
+                                { x: col + 1, y: row + forward },
+                            ];
+                            kingSaMoves.forEach(({ x, y }) => addMoveIfValid(x, y));
+                        }
+                        break;
+                    }
+
+                    case 'cha': {
+                        // 직선 이동
+                        directions.forEach(({ dx, dy }) => {
+                            let currentX = col;
+                            let currentY = row;
+
+                            while (true) {
+                                currentX += dx;
+                                currentY += dy;
+
+                                if (!isWithinBounds(currentX, currentY)) break;
+                                const unitAt = getUnitAt(currentX, currentY);
+                                if (unitAt) {
+                                    if (unitAt.team !== team) moves.push({ x: currentX, y: currentY, type: 'highlight' });
+                                    break;
+                                }
+                                moves.push({ x: currentX, y: currentY, type: 'highlight' });
+                            }
+                        });
+
+                        // 궁성 대각선 이동
+                        if (isWithinKingSaArea(col, row)) {
+                            const diagonalDirections = [
+                                { dx: 1, dy: 1 },
+                                { dx: 1, dy: -1 },
+                                { dx: -1, dy: 1 },
+                                { dx: -1, dy: -1 },
+                            ];
+                            diagonalDirections.forEach(({ dx, dy }) => {
+                                let currentX = col;
+                                let currentY = row;
+
+                                while (isWithinKingSaArea(currentX + dx, currentY + dy)) {
+                                    currentX += dx;
+                                    currentY += dy;
+                                    const unitAt = getUnitAt(currentX, currentY);
+                                    if (unitAt) {
+                                        if (unitAt.team !== team) moves.push({ x: currentX, y: currentY, type: 'highlight' });
+                                        break;
+                                    }
+                                    moves.push({ x: currentX, y: currentY, type: 'highlight' });
+                                }
+                            });
+                        }
+                        break;
+                    }
+
+                    case 'po': {
+                        directions.forEach(({ dx, dy }) => {
+                            let currentX = col;
+                            let currentY = row;
+                            let obstacleFound = false;
+
+                            while (true) {
+                                currentX += dx;
+                                currentY += dy;
+
+                                if (!isWithinBounds(currentX, currentY)) break;
+                                const unitAt = getUnitAt(currentX, currentY);
+                                if (unitAt) {
+                                    if (!obstacleFound) {
+                                        obstacleFound = true;
+                                        continue;
+                                    }
+                                    if (unitAt.team !== team && unitAt.type !== 'po') {
+                                        moves.push({ x: currentX, y: currentY, type: 'highlight' });
+                                    }
+                                    break;
+                                }
+                                if (obstacleFound) moves.push({ x: currentX, y: currentY, type: 'highlight' });
+                            }
+                        });
+                        break;
+                    }
+
+                    case 'ma': {
+                        const maMoves = [
+                            { x: col + 1, y: row + 2, blockX: col, blockY: row + 1 },
+                            { x: col - 1, y: row + 2, blockX: col, blockY: row + 1 },
+                            { x: col + 1, y: row - 2, blockX: col, blockY: row - 1 },
+                            { x: col - 1, y: row - 2, blockX: col, blockY: row - 1 },
+                            { x: col + 2, y: row + 1, blockX: col + 1, blockY: row },
+                            { x: col - 2, y: row + 1, blockX: col - 1, blockY: row },
+                            { x: col + 2, y: row - 1, blockX: col + 1, blockY: row },
+                            { x: col - 2, y: row - 1, blockX: col - 1, blockY: row },
+                        ];
+
+                        maMoves.forEach(({ x, y, blockX, blockY }) => {
+                            if (!getUnitAt(blockX, blockY)) addMoveIfValid(x, y);
+                        });
+                        break;
+                    }
+
+                    case 'sang': {
+                        const sangMoves = [
+                            { x: col + 2, y: row + 3, block1X: col, block1Y: row + 1, block2X: col + 1, block2Y: row + 2 },
+                            { x: col - 2, y: row + 3, block1X: col, block1Y: row + 1, block2X: col - 1, block2Y: row + 2 },
+                            { x: col + 2, y: row - 3, block1X: col, block1Y: row - 1, block2X: col + 1, block2Y: row - 2 },
+                            { x: col - 2, y: row - 3, block1X: col, block1Y: row - 1, block2X: col - 1, block2Y: row - 2 },
+                            { x: col + 3, y: row + 2, block1X: col + 1, block1Y: row, block2X: col + 2, block2Y: row + 1 },
+                            { x: col - 3, y: row + 2, block1X: col - 1, block1Y: row, block2X: col - 2, block2Y: row + 1 },
+                            { x: col + 3, y: row - 2, block1X: col + 1, block1Y: row, block2X: col + 2, block2Y: row - 1 },
+                            { x: col - 3, y: row - 2, block1X: col - 1, block1Y: row, block2X: col - 2, block2Y: row - 1 },
+                        ];
+
+                        sangMoves.forEach(({ x, y, block1X, block1Y, block2X, block2Y }) => {
+                            if (!getUnitAt(block1X, block1Y) && !getUnitAt(block2X, block2Y)) {
+                                addMoveIfValid(x, y);
+                            }
+                        });
+                        break;
+                    }
+
+                    case 'king':
+                    case 'sa': {
+                        const kingSaMoves = [
+                            { x: col, y: row + 1 },
+                            { x: col, y: row - 1 },
+                            { x: col + 1, y: row },
+                            { x: col - 1, y: row },
+                            { x: col + 1, y: row + 1 },
+                            { x: col - 1, y: row + 1 },
+                            { x: col + 1, y: row - 1 },
+                            { x: col - 1, y: row - 1 },
+                        ];
+                        kingSaMoves.forEach(({ x, y }) => {
+                            if (isWithinBasicArea(x, y, team)) addMoveIfValid(x, y);
+                        });
+                        break;
+                    }
+
+                    default:
+                        console.error(`알 수 없는 유닛 타입: ${type}`);
+                }
+
+                return moves;
+            };
+
+            const setCurrentTeam = () => {
+                const turnbox = document.getElementById('turnBox');
+                if (!turnbox) {
+                    console.error('턴 표시 박스(turnBox)가 존재하지 않습니다.');
+                    return;
+                }
+
+                // 기존 클래스 제거
+                turnbox.classList.remove('top', 'bottom');
+
+                // 턴에 따른 클래스와 텍스트 설정
+                const teamText = turn === 'top' ? '漢' : '楚';
+                turnbox.classList.add(turn);
+                turnbox.innerText = teamText;
+            };
+
+            const getMaSangPositions = (team, row) => {
+                const positions = [];
+                const positioners = document.querySelectorAll(`.positioner.${team}`);
+                const xCoordinates = [2, 3, 7, 8];
+
+                positioners.forEach((item, index) => {
+                    const type = item.classList.contains('ma') ? 'ma' : 'sang';
+                    if (xCoordinates[index]) {
+                        positions.push({
+                            x: xCoordinates[index],
+                            y: row,
+                            type,
+                        });
+                    }
+                });
+
+                return positions;
+            };
+
+            document.querySelectorAll('.positioner').forEach((unit) => {
+                unit.addEventListener('click', () => handlePositionClick(unit));
+            });
+
+            document.getElementById('start').addEventListener('click', () => {
+                const topMaSang = getMaSangPositions('top', 1);
+                const bottomMaSang = getMaSangPositions('bottom', 10);
+
+                document.getElementById('popup').remove();
+
+                drawPlace(topMaSang, bottomMaSang);
+                setCurrentTeam();
+            });
+        </script>
+    </body>
+</html>
