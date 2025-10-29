@@ -71,8 +71,15 @@ export const inputSetup = () => {
 
         const onPointerDown = (e) => {
             if (e.pointerType === 'touch') {
-                world.isTouch = true; // 모바일 모드 플래그
+                world.isTouch = true;
             }
+            // 모바일은 첫 터치 시 자동 발사 ON
+            if (world.isTouch === true) {
+                if (key.auto !== true) {
+                    key.auto = true;
+                }
+            }
+
             touching = true;
             _updateAimFromPoint(e.clientX, e.clientY);
             e.preventDefault();
