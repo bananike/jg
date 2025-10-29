@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" viewBox="0 0 100 100">
+  <!-- Generator: Adobe Illustrator 29.8.2, SVG Export Plug-In . SVG Version: 2.1.1 Build 3)  -->
+  <defs>
+    <style>
+      .st0 {
+        fill: none;
+      }
+
+      .st1 {
+        fill: #2e602b;
+      }
+
+      .st2 {
+        fill: #606060;
+      }
+
+      .st3 {
+        fill: #fff;
+      }
+
+      .st4 {
+        fill: #480d29;
+      }
+
+      .st5 {
+        fill: #407839;
+      }
+
+      .st6 {
+        clip-path: url(#clippath);
+      }
+
+      .st7 {
+        fill: #76c043;
+      }
+    </style>
+    <clipPath id="clippath">
+      <path class="st0" d="M65.49,52.12c1.82-1.1,3.2,2.85,1.81,5.14-3.44,5.66-8.86,11.51-16.36,10.92s-12.37-5.78-15.43-10.63c-1.38-2.19-.11-6.1,1.7-5.21,3.46,1.71,8.25,3.48,13.73,3.89,5.48.41,10.71-1.8,14.55-4.12Z"/>
+    </clipPath>
+  </defs>
+  <rect class="st5" width="100" height="100" rx="6.34" ry="6.34"/>
+  <g>
+    <path class="st1" d="M6.34,0C2.84,0,0,2.84,0,6.34v87.32L50,0H6.34Z"/>
+    <path class="st1" d="M93.66,0h-43.66l50,93.66V6.34c0-3.5-2.84-6.34-6.34-6.34Z"/>
+  </g>
+  <path class="st7" d="M85.4,0H14.62c-3.5,0-6.34,2.84-6.34,6.34l5,60.76c0,3.5,2.84,6.34,6.34,6.34h60.77c3.5,0,6.34-2.84,6.34-6.34l5-60.76C91.73,2.84,88.89,0,85.39,0h.01Z"/>
+  <circle class="st3" cx="29.71" cy="25.09" r="14.26"/>
+  <circle class="st3" cx="72.96" cy="30.95" r="9.03"/>
+  <circle class="st1" cx="76.41" cy="33.75" r="1.15"/>
+  <circle class="st1" cx="23.85" cy="21.92" r="1.15"/>
+  <circle class="st2" cx="49.36" cy="45.52" r="1.31"/>
+  <circle class="st2" cx="53.95" cy="45.52" r="2.06"/>
+  <path class="st4" d="M65.49,52.12c1.82-1.1,3.2,2.85,1.81,5.14-3.44,5.66-8.86,11.51-16.36,10.92s-12.37-5.78-15.43-10.63c-1.38-2.19-.11-6.1,1.7-5.21,3.46,1.71,8.25,3.48,13.73,3.89,5.48.41,10.71-1.8,14.55-4.12Z"/>
+  <g class="st6">
+    <g>
+      <rect class="st3" x="39.93" y="52.45" width="3.56" height="5.62" rx=".84" ry=".84"/>
+      <rect class="st3" x="59.73" y="60.76" width="3.09" height="5.78" rx=".84" ry=".84"/>
+      <rect class="st3" x="58.54" y="52.45" width="4.28" height="5.15" rx=".84" ry=".84"/>
+      <rect class="st3" x="45" y="53.08" width="4.36" height="6.42" rx=".84" ry=".84"/>
+      <rect class="st3" x="45" y="63.38" width="3.05" height="6.34" rx=".84" ry=".84"/>
+    </g>
+  </g>
+</svg>

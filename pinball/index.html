@@ -69,12 +69,11 @@
             <div class="hud-item">점수: <span id="score">0</span></div>
             <div class="hud-item">HP: <span id="hp">3</span></div>
             <div class="hud-item">최대 볼: <span id="maxBalls">5</span></div>
-            <div class="hud-item">볼 데미지: <span id="ballDmg">1.00</span></div> <!-- 추가 -->
-            <div class="hud-item">특수볼 재고: <span id="sbStock">D:0 | F:0 | P:0 | X:0 | S:0</span></div>
+            <!-- <div class="hud-item">볼 데미지: <span id="ballDmg">1.00</span></div> 추가 -->
+            <div class="hud-item" id="hud-sb">특수볼 재고: <span id="sbStock">D:0 | F:0 | P:0 | X:0 | S:0</span></div>
             <div><button id="restart">다시 시작</button></div>
         </div>
         <canvas id="game" width="460" height="720"></canvas>
-        <div id="msg">← → 이동, ↑ ↓ 각도, Space 자동발사 시작·재시작 / 1~5 키로 특수볼 사용</div>
     </div>
     <script type="module" src="./js/main.js"></script>
 </body>

@@ -40,11 +40,15 @@ export const BOSS_DROP_ROLLS = 2;
 
 // 특수볼
 export const SB = {
-    POWER: 'POWER', // 1
-    FLAME: 'FLAME', // 2
-    PIERCE: 'PIERCE', // 3
-    EXPLO: 'EXPLO', // 4
-    SPLIT: 'SPLIT', // 5
+    POWER: 'POWER',
+    FLAME: 'FLAME',
+    PIERCE: 'PIERCE',
+    EXPLO: 'EXPLO',
+    SPLIT: 'SPLIT',
+    ICE: 'ICE',
+    VOID: 'VOID',
+    LASER: 'LASER',
+    BLEED: 'BLEED',
 };
 
 export const ITEM = {
@@ -56,4 +60,14 @@ export const ITEM = {
     SB_PIERCE: 'SB_PIERCE',
     SB_EXPLO: 'SB_EXPLO',
     SB_SPLIT: 'SB_SPLIT',
+    SB_ICE: 'SB_ICE',
+    SB_VOID: 'SB_VOID',
+    SB_LASER: 'SB_LASER',
+    SB_BLEED: 'SB_BLEED',
 };
+
+export const BLOCK_SKINS = 4;
+export const BLOCK_TIERS = ['low', 'mid', 'high'];
+export const ASSET_BASE = './assets';
+
+export const AIM_SPREAD_DEG = 80; // 조준 가능 범위(±도수)

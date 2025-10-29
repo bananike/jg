@@ -1,6 +1,11 @@
+// main.js
+import { preloadBallSprites /*, setBallsBase*/ } from './assets-balls.js';
+import { preloadBlockSprites } from './assets-blocks.js';
+import { preloadEffects /*, setEffectsBase*/ } from './assets-effects.js';
+import { bindHudGrantForTest } from './dev-hud-grant.js';
 import { step } from './game.js';
 import { draw } from './render.js';
-import { bindDOM, dom, inputSetup, reset, ui } from './state.js';
+import { bindDOM, dom, inputSetup, reset } from './state.js';
 
 const loop = (ts) => {
     step(ts);
@@ -8,17 +13,29 @@ const loop = (ts) => {
     requestAnimationFrame(loop);
 };
 
-const init = () => {
+const init = async () => {
     bindDOM();
-    if (!dom.canvas.width) dom.canvas.width = 460;
-    if (!dom.canvas.height) dom.canvas.height = 720;
+
+    if (!dom.canvas.width) {
+        dom.canvas.width = 460;
+    }
+    if (!dom.canvas.height) {
+        dom.canvas.height = 720;
+    }
+
+    // 블록 스프라이트 사전 로드
+    await preloadBlockSprites();
 
     inputSetup();
     reset();
-    ui.setSBStock();
+    preloadEffects();
+    preloadBallSprites();
+    bindHudGrantForTest(); // test hud
 
     if (dom.restartBtn) {
-        dom.restartBtn.addEventListener('click', () => reset());
+        dom.restartBtn.addEventListener('click', () => {
+            reset();
+        });
     }
 
     requestAnimationFrame(loop);

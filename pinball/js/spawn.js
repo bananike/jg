@@ -1,4 +1,3 @@
-import { SB_KIND } from './constants.js';
 import { world } from './state.js';
 
 const leftPad = 20;
@@ -56,6 +55,7 @@ const hasVerticalClearance = (x, w, ySpawn, needClear) => {
     return false;
 };
 
+// ── 일반 블록 스폰
 export const spawnNormals = (ts) => {
     if (ts < world.normalSpawnPausedUntil) {
         return;
@@ -70,16 +70,20 @@ export const spawnNormals = (ts) => {
     const elapsedSec = nowElapsedSec(ts);
 
     for (let c = 0; c < cfg.blockCols; c++) {
-        const spawn = Math.random() < 0.78;
-        if (spawn !== true) {
+        const willSpawn = Math.random() < 0.78;
+        if (willSpawn !== true) {
             continue;
         }
+
         const x = leftPad + c * cfg.cell + cfg.blockGap / 2;
         const needClear = cfg.blockSize + cfg.minBlockGap;
         if (hasVerticalClearance(x, cfg.blockSize, ySpawn, needClear) !== true) {
             continue;
         }
+
         const hpAtSpawn = 1 + cfg.hpGrowthPerSec * elapsedSec;
+        const skin = 1 + Math.floor(Math.random() * 4); // 1..4
+
         world.blocks.push({
             id: (world._nextId = (world._nextId || 1) + 1),
             x,
@@ -87,26 +91,32 @@ export const spawnNormals = (ts) => {
             w: cfg.blockSize,
             h: cfg.blockSize,
             hp: hpAtSpawn,
+            maxHp: hpAtSpawn, // 체력 기준치
+            skin,
             isBoss: false,
         });
     }
 };
 
+// ── 보스 스폰
 export const maybeSpawnBoss = (ts) => {
     const elapsedSec = nowElapsedSec(ts);
     if (elapsedSec < cfg.bossFirstDelaySec) {
         return;
     }
+
     const hasAliveBoss = world.blocks.some((b) => b.isBoss === true);
     if (hasAliveBoss === true) {
         return;
     }
+
     if (world.lastBossAt > 0) {
         const needMs = cfg.bossIntervalSec * 1000;
         if (ts - world.lastBossAt < needMs) {
             return;
         }
     }
+
     if (world.bossPreFreezeUntil === 0) {
         world.bossPreFreezeUntil = ts + cfg.preBossFreezeSec * 1000;
         world.normalSpawnPausedUntil = world.bossPreFreezeUntil;
@@ -146,6 +156,7 @@ export const maybeSpawnBoss = (ts) => {
     }
 
     const hpAtSpawn = (1 + cfg.hpGrowthPerSec * elapsedSec) * cfg.bossHpMul;
+
     world.blocks.push({
         id: (world._nextId = (world._nextId || 1) + 1),
         x,
@@ -153,6 +164,8 @@ export const maybeSpawnBoss = (ts) => {
         w: bossW,
         h: bossW,
         hp: hpAtSpawn,
+        maxHp: hpAtSpawn, // 보스 기준 체력
+        skin: 0, // 보스 전용 처리(이미지 미사용 시 0)
         isBoss: true,
     });
 
@@ -162,22 +175,39 @@ export const maybeSpawnBoss = (ts) => {
     world.bossPreFreezeUntil = 0;
 };
 
-// 보스에게서만 드랍
+// ── 보스 드랍: 고정 3종
 export const dropForBlock = (bl) => {
     if (bl.isBoss !== true) {
         return;
     }
-    const kinds = ['HP_UP', SB_KIND.POWER, SB_KIND.FLAME, SB_KIND.PIERCE, SB_KIND.EXPLO, SB_KIND.SPLIT];
-    for (let r = 0; r < world.bossDropRolls; r++) {
-        if (Math.random() < world.dropChanceBoss) {
-            const k = kinds[Math.floor(Math.random() * kinds.length)];
-            world.items.push({
-                x: bl.x + bl.w / 2 - 8 + (Math.random() * 20 - 10),
-                y: bl.y + bl.h / 2 - 8,
-                w: 16,
-                h: 16,
-                kind: k,
-            });
-        }
-    }
+
+    // 1) 볼 수량 증가
+    world.items.push({
+        x: bl.x + bl.w / 2 - 8 + (Math.random() * 20 - 10),
+        y: bl.y + bl.h / 2 - 8,
+        w: 16,
+        h: 16,
+        kind: 'MAX_BALL',
+    });
+
+    // 2) 볼 데미지 증가
+    world.items.push({
+        x: bl.x + bl.w / 2 - 8 + (Math.random() * 20 - 10),
+        y: bl.y + bl.h / 2 - 8,
+        w: 16,
+        h: 16,
+        kind: 'DMG_UP',
+    });
+
+    // 3) 특수볼 1개 랜덤(SB_* 네이밍)
+    const sbPool = ['SB_POWER', 'SB_FLAME', 'SB_PIERCE', 'SB_EXPLO', 'SB_SPLIT'];
+    const k = sbPool[Math.floor(Math.random() * sbPool.length)];
+
+    world.items.push({
+        x: bl.x + bl.w / 2 - 8 + (Math.random() * 20 - 10),
+        y: bl.y + bl.h / 2 - 8,
+        w: 16,
+        h: 16,
+        kind: k,
+    });
 };

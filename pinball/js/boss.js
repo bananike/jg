@@ -44,7 +44,6 @@ const verticalClearOk = (x, w, ySpawn, need) => {
     return false;
 };
 
-// 보스 영역 확보: 겹치는 일반 블록 제거
 const clearAreaForBoss = (bx, by, bw, bh, margin) => {
     for (let i = world.blocks.length - 1; i >= 0; i--) {
         const b = world.blocks[i];
@@ -63,13 +62,11 @@ export const maybeSpawnBoss = (ts) => {
         return;
     }
 
-    // 필요 소환 횟수 계산
     const needCount = Math.floor((e - BOSS_FIRST_DELAY) / BOSS_INTERVAL) + 1;
     if (world.bossSpawnCount >= needCount) {
         return;
     }
 
-    // 보스 전 일반 스폰 동결 창 설정
     if (world.bossPreFreezeUntil === 0) {
         world.bossPreFreezeUntil = ts + PRE_BOSS_FREEZE * 1000;
         world.normalSpawnPausedUntil = world.bossPreFreezeUntil;
@@ -96,15 +93,15 @@ export const maybeSpawnBoss = (ts) => {
         x = Math.floor((W - BOSS_SIZE) / 2);
     }
 
-    // 겹침 정리 후 배치
     clearAreaForBoss(x, ySpawn, BOSS_SIZE, BOSS_SIZE, 6);
 
-    // id 시퀀스 보정
     if (typeof world.hitSeq !== 'number') {
         world.hitSeq = 0;
     }
 
     const hp = (1 + HP_GROWTH_PER_SEC * e) * BOSS_HP_MULT;
+    const randomSkin = 1 + Math.floor(Math.random() * 8); // 가용 스킨 수에 맞게 조정
+
     world.blocks.push({
         id: ++world.hitSeq,
         x,
@@ -112,7 +109,9 @@ export const maybeSpawnBoss = (ts) => {
         w: BOSS_SIZE,
         h: BOSS_SIZE,
         hp,
+        maxHp: hp,
         isBoss: true,
+        skin: randomSkin,
     });
 
     world.bossSpawnCount += 1;
@@ -121,17 +120,25 @@ export const maybeSpawnBoss = (ts) => {
 };
 
 export const dropBossRewards = (bl) => {
-    const cx = bl.x + bl.w / 2;
-    const cy = bl.y + bl.h / 2;
+    // 가운데 세로 스택으로 드롭
+    const cx = Math.floor(W / 2) - 8;
+    const startY = bl.y + bl.h + 6;
+    const stepY = 24;
 
-    // 1) 볼 최대치 +1
-    pushItem(cx - 8 - 14, cy - 8, ITEM.MAX_BALL);
+    pushItem(cx, startY + stepY * 0, ITEM.MAX_BALL);
+    pushItem(cx, startY + stepY * 1, ITEM.DMG_UP);
 
-    // 2) 볼 데미지 +0.05
-    pushItem(cx - 8, cy - 8, ITEM.DMG_UP);
-
-    // 3) 특수볼 1종 랜덤
-    const sbPool = [ITEM.SB_POWER, ITEM.SB_FLAME, ITEM.SB_PIERCE, ITEM.SB_EXPLO, ITEM.SB_SPLIT];
+    const sbPool = [
+        ITEM.SB_POWER,
+        ITEM.SB_FLAME,
+        ITEM.SB_PIERCE,
+        ITEM.SB_EXPLO,
+        ITEM.SB_SPLIT,
+        ITEM.SB_ICE,
+        ITEM.SB_VOID,
+        ITEM.SB_LASER,
+        ITEM.SB_BLEED,
+    ];
     const sbKind = sbPool[Math.floor(Math.random() * sbPool.length)];
-    pushItem(cx - 8 + 14, cy - 8, sbKind);
+    pushItem(cx, startY + stepY * 2, sbKind);
 };

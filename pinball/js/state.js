@@ -1,7 +1,19 @@
+import { initStats, resetStats } from './stats.js';
+
 // ===== State (순수 데이터) =====
 export const key = { left: false, right: false, up: false, down: false, auto: false };
 export const player = { x: 230, y: 720 - 46, w: 34, h: 34, speed: 6 };
-export const SB_KIND = { POWER: 'POWER', FLAME: 'FLAME', PIERCE: 'PIERCE', EXPLO: 'EXPLO', SPLIT: 'SPLIT' };
+export const SB_KIND = {
+    POWER: 'POWER',
+    FLAME: 'FLAME',
+    PIERCE: 'PIERCE',
+    EXPLO: 'EXPLO',
+    SPLIT: 'SPLIT',
+    ICE: 'ICE',
+    VOID: 'VOID',
+    LASER: 'LASER',
+    BLEED: 'BLEED',
+};
 
 const makeSBSlot = (intervalMs) => ({
     count: 0,
@@ -36,10 +48,15 @@ export const world = {
         PIERCE: makeSBSlot(260),
         EXPLO: makeSBSlot(380),
         SPLIT: makeSBSlot(320),
+        ICE: makeSBSlot(340),
+        VOID: makeSBSlot(420),
+        LASER: makeSBSlot(360),
+        BLEED: makeSBSlot(300),
     },
     dropChanceBoss: 0.6,
     bossDropRolls: 3,
     hitSeq: 0,
+    flameTintUntil: 0,
 
     // FX 버퍼
     fx: [], // {type:'EXPLO', x,y, start,end, rMax}
@@ -68,13 +85,20 @@ export const ui = {
             return;
         }
         const u = world.useSB;
-        const chip = (label, color, n) => `<span style="color:${color};font-weight:600">${label}</span>:${n ?? 0}`;
+        const chip = (color, n, key) =>
+            `<button data-sb="${key}" style="color:${color};font-weight:600; padding:0; height:16.5px; width: 16.5px;background-color: #fff; object-fit:contain;"><img src="./assets/ball-${key.toLowerCase()}.svg" alt="" /></button>:${
+                n ?? 0
+            }`;
         dom.sbStockEl.innerHTML = [
-            chip('P', '#ff9e00', u.POWER.count),
-            chip('F', '#ef233c', u.FLAME.count),
-            chip('X', '#06d6a0', u.PIERCE.count),
-            chip('E', '#8338ec', u.EXPLO.count),
-            chip('S', '#3a86ff', u.SPLIT.count),
+            chip('#ff9e00', u.POWER.count, 'POWER'),
+            chip('#ef233c', u.FLAME.count, 'FLAME'),
+            chip('#06d6a0', u.PIERCE.count, 'PIERCE'),
+            chip('#8338ec', u.EXPLO.count, 'EXPLO'),
+            chip('#3a86ff', u.SPLIT.count, 'SPLIT'),
+            chip('#00bcd4', u.ICE.count, 'ICE'),
+            chip('#8d99ae', u.VOID.count, 'VOID'),
+            chip('#ffd166', u.LASER.count, 'LASER'),
+            chip('#d00000', u.BLEED.count, 'BLEED'),
         ].join(' | ');
     },
 };
@@ -100,24 +124,32 @@ export const inputSetup = () => {
     window.addEventListener('keydown', (e) => {
         if (e.key === 'ArrowLeft') {
             key.left = true;
-        } else if (e.key === 'ArrowRight') {
+        }
+        if (e.key === 'ArrowRight') {
             key.right = true;
-        } else if (e.key === 'ArrowUp') {
-            key.up = true;
-        } else if (e.key === 'ArrowDown') {
-            key.down = true;
-        } else if (e.code === 'Space') {
+        }
+        if (e.code === 'KeyZ') {
+            key.up = true; // 각도 위쪽(감소)
+        }
+        if (e.code === 'KeyX') {
+            key.down = true; // 각도 아래쪽(증가)
+        }
+        if (e.code === 'Space') {
             key.auto = true;
         }
     });
+
     window.addEventListener('keyup', (e) => {
         if (e.key === 'ArrowLeft') {
             key.left = false;
-        } else if (e.key === 'ArrowRight') {
+        }
+        if (e.key === 'ArrowRight') {
             key.right = false;
-        } else if (e.key === 'ArrowUp') {
+        }
+        if (e.code === 'KeyZ') {
             key.up = false;
-        } else if (e.key === 'ArrowDown') {
+        }
+        if (e.code === 'KeyX') {
             key.down = false;
         }
     });
@@ -125,6 +157,9 @@ export const inputSetup = () => {
 
 // ===== Reset =====
 export const reset = () => {
+    initStats();
+    resetStats();
+
     world.ts0 = 0;
     world.lastTs = 0;
     world.gameOver = false;
@@ -149,10 +184,15 @@ export const reset = () => {
         PIERCE: makeSBSlot(260),
         EXPLO: makeSBSlot(380),
         SPLIT: makeSBSlot(320),
+        ICE: makeSBSlot(340),
+        VOID: makeSBSlot(420),
+        LASER: makeSBSlot(360),
+        BLEED: makeSBSlot(300),
     };
     world.dropChanceBoss = 0.6;
     world.bossDropRolls = 3;
     world.hitSeq = 0;
+    world.flameTintUntil = 0;
     world.fx = [];
 
     player.x = 230;
