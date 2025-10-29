@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Mini Dodge Game</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background: #111;
+            color: #fff;
+            font-family: sans-serif;
+        }
+
+        #game {
+            position: relative;
+            width: 400px;
+            height: 600px;
+            background: #222;
+            overflow: hidden;
+            border: 2px solid #555;
+        }
+
+        .player {
+            position: absolute;
+            bottom: 20px;
+            left: 180px;
+            width: 40px;
+            height: 40px;
+            background: dodgerblue;
+        }
+
+        .enemy {
+            position: absolute;
+            top: 0;
+            width: 40px;
+            height: 40px;
+            background: crimson;
+        }
+
+        #score {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 18px;
+        }
+
+        #message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="game">
+        <div id="player" class="player"></div>
+        <div id="score">점수: 0</div>
+        <div id="message">Game Over</div>
+    </div>
+
+    <script>
+        const game = document.getElementById('game');
+        const player = document.getElementById('player');
+        const scoreEl = document.getElementById('score');
+        const message = document.getElementById('message');
+
+        let score = 0;
+        let playerX = 180;
+        let gameOver = false;
+
+        // 플레이어 이동
+        document.addEventListener('keydown', e => {
+            if (gameOver) return;
+            if (e.key === 'ArrowLeft') {
+                playerX -= 20;
+            } else if (e.key === 'ArrowRight') {
+                playerX += 20;
+            }
+            playerX = Math.max(0, Math.min(360, playerX));
+            player.style.left = playerX + 'px';
+        });
+
+        // 적 생성
+        function createEnemy() {
+            const enemy = document.createElement('div');
+            enemy.classList.add('enemy');
+            enemy.style.left = Math.floor(Math.random() * 360) + 'px';
+            enemy.style.top = '-40px';
+            game.appendChild(enemy);
+            return enemy;
+        }
+
+        const enemies = [];
+        let lastSpawn = 0;
+        let lastScoreTime = 0;
+
+        function loop(timestamp) {
+            if (gameOver) return;
+
+            // 적 스폰
+            if (timestamp - lastSpawn > 1000) {
+                enemies.push(createEnemy());
+                lastSpawn = timestamp;
+            }
+
+            // 점수 갱신
+            if (timestamp - lastScoreTime > 1000) {
+                score++;
+                scoreEl.textContent = '점수: ' + score;
+                lastScoreTime = timestamp;
+            }
+
+            // 적 이동
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                const e = enemies[i];
+                const top = parseFloat(e.style.top) + 5;
+                e.style.top = top + 'px';
+
+                // 충돌 감지
+                const pRect = player.getBoundingClientRect();
+                const eRect = e.getBoundingClientRect();
+                if (
+                    pRect.left < eRect.right &&
+                    pRect.right > eRect.left &&
+                    pRect.top < eRect.bottom &&
+                    pRect.bottom > eRect.top
+                ) {
+                    endGame();
+                }
+
+                // 화면 밖 제거
+                if (top > 600) {
+                    e.remove();
+                    enemies.splice(i, 1);
+                }
+            }
+
+            requestAnimationFrame(loop);
+        }
+
+        function endGame() {
+            gameOver = true;
+            message.style.display = 'block';
+        }
+
+        requestAnimationFrame(loop);
+    </script>
+</body>
+
+</html>

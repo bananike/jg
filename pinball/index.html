@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Pinball Shooter – Boss & Special Balls</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+        html,
+        body {
+            height: 100%
+        }
+
+        body {
+            margin: 0;
+            background: #0f0f12;
+            color: #e8e8ea;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: system-ui, sans-serif
+        }
+
+        #wrap {
+            width: 460px
+        }
+
+        #hud {
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+            margin: 6px 0 8px;
+            font-size: 14px;
+            flex-wrap: wrap
+        }
+
+        canvas {
+            width: 460px;
+            height: 720px;
+            border: 1px solid #2c2f3a;
+            background: #12141a
+        }
+
+        #msg {
+            text-align: center;
+            margin-top: 8px;
+            font-size: 14px;
+            opacity: .8
+        }
+
+        button {
+            background: #1f6feb;
+            color: #fff;
+            border: 0;
+            padding: 6px 10px;
+            border-radius: 6px;
+            cursor: pointer
+        }
+
+        .hud-item {
+            min-width: 120px
+        }
+    </style>
+</head>
+
+<body>
+    <div id="wrap">
+        <div id="hud">
+            <div class="hud-item">점수: <span id="score">0</span></div>
+            <div class="hud-item">HP: <span id="hp">3</span></div>
+            <div class="hud-item">최대 볼: <span id="maxBalls">5</span></div>
+            <div class="hud-item">볼 데미지: <span id="ballDmg">1.00</span></div> <!-- 추가 -->
+            <div class="hud-item">특수볼 재고: <span id="sbStock">D:0 | F:0 | P:0 | X:0 | S:0</span></div>
+            <div><button id="restart">다시 시작</button></div>
+        </div>
+        <canvas id="game" width="460" height="720"></canvas>
+        <div id="msg">← → 이동, ↑ ↓ 각도, Space 자동발사 시작·재시작 / 1~5 키로 특수볼 사용</div>
+    </div>
+    <script type="module" src="./js/main.js"></script>
+</body>
+
+</html>
