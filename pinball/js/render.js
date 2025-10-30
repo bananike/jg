@@ -4,7 +4,7 @@ import { getEffectSprite, isEffectReady } from './assets-effects.js';
 import { getItemSprite, isItemReady } from './assets-items.js';
 import { getPlayerSprite, isPlayerReady } from './assets-player.js';
 import { colorOfKind, colorOfPlayer } from './colors.js';
-import { BALL_R, BLOCK_SIZE, BLOCK_SKINS, ITEM_BOX_COLOR, ITEM_RADIUS } from './config.js';
+import { BALL_R, BLOCK_SIZE, BLOCK_SKINS, H, ITEM_BOX_COLOR, ITEM_RADIUS, W } from './config.js';
 import { dom, player, world } from './state.js';
 import { drawContainImage } from './utils.js';
 
@@ -416,7 +416,7 @@ const drawFx = (ctx, ts) => {
             const fade = 1 - t;
 
             const h = BLOCK_SIZE; // 요청: 블록사이즈 두께
-            const ctxW = ctx.canvas.width;
+            const ctxW = W;
             const yTop = f.y - h / 2;
 
             ctx.save();
@@ -446,9 +446,6 @@ const drawStatsOverlay = (ctx) => {
     const entries = Object.entries(world.stats.byKind)
         .filter(([, v]) => v > 0)
         .sort((a, b) => b[1] - a[1]);
-
-    const W = dom.canvas.width;
-    const H = dom.canvas.height;
 
     const pad = 12;
     const rowH = 20;
@@ -498,8 +495,6 @@ export const draw = () => {
         return;
     }
     const ctx = dom.ctx;
-    const W = dom.canvas.width;
-    const H = dom.canvas.height;
 
     // 스프라이트 스케일 품질
     if (ctx.imageSmoothingEnabled !== true) {

@@ -6,15 +6,15 @@
     <link rel="icon" href="./assets/player.svg" type="image/svg+xml">
     <link rel="alternate icon" href="./assets/player.svg">
     <title>Pinball Shooter – Boss & Special Balls</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
     <style>
         :root {
-            color-scheme: dark;
+            color-scheme: dark
         }
 
         html,
         body {
-            height: 100%;
+            height: 100%
         }
 
         body {
@@ -23,106 +23,69 @@
             color: #e8e8ea;
             display: flex;
             justify-content: center;
-            /* 가로만 중앙 */
             align-items: flex-start;
-            /* 세로는 상단 정렬 */
-            min-height: 100dvh;
-            /* iOS 주소창 변동 대응 */
+            min-height: 100svh;
             overflow: hidden;
-            /* 스크롤 제거 */
             touch-action: none;
-            /* 제스처가 게임 입력을 가로채지 않도록 */
             font-family: system-ui, sans-serif;
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-touch-callout: none
         }
 
-        /* JS가 폭을 넣어주므로 고정폭 제거 */
         #wrap {
             width: auto;
             margin: 0 auto;
-        }
-
-        /* 고정 width/height 제거. 크기는 main.js가 설정 */
-        canvas {
-            display: block;
-            border: 1px solid #2c2f3a;
-            background: #12141a;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px
         }
 
         #hud {
             display: flex;
             justify-content: space-between;
             gap: 8px;
-            margin: 6px 0 8px;
-            font-size: 14px;
             flex-wrap: wrap;
             width: 100%;
             box-sizing: border-box;
+            font-size: 14px
+        }
+
+        #hud img {
+            width: 16px;
+            height: 16px
         }
 
         #hud-sb {
-            /* 특수볼 재고 줄바꿈 강제 */
             inline-size: 100%;
             overflow-wrap: anywhere;
-            white-space: normal;
+            white-space: normal
         }
 
+        canvas {
+            display: block;
+            background: #12141a;
+            border: 1px solid #2c2f3a;
+            box-sizing: border-box;
+            /* 보더 포함 폭 계산 */
+        }
 
-        #msg {
-            text-align: center;
-            margin-top: 8px;
-            font-size: 14px;
+        p {
+            margin: 0;
+            font-size: 13px;
             opacity: .8;
-        }
-
-        .help_text {
-            position: absolute;
-            top: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            padding-left: 20px;
-            pointer-events: none;
-        }
-
-        .help_text li {
-            height: 20px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .help_text li img {
-            height: 100%;
-            width: auto;
-            aspect-ratio: 1/1;
-            border: 2px solid;
-            border-radius: 50%;
-        }
-
-        /* 전역 선택/롱프레스/탭하이라이트 비활성화 */
-        html,
-        body,
-        #wrap,
-        #hud,
-        #msg,
-        canvas,
-        #sbStock,
-        #helpBoard {
-            user-select: none;
-            -webkit-user-select: none;
-            -ms-user-select: none;
-            -webkit-touch-callout: none;
+            text-align: center;
+            width: 100%
         }
 
         * {
-            -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+            -webkit-tap-highlight-color: rgba(0, 0, 0, 0)
         }
 
         img {
             -webkit-user-drag: none;
-            user-drag: none;
+            user-drag: none
         }
     </style>
 </head>
@@ -131,57 +94,16 @@
     <div id="wrap">
         <div id="hud">
             <div class="hud-item">점수: <span id="score">0</span></div>
-            <div class="hud-item"><img style="width:16px; height:16px;" src="./assets/item-hp_up.svg">x<span
-                    id="hp">3</span></div>
-            <div class="hud-item"><img style="width:16px; height:16px;" src="./assets/item-max_ball.svg">x<span
-                    id="maxBalls">5</span></div>
-            <button id="restart">다시 시작</button>
-            <!-- <div class="hud-item">볼 데미지: <span id="ballDmg">1.00</span></div> 추가 -->
-            <div class="hud-item" id="hud-sb">특수볼 재고: <br /><span id="sbStock">D:0 | F:0 | P:0 | X:0 | S:0</span></div>
+            <div class="hud-item"><img src="./assets/item-hp_up.svg" alt="">x<span id="hp">3</span></div>
+            <div class="hud-item"><img src="./assets/item-max_ball.svg" alt="">x<span id="maxBalls">5</span></div>
+            <button id="restart" type="button">다시 시작</button>
+            <div class="hud-item" id="hud-sb">특수볼 재고:<br><span id="sbStock">D:0 | F:0 | P:0 | X:0 | S:0</span></div>
         </div>
+
         <canvas id="game"></canvas>
+
         <p>mobile: 좌우 터치</p>
-        <p>
-            pc: &larr; &rarr;좌우이동 / z x 각도조절 / space 게임시작
-        </p>
-        <!-- <ul id="helpBoard" class="help_text">
-            <li data-sb="POWER">
-                <img src="./assets/ball-power.svg" alt="" />
-                <p>POWER: 더 강한 공격, 느린 속도</p>
-            </li>
-            <li data-sb="FLAME">
-                <img src="./assets/ball-flame.svg" alt="" />
-                <p>FLAME: 지속 데미지를 줌</p>
-            </li>
-            <li data-sb="PIERCE">
-                <img src="./assets/ball-pierce.svg" alt="" />
-                <p>PIERCE: 관통 공격</p>
-            </li>
-            <li data-sb="EXPLO">
-                <img src="./assets/ball-explo.svg" alt="" />
-                <p>EXPLO: 범위 공격</p>
-            </li>
-            <li data-sb="SPLIT">
-                <img src="./assets/ball-split.svg" alt="" />
-                <p>SPLIT: 공격 시 분열</p>
-            </li>
-            <li data-sb="ICE">
-                <img src="./assets/ball-ice.svg" alt="" />
-                <p>ICE: 블록을 얼림</p>
-            </li>
-            <li data-sb="VOID">
-                <img src="./assets/ball-void.svg" alt="" />
-                <p>VOID: 블록을 삭제</p>
-            </li>
-            <li data-sb="LASER">
-                <img src="./assets/ball-laser.svg" alt="" />
-                <p>LASER: 줄 전체를 공격</p>
-            </li>
-            <li data-sb="BLEED">
-                <img src="./assets/ball-bleed.svg" alt="" />
-                <p>BLEED: 추가 데미지를 줌</p>
-            </li>
-        </ul> -->
+        <p>pc: ← → 좌우이동 / Z·X 각도 / Space 시작</p>
     </div>
     <script type="module" src="./js/main.js"></script>
 </body>

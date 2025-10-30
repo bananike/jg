@@ -29,22 +29,24 @@ const fitCanvas = () => {
 
     const vw = window.innerWidth;
     const vh = window.innerHeight;
-    const s = Math.min(vw / W, vh / H);
-    if (s <= 0) {
+    const scale = Math.min(vw / W, vh / H);
+    if (scale <= 0) {
         return;
     }
-    view.scale = s;
-    view.cssW = Math.floor(W * s);
-    view.cssH = Math.floor(H * s);
+    view.scale = scale;
+    view.cssW = Math.floor(W * scale);
+    view.cssH = Math.floor(H * scale);
 
-    // CSS 크기
     dom.canvas.style.width = `${view.cssW}px`;
     dom.canvas.style.height = `${view.cssH}px`;
+
     if (dom.wrap) {
-        dom.wrap.style.width = `${view.cssW}px`; // HUD 폭을 캔버스와 동일하게
+        dom.wrap.style.width = `${view.cssW}px`;
+    }
+    if (dom.hud) {
+        dom.hud.style.width = `${view.cssW}px`;
     }
 
-    // 내부 버퍼는 논리 W×H에 DPR만 반영
     dom.canvas.width = Math.floor(W * dpr);
     dom.canvas.height = Math.floor(H * dpr);
 
@@ -57,6 +59,33 @@ const fitCanvas = () => {
     if (ui && typeof ui.setHelpBoard === 'function') {
         ui.setHelpBoard();
     }
+};
+
+const preventFocusAndMenus = () => {
+    const cv = dom.canvas;
+    if (!cv) {
+        return;
+    }
+    cv.setAttribute('tabindex', '-1');
+    cv.style.touchAction = 'none';
+
+    cv.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+    });
+    document.addEventListener('mousedown', () => {
+        if (document.activeElement) {
+            document.activeElement.blur();
+        }
+    });
+    document.addEventListener(
+        'touchstart',
+        () => {
+            if (document.activeElement) {
+                document.activeElement.blur();
+            }
+        },
+        { passive: true },
+    );
 };
 
 const loop = (ts) => {
@@ -81,6 +110,8 @@ const init = async () => {
     preloadItemSprites();
     preloadPlayerSprites();
     bindHudGrantForTest();
+
+    preventFocusAndMenus();
 
     if (dom.restartBtn) {
         dom.restartBtn.addEventListener('click', () => {

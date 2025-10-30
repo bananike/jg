@@ -3,7 +3,6 @@ import { colorOfKind } from './colors.js';
 import { PLAYER_SIZE, PLAYER_SPEED } from './config.js';
 import { initStats, resetStats } from './stats.js';
 
-// ===== State (순수 데이터) =====
 export const key = { left: false, right: false, up: false, down: false, auto: false };
 export const player = { x: 230, y: 720 - 46, w: PLAYER_SIZE, h: PLAYER_SIZE, speed: PLAYER_SPEED };
 export const view = { dpr: 1, scale: 1, cssW: 460, cssH: 720 };
@@ -61,9 +60,9 @@ export const world = {
     fx: [],
 };
 
-// ===== DOM refs =====
 export const dom = {
     wrap: null,
+    hud: null,
     canvas: null,
     ctx: null,
     scoreEl: null,
@@ -75,7 +74,6 @@ export const dom = {
     sbHelpBoard: null,
 };
 
-// ===== UI helpers =====
 export const ui = {
     setScore: (n) => {
         if (dom.scoreEl) {
@@ -105,7 +103,9 @@ export const ui = {
         const chip = (n, key) => {
             return `<button data-sb="${key}" style="padding:0;height:16.5px;width:16.5px;background-color:${colorOfKind(
                 key,
-            )};"><img src="./assets/ball-${key.toLowerCase()}.svg" alt="" /></button>:${n ?? 0}`;
+            )};">
+  <img src="./assets/ball-${key.toLowerCase()}.svg" alt="" />
+</button>:${n ?? 0}`;
         };
         dom.sbStockEl.innerHTML = [
             chip(u.POWER.count, 'POWER'),
@@ -119,7 +119,6 @@ export const ui = {
             chip(u.BLEED.count, 'BLEED'),
         ].join(' | ');
 
-        // 줄바꿈 강제(잘림 방지)
         const holder = dom.sbStockEl.parentElement;
         if (holder) {
             holder.style.inlineSize = '100%';
@@ -151,12 +150,12 @@ export const ui = {
     },
 };
 
-// ===== DOM 바인딩 =====
 export const bindDOM = () => {
     const byId = (id) => {
         return document.getElementById(id);
     };
     dom.wrap = byId('wrap');
+    dom.hud = byId('hud');
     dom.canvas = byId('game');
     if (!dom.canvas) {
         throw new Error('#game canvas missing');
@@ -171,9 +170,7 @@ export const bindDOM = () => {
     dom.sbHelpBoard = byId('helpBoard');
 };
 
-// ===== Input =====
 export const inputSetup = () => {
-    // 키보드
     window.addEventListener('keydown', (e) => {
         if (e.key === 'ArrowLeft') {
             key.left = true;
@@ -207,7 +204,6 @@ export const inputSetup = () => {
         }
     });
 
-    // 모바일/포인터 입력
     const sideFromClientX = (clientX) => {
         const r = dom.canvas.getBoundingClientRect();
         const mid = r.left + r.width / 2;
@@ -255,7 +251,6 @@ export const inputSetup = () => {
     dom.canvas.addEventListener('pointerup', clearAimKeys, { passive: true });
     dom.canvas.addEventListener('pointercancel', clearAimKeys, { passive: true });
 
-    // 문서 어디든 터치하면 자동 시작
     document.addEventListener(
         'touchstart',
         () => {
@@ -264,7 +259,6 @@ export const inputSetup = () => {
         { passive: true },
     );
 
-    // 캔버스 위 스와이프 중 스크롤 방지
     document.addEventListener(
         'touchmove',
         (e) => {
@@ -282,7 +276,6 @@ export const inputSetup = () => {
     );
 };
 
-// ===== Reset =====
 export const reset = () => {
     initStats();
     resetStats();
