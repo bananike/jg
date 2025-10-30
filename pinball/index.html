@@ -22,19 +22,30 @@
             background: #0f0f12;
             color: #e8e8ea;
             display: flex;
-            align-items: center;
             justify-content: center;
-            font-family: system-ui, sans-serif;
+            /* 가로만 중앙 */
+            align-items: flex-start;
+            /* 세로는 상단 정렬 */
+            min-height: 100dvh;
+            /* iOS 주소창 변동 대응 */
             overflow: hidden;
-            /* 스크롤 차단 */
+            /* 스크롤 제거 */
             touch-action: none;
-            /* 모바일 제스처 무효 */
+            /* 제스처가 게임 입력을 가로채지 않도록 */
+            font-family: system-ui, sans-serif;
         }
 
+        /* JS가 폭을 넣어주므로 고정폭 제거 */
         #wrap {
-            position: relative;
-            display: inline-block;
-            /* 캔버스 폭을 따름 */
+            width: auto;
+            margin: 0 auto;
+        }
+
+        /* 고정 width/height 제거. 크기는 main.js가 설정 */
+        canvas {
+            display: block;
+            border: 1px solid #2c2f3a;
+            background: #12141a;
         }
 
         #hud {
@@ -55,14 +66,6 @@
             white-space: normal;
         }
 
-        canvas {
-            display: block;
-            /* 잉여 공백 제거 */
-            border: 1px solid #2c2f3a;
-            background: #12141a;
-            user-select: none;
-            -webkit-user-select: none;
-        }
 
         #msg {
             text-align: center;
