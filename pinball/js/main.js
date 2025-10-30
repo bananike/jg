@@ -8,46 +8,53 @@ import { H, W } from './config.js';
 import { bindHudGrantForTest } from './dev-hud-grant.js';
 import { step } from './game.js';
 import { draw } from './render.js';
-import { bindDOM, dom, inputSetup, reset, view } from './state.js';
+import { bindDOM, dom, inputSetup, reset, ui, view } from './state.js';
 
 const fitCanvas = () => {
-    if (!dom.canvas) {
+    if (!dom.canvas || !dom.ctx) {
         return;
     }
 
     // 1) DPR
-    const dpr = window.devicePixelRatio || 1;
+    const dprRaw = window.devicePixelRatio || 1;
+    const dpr = Math.min(Math.max(dprRaw, 1), 2);
     view.dpr = dpr;
 
-    // 2) 화면에 맞는 스케일 결정. 세로 기준로 꽉 차게, 가로는 레터박스 허용.
+    // 2) 화면 스케일(CSS로만) — 논리 좌표는 W×H 유지
     const vw = window.innerWidth;
     const vh = window.innerHeight;
     const s = Math.min(vw / W, vh / H);
+    if (s <= 0) {
+        return;
+    }
     view.scale = s;
     view.cssW = Math.floor(W * s);
     view.cssH = Math.floor(H * s);
 
-    // 3) 캔버스 CSS 크기와 내부 버퍼 크기 모두 설정
+    // 3) CSS 크기만 스케일. 내부 버퍼는 W×H×DPR로 고정.
     dom.canvas.style.width = `${view.cssW}px`;
     dom.canvas.style.height = `${view.cssH}px`;
-    dom.canvas.width = Math.floor(W * s * dpr);
-    dom.canvas.height = Math.floor(H * s * dpr);
+    dom.canvas.width = Math.floor(W * dpr);
+    dom.canvas.height = Math.floor(H * dpr);
 
-    // 4) 렌더 좌표 변환을 한 번에 적용
+    // 4) 논리좌표 → 픽셀 변환은 DPR만 적용
     const ctx = dom.ctx;
-    if (ctx) {
-        ctx.setTransform(dpr * s, 0, 0, dpr * s, 0, 0);
-        if (ctx.imageSmoothingEnabled !== true) {
-            ctx.imageSmoothingEnabled = true;
-        }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (ctx.imageSmoothingEnabled !== true) {
+        ctx.imageSmoothingEnabled = true;
+    }
+
+    // 5) 헬프보드 위치 갱신
+    if (ui && typeof ui.setHelpBoard === 'function') {
+        ui.setHelpBoard();
     }
 };
 
 const loop = (ts) => {
     step(ts);
-    // 안전: 리사이즈 후 한 번 더 변환 보장
     if (dom.ctx) {
-        dom.ctx.setTransform(view.dpr * view.scale, 0, 0, view.dpr * view.scale, 0, 0);
+        // 좌표계 보정 유지
+        dom.ctx.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
     }
     draw();
     requestAnimationFrame(loop);
@@ -56,18 +63,11 @@ const loop = (ts) => {
 const init = async () => {
     bindDOM();
 
-    if (!dom.canvas.width) {
-        dom.canvas.width = 460;
-    }
-    if (!dom.canvas.height) {
-        dom.canvas.height = 720;
-    }
-
-    // 블록 스프라이트 사전 로드
+    // 고정 속성 사전설정 불필요. fitCanvas에서 일괄 설정.
     await preloadBlockSprites();
 
     inputSetup();
-    reset();
+    reset(); // 상태 및 HUD 초기화
     preloadEffects();
     preloadBallSprites();
     preloadItemSprites();
@@ -77,10 +77,10 @@ const init = async () => {
     if (dom.restartBtn) {
         dom.restartBtn.addEventListener('click', () => {
             reset();
+            fitCanvas();
         });
     }
 
-    // 리사이즈 바인딩
     window.addEventListener('resize', () => {
         fitCanvas();
     });
@@ -93,7 +93,9 @@ const init = async () => {
 };
 
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
+    document.addEventListener('DOMContentLoaded', () => {
+        init();
+    });
 } else {
     init();
 }

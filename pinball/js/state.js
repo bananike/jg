@@ -1,3 +1,4 @@
+// state.js
 import { colorOfKind } from './colors.js';
 import { PLAYER_SIZE, PLAYER_SPEED } from './config.js';
 import { initStats, resetStats } from './stats.js';
@@ -7,7 +8,7 @@ export const key = { left: false, right: false, up: false, down: false, auto: fa
 export const player = { x: 230, y: 720 - 46, w: PLAYER_SIZE, h: PLAYER_SIZE, speed: PLAYER_SPEED };
 export const view = {
     dpr: 1,
-    scale: 1, // CSS 스케일
+    scale: 1,
     cssW: 460,
     cssH: 720,
 };
@@ -24,13 +25,15 @@ export const SB_KIND = {
     BLEED: 'BLEED',
 };
 
-const makeSBSlot = (intervalMs) => ({
-    count: 0,
-    max: 0,
-    active: 0,
-    nextFire: 0,
-    fireInterval: intervalMs,
-});
+const makeSBSlot = (intervalMs) => {
+    return {
+        count: 0,
+        max: 0,
+        active: 0,
+        nextFire: 0,
+        fireInterval: intervalMs,
+    };
+};
 
 export const world = {
     ts0: 0,
@@ -66,9 +69,7 @@ export const world = {
     bossDropRolls: 3,
     hitSeq: 0,
     flameTintUntil: 0,
-
-    // FX 버퍼
-    fx: [], // {type:'EXPLO', x,y, start,end, rMax}
+    fx: [],
 };
 
 // ===== DOM refs =====
@@ -81,25 +82,45 @@ export const dom = {
     ballDmgEl: null,
     restartBtn: null,
     sbStockEl: null,
+    sbHelpBoard: null,
 };
 
 // ===== UI helpers =====
 export const ui = {
-    setScore: (n) => dom.scoreEl && (dom.scoreEl.textContent = String(n)),
-    setHp: (n) => dom.hpEl && (dom.hpEl.textContent = String(n)),
-    setMaxBalls: (n) => dom.maxBallsEl && (dom.maxBallsEl.textContent = String(n)),
-    setBallDmg: (v) => dom.ballDmgEl && (dom.ballDmgEl.textContent = v.toFixed(2)),
+    setScore: (n) => {
+        if (dom.scoreEl) {
+            dom.scoreEl.textContent = String(n);
+        }
+    },
+    setHp: (n) => {
+        if (dom.hpEl) {
+            dom.hpEl.textContent = String(n);
+        }
+    },
+    setMaxBalls: (n) => {
+        if (dom.maxBallsEl) {
+            dom.maxBallsEl.textContent = String(n);
+        }
+    },
+    setBallDmg: (v) => {
+        if (dom.ballDmgEl) {
+            dom.ballDmgEl.textContent = v.toFixed(2);
+        }
+    },
     setSBStock: () => {
         if (!dom.sbStockEl || !world.useSB) {
             return;
         }
         const u = world.useSB;
-        const chip = (n, key) =>
-            `<button data-sb="${key}" style="color:${colorOfKind(
+        const chip = (n, key) => {
+            return `<button data-sb="${key}" style="color:${colorOfKind(
                 key,
-            )};font-weight:600; padding:0; height:16.5px; width: 16.5px;background-color: ${colorOfKind(
+            )};font-weight:600; padding:0; height:16.5px; width:16.5px; background-color:${colorOfKind(
                 key,
-            )}; object-fit:contain;"><img src="./assets/ball-${key.toLowerCase()}.svg" alt="" /></button>:${n ?? 0}`;
+            )}; object-fit:contain;">
+<img src="./assets/ball-${key.toLowerCase()}.svg" alt="" />
+</button>:${n ?? 0}`;
+        };
         dom.sbStockEl.innerHTML = [
             chip(u.POWER.count, 'POWER'),
             chip(u.FLAME.count, 'FLAME'),
@@ -116,21 +137,30 @@ export const ui = {
         if (!dom.sbHelpBoard || !dom.canvas) {
             return;
         }
-        const canvasWidth = dom.canvas.width;
-        const canvasOffset = dom.canvas.offsetTop;
-        dom.sbHelpBoard.style.transform = `translateX(${canvasWidth / 2}px)`;
-        dom.sbHelpBoard.style.top = canvasOffset + 'px';
-        const childLi = dom.sbHelpBoard.querySelectorAll('li');
-        [...childLi].forEach((el) => {
+
+        // 캔버스의 화면상 위치와 CSS 크기 기준으로 정렬
+        const r = dom.canvas.getBoundingClientRect();
+        dom.sbHelpBoard.style.position = 'absolute';
+        dom.sbHelpBoard.style.left = '50%';
+        dom.sbHelpBoard.style.transform = 'translateX(-50%)';
+        dom.sbHelpBoard.style.top = `${Math.round(r.top + window.scrollY)}px`;
+
+        const nodes = dom.sbHelpBoard.querySelectorAll('li[data-sb]');
+        nodes.forEach((el) => {
             const key = el.getAttribute('data-sb');
-            el.querySelector('img').style.borderColor = colorOfKind(key);
+            const img = el.querySelector('img');
+            if (img) {
+                img.style.borderColor = colorOfKind(key);
+            }
         });
     },
 };
 
 // ===== DOM 바인딩 =====
 export const bindDOM = () => {
-    const byId = (id) => document.getElementById(id);
+    const byId = (id) => {
+        return document.getElementById(id);
+    };
     dom.canvas = byId('game');
     if (!dom.canvas) {
         throw new Error('#game canvas missing');
@@ -155,10 +185,10 @@ export const inputSetup = () => {
             key.right = true;
         }
         if (e.code === 'KeyZ') {
-            key.up = true; // 각도 위쪽(감소)
+            key.up = true;
         }
         if (e.code === 'KeyX') {
-            key.down = true; // 각도 아래쪽(증가)
+            key.down = true;
         }
         if (e.code === 'Space') {
             key.auto = true;
@@ -192,7 +222,7 @@ export const reset = () => {
     world.score = 0;
     world.hp = 3;
     world.maxBalls = 5;
-    world.ballDmgBase = 0.5; // 기존 1.0 → 0.5
+    world.ballDmgBase = 0.5; // 0.5부터 시작
     world.aim = -Math.PI / 2;
     world.lastFire = 0;
     world.lastSpawn = 0;
