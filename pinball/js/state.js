@@ -6,12 +6,7 @@ import { initStats, resetStats } from './stats.js';
 // ===== State (순수 데이터) =====
 export const key = { left: false, right: false, up: false, down: false, auto: false };
 export const player = { x: 230, y: 720 - 46, w: PLAYER_SIZE, h: PLAYER_SIZE, speed: PLAYER_SPEED };
-export const view = {
-    dpr: 1,
-    scale: 1,
-    cssW: 460,
-    cssH: 720,
-};
+export const view = { dpr: 1, scale: 1, cssW: 460, cssH: 720 };
 
 export const SB_KIND = {
     POWER: 'POWER',
@@ -26,13 +21,7 @@ export const SB_KIND = {
 };
 
 const makeSBSlot = (intervalMs) => {
-    return {
-        count: 0,
-        max: 0,
-        active: 0,
-        nextFire: 0,
-        fireInterval: intervalMs,
-    };
+    return { count: 0, max: 0, active: 0, nextFire: 0, fireInterval: intervalMs };
 };
 
 export const world = {
@@ -74,6 +63,7 @@ export const world = {
 
 // ===== DOM refs =====
 export const dom = {
+    wrap: null,
     canvas: null,
     ctx: null,
     scoreEl: null,
@@ -113,13 +103,9 @@ export const ui = {
         }
         const u = world.useSB;
         const chip = (n, key) => {
-            return `<button data-sb="${key}" style="color:${colorOfKind(
+            return `<button data-sb="${key}" style="padding:0;height:16.5px;width:16.5px;background-color:${colorOfKind(
                 key,
-            )};font-weight:600; padding:0; height:16.5px; width:16.5px; background-color:${colorOfKind(
-                key,
-            )}; object-fit:contain;">
-<img src="./assets/ball-${key.toLowerCase()}.svg" alt="" />
-</button>:${n ?? 0}`;
+            )};"><img src="./assets/ball-${key.toLowerCase()}.svg" alt="" /></button>:${n ?? 0}`;
         };
         dom.sbStockEl.innerHTML = [
             chip(u.POWER.count, 'POWER'),
@@ -132,13 +118,19 @@ export const ui = {
             chip(u.LASER.count, 'LASER'),
             chip(u.BLEED.count, 'BLEED'),
         ].join(' | ');
+
+        // 줄바꿈 강제(잘림 방지)
+        const holder = dom.sbStockEl.parentElement;
+        if (holder) {
+            holder.style.inlineSize = '100%';
+            holder.style.overflowWrap = 'anywhere';
+            holder.style.whiteSpace = 'normal';
+        }
     },
     setHelpBoard: () => {
         if (!dom.sbHelpBoard || !dom.canvas) {
             return;
         }
-
-        // 캔버스의 화면상 위치와 CSS 크기 기준으로 정렬
         const r = dom.canvas.getBoundingClientRect();
         dom.sbHelpBoard.style.position = 'absolute';
         dom.sbHelpBoard.style.left = '50%';
@@ -151,6 +143,9 @@ export const ui = {
             const img = el.querySelector('img');
             if (img) {
                 img.style.borderColor = colorOfKind(key);
+                img.style.borderWidth = '2px';
+                img.style.borderStyle = 'solid';
+                img.style.borderRadius = '50%';
             }
         });
     },
@@ -161,6 +156,7 @@ export const bindDOM = () => {
     const byId = (id) => {
         return document.getElementById(id);
     };
+    dom.wrap = byId('wrap');
     dom.canvas = byId('game');
     if (!dom.canvas) {
         throw new Error('#game canvas missing');
@@ -177,6 +173,7 @@ export const bindDOM = () => {
 
 // ===== Input =====
 export const inputSetup = () => {
+    // 키보드
     window.addEventListener('keydown', (e) => {
         if (e.key === 'ArrowLeft') {
             key.left = true;
@@ -209,6 +206,80 @@ export const inputSetup = () => {
             key.down = false;
         }
     });
+
+    // 모바일/포인터 입력
+    const sideFromClientX = (clientX) => {
+        const r = dom.canvas.getBoundingClientRect();
+        const mid = r.left + r.width / 2;
+        if (clientX < mid) {
+            return 'L';
+        }
+        return 'R';
+    };
+
+    const setAimKeysByX = (clientX) => {
+        const side = sideFromClientX(clientX);
+        if (side === 'L') {
+            key.up = true;
+            key.down = false;
+        } else {
+            key.up = false;
+            key.down = true;
+        }
+    };
+
+    const clearAimKeys = () => {
+        key.up = false;
+        key.down = false;
+    };
+
+    dom.canvas.addEventListener(
+        'pointerdown',
+        (e) => {
+            key.auto = true;
+            setAimKeysByX(e.clientX);
+        },
+        { passive: true },
+    );
+
+    dom.canvas.addEventListener(
+        'pointermove',
+        (e) => {
+            if (e.buttons === 1 || e.pressure > 0 || e.pointerType === 'touch') {
+                setAimKeysByX(e.clientX);
+            }
+        },
+        { passive: true },
+    );
+
+    dom.canvas.addEventListener('pointerup', clearAimKeys, { passive: true });
+    dom.canvas.addEventListener('pointercancel', clearAimKeys, { passive: true });
+
+    // 문서 어디든 터치하면 자동 시작
+    document.addEventListener(
+        'touchstart',
+        () => {
+            key.auto = true;
+        },
+        { passive: true },
+    );
+
+    // 캔버스 위 스와이프 중 스크롤 방지
+    document.addEventListener(
+        'touchmove',
+        (e) => {
+            const t = e.touches && e.touches[0];
+            if (!t) {
+                return;
+            }
+            const r = dom.canvas.getBoundingClientRect();
+            const inside = t.clientX >= r.left && t.clientX <= r.right && t.clientY >= r.top && t.clientY <= r.bottom;
+            if (inside === true) {
+                e.preventDefault();
+            }
+        },
+        { passive: false },
+    );
 };
 
 // ===== Reset =====
@@ -222,7 +293,7 @@ export const reset = () => {
     world.score = 0;
     world.hp = 3;
     world.maxBalls = 5;
-    world.ballDmgBase = 0.5; // 0.5부터 시작
+    world.ballDmgBase = 0.5;
     world.aim = -Math.PI / 2;
     world.lastFire = 0;
     world.lastSpawn = 0;
