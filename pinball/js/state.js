@@ -1,3 +1,4 @@
+// state.js
 import { colorOfKind } from './colors.js';
 import { PLAYER_SIZE, PLAYER_SPEED } from './config.js';
 import { initStats, resetStats } from './stats.js';
@@ -5,6 +6,8 @@ import { initStats, resetStats } from './stats.js';
 // ===== State (순수 데이터) =====
 export const key = { left: false, right: false, up: false, down: false, auto: false };
 export const player = { x: 230, y: 720 - 46, w: PLAYER_SIZE, h: PLAYER_SIZE, speed: PLAYER_SPEED };
+export const view = { dpr: 1, scale: 1, cssW: 460, cssH: 720 };
+
 export const SB_KIND = {
     POWER: 'POWER',
     FLAME: 'FLAME',
@@ -17,13 +20,9 @@ export const SB_KIND = {
     BLEED: 'BLEED',
 };
 
-const makeSBSlot = (intervalMs) => ({
-    count: 0,
-    max: 0,
-    active: 0,
-    nextFire: 0,
-    fireInterval: intervalMs,
-});
+const makeSBSlot = (intervalMs) => {
+    return { count: 0, max: 0, active: 0, nextFire: 0, fireInterval: intervalMs };
+};
 
 export const world = {
     ts0: 0,
@@ -59,13 +58,12 @@ export const world = {
     bossDropRolls: 3,
     hitSeq: 0,
     flameTintUntil: 0,
-
-    // FX 버퍼
-    fx: [], // {type:'EXPLO', x,y, start,end, rMax}
+    fx: [],
 };
 
 // ===== DOM refs =====
 export const dom = {
+    wrap: null,
     canvas: null,
     ctx: null,
     scoreEl: null,
@@ -74,25 +72,41 @@ export const dom = {
     ballDmgEl: null,
     restartBtn: null,
     sbStockEl: null,
+    sbHelpBoard: null,
 };
 
 // ===== UI helpers =====
 export const ui = {
-    setScore: (n) => dom.scoreEl && (dom.scoreEl.textContent = String(n)),
-    setHp: (n) => dom.hpEl && (dom.hpEl.textContent = String(n)),
-    setMaxBalls: (n) => dom.maxBallsEl && (dom.maxBallsEl.textContent = String(n)),
-    setBallDmg: (v) => dom.ballDmgEl && (dom.ballDmgEl.textContent = v.toFixed(2)),
+    setScore: (n) => {
+        if (dom.scoreEl) {
+            dom.scoreEl.textContent = String(n);
+        }
+    },
+    setHp: (n) => {
+        if (dom.hpEl) {
+            dom.hpEl.textContent = String(n);
+        }
+    },
+    setMaxBalls: (n) => {
+        if (dom.maxBallsEl) {
+            dom.maxBallsEl.textContent = String(n);
+        }
+    },
+    setBallDmg: (v) => {
+        if (dom.ballDmgEl) {
+            dom.ballDmgEl.textContent = v.toFixed(2);
+        }
+    },
     setSBStock: () => {
         if (!dom.sbStockEl || !world.useSB) {
             return;
         }
         const u = world.useSB;
-        const chip = (n, key) =>
-            `<button data-sb="${key}" style="color:${colorOfKind(
+        const chip = (n, key) => {
+            return `<button data-sb="${key}" style="padding:0;height:16.5px;width:16.5px;background-color:${colorOfKind(
                 key,
-            )};font-weight:600; padding:0; height:16.5px; width: 16.5px;background-color: ${colorOfKind(
-                key,
-            )}; object-fit:contain;"><img src="./assets/ball-${key.toLowerCase()}.svg" alt="" /></button>:${n ?? 0}`;
+            )};"><img src="./assets/ball-${key.toLowerCase()}.svg" alt="" /></button>:${n ?? 0}`;
+        };
         dom.sbStockEl.innerHTML = [
             chip(u.POWER.count, 'POWER'),
             chip(u.FLAME.count, 'FLAME'),
@@ -104,26 +118,45 @@ export const ui = {
             chip(u.LASER.count, 'LASER'),
             chip(u.BLEED.count, 'BLEED'),
         ].join(' | ');
+
+        // 줄바꿈 강제(잘림 방지)
+        const holder = dom.sbStockEl.parentElement;
+        if (holder) {
+            holder.style.inlineSize = '100%';
+            holder.style.overflowWrap = 'anywhere';
+            holder.style.whiteSpace = 'normal';
+        }
     },
     setHelpBoard: () => {
         if (!dom.sbHelpBoard || !dom.canvas) {
             return;
         }
-        const canvasWidth = dom.canvas.width;
-        const canvasOffset = dom.canvas.offsetTop;
-        dom.sbHelpBoard.style.transform = `translateX(${canvasWidth / 2}px)`;
-        dom.sbHelpBoard.style.top = canvasOffset + 'px';
-        const childLi = dom.sbHelpBoard.querySelectorAll('li');
-        [...childLi].forEach((el) => {
+        const r = dom.canvas.getBoundingClientRect();
+        dom.sbHelpBoard.style.position = 'absolute';
+        dom.sbHelpBoard.style.left = '50%';
+        dom.sbHelpBoard.style.transform = 'translateX(-50%)';
+        dom.sbHelpBoard.style.top = `${Math.round(r.top + window.scrollY)}px`;
+
+        const nodes = dom.sbHelpBoard.querySelectorAll('li[data-sb]');
+        nodes.forEach((el) => {
             const key = el.getAttribute('data-sb');
-            el.querySelector('img').style.borderColor = colorOfKind(key);
+            const img = el.querySelector('img');
+            if (img) {
+                img.style.borderColor = colorOfKind(key);
+                img.style.borderWidth = '2px';
+                img.style.borderStyle = 'solid';
+                img.style.borderRadius = '50%';
+            }
         });
     },
 };
 
 // ===== DOM 바인딩 =====
 export const bindDOM = () => {
-    const byId = (id) => document.getElementById(id);
+    const byId = (id) => {
+        return document.getElementById(id);
+    };
+    dom.wrap = byId('wrap');
     dom.canvas = byId('game');
     if (!dom.canvas) {
         throw new Error('#game canvas missing');
@@ -140,6 +173,7 @@ export const bindDOM = () => {
 
 // ===== Input =====
 export const inputSetup = () => {
+    // 키보드
     window.addEventListener('keydown', (e) => {
         if (e.key === 'ArrowLeft') {
             key.left = true;
@@ -148,10 +182,10 @@ export const inputSetup = () => {
             key.right = true;
         }
         if (e.code === 'KeyZ') {
-            key.up = true; // 각도 위쪽(감소)
+            key.up = true;
         }
         if (e.code === 'KeyX') {
-            key.down = true; // 각도 아래쪽(증가)
+            key.down = true;
         }
         if (e.code === 'Space') {
             key.auto = true;
@@ -172,6 +206,80 @@ export const inputSetup = () => {
             key.down = false;
         }
     });
+
+    // 모바일/포인터 입력
+    const sideFromClientX = (clientX) => {
+        const r = dom.canvas.getBoundingClientRect();
+        const mid = r.left + r.width / 2;
+        if (clientX < mid) {
+            return 'L';
+        }
+        return 'R';
+    };
+
+    const setAimKeysByX = (clientX) => {
+        const side = sideFromClientX(clientX);
+        if (side === 'L') {
+            key.up = true;
+            key.down = false;
+        } else {
+            key.up = false;
+            key.down = true;
+        }
+    };
+
+    const clearAimKeys = () => {
+        key.up = false;
+        key.down = false;
+    };
+
+    dom.canvas.addEventListener(
+        'pointerdown',
+        (e) => {
+            key.auto = true;
+            setAimKeysByX(e.clientX);
+        },
+        { passive: true },
+    );
+
+    dom.canvas.addEventListener(
+        'pointermove',
+        (e) => {
+            if (e.buttons === 1 || e.pressure > 0 || e.pointerType === 'touch') {
+                setAimKeysByX(e.clientX);
+            }
+        },
+        { passive: true },
+    );
+
+    dom.canvas.addEventListener('pointerup', clearAimKeys, { passive: true });
+    dom.canvas.addEventListener('pointercancel', clearAimKeys, { passive: true });
+
+    // 문서 어디든 터치하면 자동 시작
+    document.addEventListener(
+        'touchstart',
+        () => {
+            key.auto = true;
+        },
+        { passive: true },
+    );
+
+    // 캔버스 위 스와이프 중 스크롤 방지
+    document.addEventListener(
+        'touchmove',
+        (e) => {
+            const t = e.touches && e.touches[0];
+            if (!t) {
+                return;
+            }
+            const r = dom.canvas.getBoundingClientRect();
+            const inside = t.clientX >= r.left && t.clientX <= r.right && t.clientY >= r.top && t.clientY <= r.bottom;
+            if (inside === true) {
+                e.preventDefault();
+            }
+        },
+        { passive: false },
+    );
 };
 
 // ===== Reset =====
@@ -185,7 +293,7 @@ export const reset = () => {
     world.score = 0;
     world.hp = 3;
     world.maxBalls = 5;
-    world.ballDmgBase = 0.5; // 기존 1.0 → 0.5
+    world.ballDmgBase = 0.5;
     world.aim = -Math.PI / 2;
     world.lastFire = 0;
     world.lastSpawn = 0;
