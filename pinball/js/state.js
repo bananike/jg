@@ -5,6 +5,13 @@ import { initStats, resetStats } from './stats.js';
 // ===== State (순수 데이터) =====
 export const key = { left: false, right: false, up: false, down: false, auto: false };
 export const player = { x: 230, y: 720 - 46, w: PLAYER_SIZE, h: PLAYER_SIZE, speed: PLAYER_SPEED };
+export const view = {
+    dpr: 1,
+    scale: 1, // CSS 스케일
+    cssW: 460,
+    cssH: 720,
+};
+
 export const SB_KIND = {
     POWER: 'POWER',
     FLAME: 'FLAME',
