@@ -2,6 +2,8 @@
 import { preloadBallSprites /*, setBallsBase*/ } from './assets-balls.js';
 import { preloadBlockSprites } from './assets-blocks.js';
 import { preloadEffects /*, setEffectsBase*/ } from './assets-effects.js';
+import { preloadItemSprites } from './assets-items.js';
+import { preloadPlayerSprites } from './assets-player.js';
 import { bindHudGrantForTest } from './dev-hud-grant.js';
 import { step } from './game.js';
 import { draw } from './render.js';
@@ -30,6 +32,8 @@ const init = async () => {
     reset();
     preloadEffects();
     preloadBallSprites();
+    preloadItemSprites();
+    preloadPlayerSprites();
     bindHudGrantForTest(); // test hud
 
     if (dom.restartBtn) {

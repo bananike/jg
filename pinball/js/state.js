@@ -1,8 +1,10 @@
+import { colorOfKind } from './colors.js';
+import { PLAYER_SIZE, PLAYER_SPEED } from './config.js';
 import { initStats, resetStats } from './stats.js';
 
 // ===== State (순수 데이터) =====
 export const key = { left: false, right: false, up: false, down: false, auto: false };
-export const player = { x: 230, y: 720 - 46, w: 34, h: 34, speed: 6 };
+export const player = { x: 230, y: 720 - 46, w: PLAYER_SIZE, h: PLAYER_SIZE, speed: PLAYER_SPEED };
 export const SB_KIND = {
     POWER: 'POWER',
     FLAME: 'FLAME',
@@ -85,21 +87,37 @@ export const ui = {
             return;
         }
         const u = world.useSB;
-        const chip = (color, n, key) =>
-            `<button data-sb="${key}" style="color:${color};font-weight:600; padding:0; height:16.5px; width: 16.5px;background-color: #fff; object-fit:contain;"><img src="./assets/ball-${key.toLowerCase()}.svg" alt="" /></button>:${
-                n ?? 0
-            }`;
+        const chip = (n, key) =>
+            `<button data-sb="${key}" style="color:${colorOfKind(
+                key,
+            )};font-weight:600; padding:0; height:16.5px; width: 16.5px;background-color: ${colorOfKind(
+                key,
+            )}; object-fit:contain;"><img src="./assets/ball-${key.toLowerCase()}.svg" alt="" /></button>:${n ?? 0}`;
         dom.sbStockEl.innerHTML = [
-            chip('#ff9e00', u.POWER.count, 'POWER'),
-            chip('#ef233c', u.FLAME.count, 'FLAME'),
-            chip('#06d6a0', u.PIERCE.count, 'PIERCE'),
-            chip('#8338ec', u.EXPLO.count, 'EXPLO'),
-            chip('#3a86ff', u.SPLIT.count, 'SPLIT'),
-            chip('#00bcd4', u.ICE.count, 'ICE'),
-            chip('#8d99ae', u.VOID.count, 'VOID'),
-            chip('#ffd166', u.LASER.count, 'LASER'),
-            chip('#d00000', u.BLEED.count, 'BLEED'),
+            chip(u.POWER.count, 'POWER'),
+            chip(u.FLAME.count, 'FLAME'),
+            chip(u.PIERCE.count, 'PIERCE'),
+            chip(u.EXPLO.count, 'EXPLO'),
+            chip(u.SPLIT.count, 'SPLIT'),
+            chip(u.ICE.count, 'ICE'),
+            chip(u.VOID.count, 'VOID'),
+            chip(u.LASER.count, 'LASER'),
+            chip(u.BLEED.count, 'BLEED'),
         ].join(' | ');
+    },
+    setHelpBoard: () => {
+        if (!dom.sbHelpBoard || !dom.canvas) {
+            return;
+        }
+        const canvasWidth = dom.canvas.width;
+        const canvasOffset = dom.canvas.offsetTop;
+        dom.sbHelpBoard.style.transform = `translateX(${canvasWidth / 2}px)`;
+        dom.sbHelpBoard.style.top = canvasOffset + 'px';
+        const childLi = dom.sbHelpBoard.querySelectorAll('li');
+        [...childLi].forEach((el) => {
+            const key = el.getAttribute('data-sb');
+            el.querySelector('img').style.borderColor = colorOfKind(key);
+        });
     },
 };
 
@@ -117,6 +135,7 @@ export const bindDOM = () => {
     dom.ballDmgEl = byId('ballDmg');
     dom.restartBtn = byId('restart');
     dom.sbStockEl = byId('sbStock');
+    dom.sbHelpBoard = byId('helpBoard');
 };
 
 // ===== Input =====
@@ -166,7 +185,7 @@ export const reset = () => {
     world.score = 0;
     world.hp = 3;
     world.maxBalls = 5;
-    world.ballDmgBase = 1.0;
+    world.ballDmgBase = 0.5; // 기존 1.0 → 0.5
     world.aim = -Math.PI / 2;
     world.lastFire = 0;
     world.lastSpawn = 0;
@@ -204,4 +223,5 @@ export const reset = () => {
     ui.setMaxBalls(world.maxBalls);
     ui.setBallDmg(world.ballDmgBase);
     ui.setSBStock();
+    ui.setHelpBoard();
 };

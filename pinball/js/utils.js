@@ -23,3 +23,19 @@ export const aabbOverlap = (ax, ay, aw, ah, bx, by, bw, bh) => {
     }
     return true;
 };
+
+export const drawContainImage = (ctx, img, dx, dy, dw, dh) => {
+    if (!img || img.naturalWidth <= 0 || img.naturalHeight <= 0) {
+        return;
+    }
+    const sw = img.naturalWidth;
+    const sh = img.naturalHeight;
+
+    const s = Math.min(dw / sw, dh / sh);
+    const rw = Math.max(1, Math.floor(sw * s));
+    const rh = Math.max(1, Math.floor(sh * s));
+    const rx = Math.floor(dx + (dw - rw) / 2);
+    const ry = Math.floor(dy + (dh - rh) / 2);
+
+    ctx.drawImage(img, rx, ry, rw, rh);
+};

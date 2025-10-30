@@ -1,24 +1,25 @@
-// assets-effects.js
+// assets-items.js
 import { ASSET_BASE } from './config.js';
 
 const BASE = (ASSET_BASE || './assets').replace(/\/+$/, '') + '/';
 const _cache = {};
 
-const _file = (name) => {
-    if (!name) {
-        return '';
+const NAME_MAP = {
+    MAX_BALL: 'item-max_ball.svg',
+    DMG_UP: 'item-dmg_up.svg',
+    HP_UP: 'item-hp_up.svg',
+};
+
+const _urlFor = (kind) => {
+    if (!NAME_MAP[kind]) {
+        return null;
     }
-    const slug = String(name).toLowerCase().replace(/_/g, '-'); // LASER -> laser
-    return `${BASE}effect-${slug}.svg`; // ./assets/effect-laser.svg
+    return BASE + NAME_MAP[kind];
 };
 
-export const setEffectsBase = (baseUrl) => {
-    // 필요 시 외부에서 바꿀 수 있게만 유지
-};
-
-const _loadOne = (name) => {
-    if (_cache[name]) {
-        return _cache[name];
+const _loadOne = (kind) => {
+    if (_cache[kind]) {
+        return _cache[kind];
     }
 
     const img = new Image();
@@ -33,31 +34,36 @@ const _loadOne = (name) => {
     };
     img.onerror = () => {
         img._error = true;
-        if (typeof console !== 'undefined') {
-            console.error('[effects] load failed:', name, img.src);
-        }
+        // 필요 시 콘솔 로그
+        // console.error('[items] load failed:', kind, img.src);
     };
 
-    img.src = _file(name);
-    _cache[name] = img;
+    const url = _urlFor(kind);
+    if (url != null) {
+        img.src = url;
+    } else {
+        img._error = true;
+    }
+
+    _cache[kind] = img;
     return img;
 };
 
-export const preloadEffects = () => {
-    const kinds = ['FLAME', 'ICE', 'BLEED', 'LASER'];
+export const preloadItemSprites = () => {
+    const kinds = ['MAX_BALL', 'DMG_UP', 'HP_UP'];
     for (let i = 0; i < kinds.length; i++) {
         _loadOne(kinds[i]);
     }
 };
 
-export const getEffectSprite = (kind) => {
+export const getItemSprite = (kind) => {
     if (!kind) {
         return null;
     }
     return _loadOne(kind);
 };
 
-export const isEffectReady = (kind) => {
+export const isItemReady = (kind) => {
     const img = _cache[kind];
     if (!img) {
         return false;

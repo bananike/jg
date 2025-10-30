@@ -1,7 +1,21 @@
+import { colorOfKind } from './colors.js';
 import { AIM_SPREAD_DEG, CELL, COLS, FALL_BASE, FALL_GAIN_PER_SEC, H, LEFT_PAD, MIN_V_GAP, W } from './config.js';
 import { key, player, ui, world } from './state.js';
 import { addDamageStat } from './stats.js';
 import { clamp } from './utils.js';
+
+// 플레임 현재 데미지 계산: base 1.0, 증가치 0.5, 레벨은 (ballDmgBase - 0.5)/0.25
+const flameLevel = () => {
+    const lvl = Math.round((world.ballDmgBase - 0.5) / 0.25);
+    if (lvl < 0) {
+        return 0;
+    }
+    return lvl;
+};
+
+const flameTickDamage = () => {
+    return 1.0 + 0.5 * flameLevel();
+};
 
 export const updatePlayer = () => {
     if (world.gameOver === true) {
@@ -99,20 +113,23 @@ export const updateBlocks = (ts) => {
     }
 };
 
-const addDmgFx = (x, y, val, color) => {
+const addDmgFx = (x, y, val, color, sizePx) => {
     if (!world.fx) {
         world.fx = [];
     }
     const now = world.lastTs || performance.now();
     const text = typeof val === 'number' ? val.toFixed(2) : String(val);
+
     world.fx.push({
         type: 'DMG',
         x,
         y,
         val: text,
-        color: color || '#ef233c',
+        color: color || '#ffffff',
         start: now,
-        end: now + 500,
+        end: now + 520,
+        sizePx: typeof sizePx === 'number' ? sizePx : 24, // 기본 24px(특수볼 표기 크기)
+        isBold: true,
     });
 };
 
@@ -120,51 +137,48 @@ const addDmgFx = (x, y, val, color) => {
 export const applyBlockDOT = (ts) => {
     for (let i = world.blocks.length - 1; i >= 0; i--) {
         const bl = world.blocks[i];
-        if (bl.dotUntil == null) {
+
+        // 플레임 지속 아님
+        if (bl.flameUntil == null) {
             continue;
         }
-        if (bl.dotLastTs == null) {
-            bl.dotLastTs = ts;
+
+        // 지속 종료
+        if (ts >= bl.flameUntil) {
+            bl.flameUntil = null;
+            bl.flameNextTick = null;
+            continue;
         }
 
-        const until = bl.dotUntil;
-        const t0 = bl.dotLastTs;
-        const t1 = ts > until ? until : ts;
-
-        let dtSec = (t1 - t0) / 1000;
-        if (dtSec < 0) {
-            dtSec = 0;
+        // 다음 틱 예약이 없다면 예약
+        if (bl.flameNextTick == null) {
+            bl.flameNextTick = ts + 1000;
         }
 
-        const dealt = (bl.dotDps || 0) * dtSec;
-        if (dealt > 0) {
+        // 틱 도래
+        if (ts >= bl.flameNextTick) {
+            const dmg = flameTickDamage(); // “현재” 증가 수치 반영
             const pre = bl.hp;
-            let applied = dealt;
+            let applied = dmg;
             if (applied > pre) {
                 applied = pre;
             }
             bl.hp = Math.max(0, pre - applied);
 
             const cx = bl.x + bl.w / 2;
-            const cy = bl.y + bl.h / 2;
-            addDmgFx(cx, cy, applied, '#ef233c');
-
-            // 프레임: 지속데미지 모두 산정
+            const cy = bl.y - 6;
+            addDmgFx(cx, cy, applied, colorOfKind('FLAME'), 24);
             addDamageStat('FLAME', applied);
-        }
-        bl.dotLastTs = ts;
 
-        if (ts >= until) {
-            bl.dotUntil = null;
-            bl.dotDps = 0;
-            bl.dotLastTs = null;
+            bl.flameNextTick += 1000; // 다음 1초 후
         }
     }
 
-    for (let i = world.blocks.length - 1; i >= 0; i--) {
-        if (world.blocks[i].hp <= 0) {
-            world.blocks.splice(i, 1);
-            world.score += 10;
-        }
-    }
+    // 사망 처리
+    // for (let i = world.blocks.length - 1; i >= 0; i--) {
+    //     if (world.blocks[i].hp <= 0) {
+    //         world.blocks.splice(i, 1);
+    //         world.score += 10;
+    //     }
+    // }
 };

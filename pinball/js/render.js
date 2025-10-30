@@ -1,9 +1,12 @@
 import { getBallSprite, isBallReady } from './assets-balls.js';
 import { getBlockSprite } from './assets-blocks.js';
 import { getEffectSprite, isEffectReady } from './assets-effects.js';
-import { colorOfItem, colorOfKind, colorOfPlayer } from './colors.js';
-import { BALL_R } from './config.js';
+import { getItemSprite, isItemReady } from './assets-items.js';
+import { getPlayerSprite, isPlayerReady } from './assets-player.js';
+import { colorOfKind, colorOfPlayer } from './colors.js';
+import { BALL_R, BLOCK_SIZE, BLOCK_SKINS, ITEM_BOX_COLOR, ITEM_RADIUS } from './config.js';
 import { dom, player, world } from './state.js';
+import { drawContainImage } from './utils.js';
 
 const labelOfItem = (kind) => {
     const map = {
@@ -53,7 +56,29 @@ const drawAim = (ctx) => {
 
 // 플레이어
 const drawPlayer = (ctx) => {
-    fillRect(ctx, player.x - player.w / 2, player.y - player.h / 2, player.w, player.h, colorOfPlayer(world.hp));
+    const w = player.w;
+    const h = player.h;
+    const x = Math.floor(player.x - w / 2);
+    const y = Math.floor(player.y - player.h / 2);
+
+    if (isPlayerReady('PLAYER') === true) {
+        const img = getPlayerSprite('PLAYER');
+
+        // 단순 스트레치. 원본 비율 유지하려면 아래 주석을 사용.
+        // const ar = img.naturalWidth / img.naturalHeight;
+        // let dw = w, dh = h;
+        // if (ar > 1) { dh = Math.floor(w / ar); } else { dw = Math.floor(h * ar); }
+        // const ox = Math.floor(player.x - dw / 2);
+        // const oy = Math.floor(player.y - dh / 2);
+        // ctx.drawImage(img, ox, oy, dw, dh);
+
+        ctx.drawImage(img, x, y, w, h);
+        return;
+    }
+
+    // 폴백: 기존 사각형
+    ctx.fillStyle = colorOfPlayer(world.hp);
+    ctx.fillRect(x, y, w, h);
 };
 
 // 볼
@@ -106,22 +131,42 @@ const drawSpecialBalls = (ctx) => {
 
 // 보스 스킨 1회 랜덤 할당
 const ensureBossSkin = (bl) => {
-    if (bl._bossSkinned === true) {
+    if (bl._bossSkinned === true && typeof bl.skin === 'number' && bl.skin > 0) {
         return;
     }
-    // 스킨 미지정이면 랜덤 탐색
-    if (bl.skin == null || bl.skin === 0) {
-        // 넉넉한 탐색 범위. 존재하는 스킨을 찾으면 사용.
-        for (let t = 0; t < 24; t++) {
-            const cand = 1 + Math.floor(Math.random() * 24);
-            const imgTest = getBlockSprite(cand, bl.hp, bl.maxHp || bl.hp);
-            if (imgTest) {
-                bl.skin = cand;
-                break;
-            }
+
+    if (typeof bl.skin === 'number' && bl.skin > 0) {
+        const ok = getBlockSprite(bl.skin, bl.hp, bl.maxHp || bl.hp);
+        if (ok) {
+            bl._bossSkinned = true;
+            return;
         }
     }
-    bl._bossSkinned = true;
+
+    const max = Math.max(1, BLOCK_SKINS | 0);
+
+    const tryList = [];
+    if (typeof bl.id === 'number') {
+        const cand0 = 1 + (bl.id % max);
+        tryList.push(cand0);
+    }
+    for (let t = 0; t < 6; t++) {
+        const cand = 1 + Math.floor(Math.random() * max);
+        tryList.push(cand);
+    }
+
+    for (let i = 0; i < tryList.length; i++) {
+        const s = tryList[i];
+        const img = getBlockSprite(s, bl.hp, bl.maxHp || bl.hp);
+        if (img) {
+            bl.skin = s;
+            bl._bossSkinned = true;
+            return;
+        }
+    }
+
+    // 아직 스프라이트 준비 전. 이번 프레임은 폴백으로 그리고 다음 프레임에 재시도.
+    bl._bossSkinned = false;
 };
 
 // 블록 위 상태이펙트 오버레이
@@ -171,7 +216,7 @@ const drawBlocks = (ctx) => {
 
         const now = world.lastTs;
 
-        if (bl.dotUntil && bl.dotUntil > now) {
+        if (bl.flameUntil && bl.flameUntil > now) {
             ctx.save();
             ctx.globalCompositeOperation = 'screen';
             drawEffectOverlay(ctx, bl, 'FLAME');
@@ -211,18 +256,84 @@ const drawBlocks = (ctx) => {
     }
 };
 
+// 라운드 박스 헬퍼
+const fillRoundRect = (ctx, x, y, w, h, r, fill) => {
+    if (r <= 0) {
+        ctx.fillStyle = fill;
+        ctx.fillRect(x, y, w, h);
+        return;
+    }
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + r, r);
+    ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+    ctx.arcTo(x, y + h, x, y + h - r, r);
+    ctx.arcTo(x, y, x + r, y, r);
+    ctx.closePath();
+    ctx.fillStyle = fill;
+    ctx.fill();
+};
+
 // 아이템
 const drawItems = (ctx) => {
-    const prevAlign = ctx.textAlign;
     for (let i = 0; i < world.items.length; i++) {
         const it = world.items[i];
-        fillRect(ctx, it.x, it.y, it.w, it.h, colorOfItem(it.kind));
-        ctx.fillStyle = 'rgba(0,0,0,0.35)';
-        ctx.font = '10px system-ui, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText(labelOfItem(it.kind), it.x + it.w / 2, it.y + it.h / 2 + 3);
+
+        // 컨테이너 색 결정
+        let boxColor = ITEM_BOX_COLOR.SB;
+        if (it.kind === 'MAX_BALL') {
+            boxColor = ITEM_BOX_COLOR.MAX_BALL;
+        } else {
+            if (it.kind === 'DMG_UP') {
+                boxColor = ITEM_BOX_COLOR.DMG_UP;
+            } else {
+                if (it.kind === 'HP_UP') {
+                    boxColor = ITEM_BOX_COLOR.HP_UP;
+                }
+            }
+        }
+
+        // 컨테이너(라운드)
+        fillRoundRect(ctx, it.x, it.y, it.w, it.h, ITEM_RADIUS, boxColor);
+
+        // 아이콘 패딩 및 배치
+        const pad = Math.max(2, Math.floor(Math.min(it.w, it.h) * 0.18));
+        const ix = it.x + pad;
+        const iy = it.y + pad;
+        const iw = it.w - pad * 2;
+        const ih = it.h - pad * 2;
+
+        let drawn = false;
+
+        // SB_* → 특수볼 에셋 재사용
+        if (typeof it.kind === 'string' && it.kind.startsWith('SB_') === true) {
+            const ballKey = it.kind.slice(3); // SB_POWER → POWER
+            if (isBallReady(ballKey) === true) {
+                const img = getBallSprite(ballKey);
+                drawContainImage(ctx, img, ix, iy, iw, ih);
+                drawn = true;
+            }
+        } else {
+            // 일반 아이템 → item-*.svg
+            if (isItemReady(it.kind) === true) {
+                const img = getItemSprite(it.kind);
+                drawContainImage(ctx, img, ix, iy, iw, ih);
+                drawn = true;
+            }
+        }
+
+        // 폴백 텍스트
+        if (drawn !== true) {
+            ctx.fillStyle = 'rgba(0,0,0,0.35)';
+            ctx.font = '10px system-ui, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(
+                it.kind && it.kind.startsWith('SB_') ? it.kind.slice(3, 4) : '?',
+                it.x + it.w / 2,
+                it.y + it.h / 2 + 3,
+            );
+        }
     }
-    ctx.textAlign = prevAlign;
 };
 
 // FX
@@ -302,20 +413,24 @@ const drawFx = (ctx, ts) => {
 
         if (f.type === 'LASER') {
             const t = (ts - f.start) / (f.end - f.start);
-            const alpha = 0.65 * (1 - t);
-            const h = 6;
+            const fade = 1 - t;
+
+            const h = BLOCK_SIZE; // 요청: 블록사이즈 두께
+            const ctxW = ctx.canvas.width;
+            const yTop = f.y - h / 2;
 
             ctx.save();
-            ctx.globalAlpha = alpha;
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.globalAlpha = Math.max(0, Math.min(1, 0.95 * fade)); // 페이드만 적용
 
-            const w = ctx.canvas.width;
-            const grd = ctx.createLinearGradient(0, f.y, w, f.y);
-            grd.addColorStop(0.0, 'rgba(255,188,0,0)');
-            grd.addColorStop(0.1, 'rgba(255,188,0,1)');
-            grd.addColorStop(0.9, 'rgba(255,188,0,1)');
-            grd.addColorStop(1.0, 'rgba(255,188,0,0)');
-            ctx.fillStyle = grd;
-            ctx.fillRect(0, f.y - h / 2, w, h);
+            if (isEffectReady('LASER') === true) {
+                const img = getEffectSprite('LASER');
+                drawContainImage(ctx, img, 0, yTop, ctxW, h);
+            } else {
+                // 폴백: 아주 옅은 단색 띠만 표시(디버그용)
+                ctx.fillStyle = 'rgba(255,188,0,0.25)';
+                ctx.fillRect(0, yTop, ctxW, h);
+            }
 
             ctx.restore();
             continue;

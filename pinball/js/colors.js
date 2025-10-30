@@ -5,10 +5,10 @@ export const SB_COLOR = {
     FLAME: '#ff3d32',
     PIERCE: '#06d6a0',
     EXPLO: '#855e2e',
-    SPLIT: '#53ff3a',
+    SPLIT: '#ebea0b',
     ICE: '#00bcd4',
     VOID: '#8d99ae',
-    LASER: '#ffd166',
+    LASER: '#0055ff',
     BLEED: '#701c1c',
 };
 

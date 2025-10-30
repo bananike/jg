@@ -2,7 +2,7 @@ export const W = 460;
 export const H = 720;
 
 // 플레이어
-export const PLAYER_SIZE = 34;
+export const PLAYER_SIZE = 64;
 export const PLAYER_SPEED = 6;
 
 // 일반 볼
@@ -20,7 +20,7 @@ export const CELL = Math.floor((W - LEFT_PAD - RIGHT_PAD) / COLS);
 export const BLOCK_SIZE = CELL - GAP;
 
 // 낙하 및 난이도
-export const FALL_BASE = 0.32;
+export const FALL_BASE = 0.16;
 export const FALL_GAIN_PER_SEC = 0.0008;
 export const HP_GROWTH_PER_SEC = 0.05;
 export const MIN_V_GAP = 8;
@@ -31,12 +31,23 @@ export const ITEM_FALL = 0.95;
 
 // 보스
 export const BOSS_SIZE = BLOCK_SIZE * 3;
-export const BOSS_HP_MULT = 8;
+export const BOSS_HP_MULT = 12;
 export const BOSS_FIRST_DELAY = 10; // s
 export const BOSS_INTERVAL = 25; // s
 export const PRE_BOSS_FREEZE = 3; // s
 export const POST_BOSS_FREEZE = 2; // s
 export const BOSS_DROP_ROLLS = 2;
+
+// 아이템 박스 공통 크기·색
+export const ITEM_W = 48; // 원하는 값
+export const ITEM_H = 48; // 원하는 값
+export const ITEM_RADIUS = 8; // 라운드 코너
+export const ITEM_BOX_COLOR = {
+    MAX_BALL: '#24313a',
+    DMG_UP: '#33202a',
+    HP_UP: '#1f2f24',
+    SB: '#262626', // SB_* 컨테이너 기본색
+};
 
 // 특수볼
 export const SB = {
@@ -66,7 +77,7 @@ export const ITEM = {
     SB_BLEED: 'SB_BLEED',
 };
 
-export const BLOCK_SKINS = 4;
+export const BLOCK_SKINS = 9;
 export const BLOCK_TIERS = ['low', 'mid', 'high'];
 export const ASSET_BASE = './assets';
 

@@ -60,6 +60,34 @@
         .hud-item {
             min-width: 120px
         }
+
+        .help_text {
+            position: absolute;
+            top: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding-left: 20px;
+            left: 50%;
+        }
+
+        .help_text li {
+            height: 20px;
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+
+            & img {
+                display: block;
+                height: 100%;
+                width: auto;
+                aspect-ratio: 1 / 1;
+                border-width: 2px;
+                border-style: solid;
+                border-radius: 50%;
+            }
+        }
     </style>
 </head>
 
@@ -67,13 +95,56 @@
     <div id="wrap">
         <div id="hud">
             <div class="hud-item">점수: <span id="score">0</span></div>
-            <div class="hud-item">HP: <span id="hp">3</span></div>
-            <div class="hud-item">최대 볼: <span id="maxBalls">5</span></div>
+            <div class="hud-item"><img style="width:16px; height:16px;" src="./assets/item-hp_up.svg">x<span
+                    id="hp">3</span></div>
+            <div class="hud-item"><img style="width:16px; height:16px;" src="./assets/item-max_ball.svg">x<span
+                    id="maxBalls">5</span></div>
             <!-- <div class="hud-item">볼 데미지: <span id="ballDmg">1.00</span></div> 추가 -->
             <div class="hud-item" id="hud-sb">특수볼 재고: <span id="sbStock">D:0 | F:0 | P:0 | X:0 | S:0</span></div>
             <div><button id="restart">다시 시작</button></div>
         </div>
         <canvas id="game" width="460" height="720"></canvas>
+        <p>
+            &larr; &rarr;좌우이동 / z x 각도조절 / space 게임시작
+        </p>
+        <ul id="helpBoard" class="help_text">
+            <li data-sb="POWER">
+                <img src="./assets/ball-power.svg" alt="" />
+                <p>POWER: 더 강한 공격, 느린 속도</p>
+            </li>
+            <li data-sb="FLAME">
+                <img src="./assets/ball-flame.svg" alt="" />
+                <p>FLAME: 지속 데미지를 줌</p>
+            </li>
+            <li data-sb="PIERCE">
+                <img src="./assets/ball-pierce.svg" alt="" />
+                <p>PIERCE: 관통 공격</p>
+            </li>
+            <li data-sb="EXPLO">
+                <img src="./assets/ball-explo.svg" alt="" />
+                <p>EXPLO: 범위 공격</p>
+            </li>
+            <li data-sb="SPLIT">
+                <img src="./assets/ball-split.svg" alt="" />
+                <p>SPLIT: 공격 시 분열</p>
+            </li>
+            <li data-sb="ICE">
+                <img src="./assets/ball-ice.svg" alt="" />
+                <p>ICE: 블록을 얼림</p>
+            </li>
+            <li data-sb="VOID">
+                <img src="./assets/ball-void.svg" alt="" />
+                <p>VOID: 블록을 삭제</p>
+            </li>
+            <li data-sb="LASER">
+                <img src="./assets/ball-laser.svg" alt="" />
+                <p>LASER: 줄 전체를 공격</p>
+            </li>
+            <li data-sb="BLEED">
+                <img src="./assets/ball-bleed.svg" alt="" />
+                <p>BLEED: 추가 데미지를 줌</p>
+            </li>
+        </ul>
     </div>
     <script type="module" src="./js/main.js"></script>
 </body>
