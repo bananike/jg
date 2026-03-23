@@ -123,36 +123,32 @@ const EVOS = [
 
 /* ── 탐색지 ── */
 const LOCATIONS = [
+    // ── 낮밤 공통 ──
     { id:"lake",    name:"호수",   time:"any",   attr:"물",     items:[
-        {name:"크라보열매",type:"fruit",weight:30},{name:"오랭열매",type:"fruit",weight:30},
-        {name:"물의돌",type:"stone",weight:25},{name:"태양조각",type:"shard",weight:15}]},
+        {name:"물의돌",type:"stone",weight:30},{name:"태양조각",type:"shard",weight:20}]},
     { id:"volcano", name:"화산",   time:"any",   attr:"불",     items:[
-        {name:"치리열매",type:"fruit",weight:30},{name:"오랭열매",type:"fruit",weight:30},
-        {name:"불꽃의돌",type:"stone",weight:25},{name:"태양조각",type:"shard",weight:15}]},
+        {name:"불꽃의돌",type:"stone",weight:30},{name:"태양조각",type:"shard",weight:20}]},
     { id:"flower",  name:"꽃밭",   time:"day",   attr:"페어리", items:[
-        {name:"모모열매",type:"fruit",weight:30},{name:"오랭열매",type:"fruit",weight:30},
-        {name:"리본",type:"special",weight:25},{name:"태양조각",type:"shard",weight:15}]},
+        {name:"리본",type:"special",weight:30},{name:"태양조각",type:"shard",weight:20}]},
+    // ── 낮밤 공통 ──
     { id:"forest",  name:"숲",     time:"any",   attr:"풀",     items:[
-        {name:"모모열매",type:"fruit",weight:30},{name:"나나열매",type:"fruit",weight:30},
-        {name:"이끼바위조각",type:"material",weight:25},{name:"오랭열매",type:"fruit",weight:15}]},
+        {name:"이끼바위조각",type:"material",weight:30},{name:"태양조각",type:"shard",weight:10},{name:"달조각",type:"shard",weight:10}]},
     { id:"plant",   name:"발전소", time:"any",   attr:"전기",   items:[
-        {name:"나나열매",type:"fruit",weight:30},{name:"치리열매",type:"fruit",weight:30},
-        {name:"천둥의돌",type:"stone",weight:25},{name:"오랭열매",type:"fruit",weight:15}]},
+        {name:"천둥의돌",type:"stone",weight:30},{name:"태양조각",type:"shard",weight:10},{name:"달조각",type:"shard",weight:10}]},
     { id:"snow",    name:"설산",   time:"any",   attr:"얼음",   items:[
-        {name:"크라보열매",type:"fruit",weight:30},{name:"라즈열매",type:"fruit",weight:30},
-        {name:"얼음바위조각",type:"material",weight:25},{name:"오랭열매",type:"fruit",weight:15}]},
+        {name:"얼음바위조각",type:"material",weight:30},{name:"태양조각",type:"shard",weight:10},{name:"달조각",type:"shard",weight:10}]},
+    // ── 낮 전용 ──
     { id:"temple",  name:"신전",   time:"day",   attr:"에스퍼", items:[
-        {name:"라즈열매",type:"fruit",weight:30},{name:"오랭열매",type:"fruit",weight:30},
         {name:"태양조각",type:"shard",weight:25},{name:"달조각",type:"shard",weight:15}]},
     { id:"tower",   name:"폐탑",   time:"night", attr:"악",     items:[
-        {name:"나나열매",type:"fruit",weight:30},{name:"라즈열매",type:"fruit",weight:30},
-        {name:"달조각",type:"shard",weight:25},{name:"태양조각",type:"shard",weight:15}]},
+        {name:"달조각",type:"shard",weight:30},{name:"태양조각",type:"shard",weight:20}]},
+    // ── 히든 (포스트게임) ──
     { id:"den",     name:"거대소굴", time:"night", attr:"왕",   hidden:true, unlock:"base8", items:[
-        {name:"다이버섯",type:"stone",weight:30},{name:"오랭열매",type:"fruit",weight:40},{name:"나나열매",type:"fruit",weight:30}]},
+        {name:"다이버섯",type:"stone",weight:15},{name:"태양조각",type:"shard",weight:25},{name:"달조각",type:"shard",weight:25}]},
     { id:"ruins",   name:"고대유적", time:"night",attr:"메가", hidden:true, unlock:"gmax", items:[
-        {name:"이브이나이트",type:"stone",weight:30},{name:"라즈열매",type:"fruit",weight:40},{name:"달조각",type:"shard",weight:30}]},
-    { id:"valley",  name:"용의계곡", time:"day",   attr:"드래곤",hidden:true, unlock:"gmax_mega", items:[
-        {name:"용의비늘",type:"stone",weight:30},{name:"치리열매",type:"fruit",weight:40},{name:"태양조각",type:"shard",weight:30}]},
+        {name:"이브이나이트",type:"stone",weight:15},{name:"달조각",type:"shard",weight:30}]},
+    { id:"valley",  name:"용의계곡", time:"day",  attr:"드래곤",hidden:true, unlock:"gmax_mega", items:[
+        {name:"용의비늘",type:"stone",weight:15},{name:"태양조각",type:"shard",weight:30}]},
 ];
 
 const FRUITS = ["오랭열매","치리열매","크라보열매","모모열매","나나열매","라즈열매"];
@@ -458,7 +454,7 @@ function updateFarmEntities() {
 
             if (dist < 0.08) {
                 const isFarmEevee = state.farm.includes(e);
-                if (isFruit && isFarmEevee && e.aiState === "walk") {
+                if (isFruit && isFarmEevee && e.aiState === "walk" && (e.activity || 0) < ACTIVITY_MAX) {
                     // 진화 이브이가 열매 자동 섭취
                     let delta = ACTIVITY_FRUIT_NEUTRAL;
                     let reaction = "neutral";
@@ -511,23 +507,26 @@ function checkEvolution() {
         if (evo.postGame && !base8Complete()) continue;
         let match = false;
         switch (evo.condition) {
-            case "stone": match = state._deliveredItem === evo.stone; break;
+            case "stone":
+                match = state._deliveredItem === evo.stone;
+                if (evo.postGame) match = match && ee.friendship >= 10;
+                break;
             case "friendship_day": match = ee.friendship >= FRIENDSHIP.max && tod === "day"; break;
             case "friendship_night": match = ee.friendship >= FRIENDSHIP.max && tod === "night"; break;
             case "craft": match = state._deliveredItem === evo.craft; break;
             case "friendship_item": match = ee.friendship >= FRIENDSHIP.max && state._deliveredItem === evo.item; break;
             case "friendship_zero": match = ee.friendship <= 0; break;
-            case "explore_count": match = ee.exploreCount >= 15; break;
-            case "skip_count": match = state.skipCount >= 10; break;
-            case "dragon":
-                match = state.collected.has("gmax") && state.collected.has("mega") && state._deliveredItem === "용의비늘";
-                break;
-            case "repeat_explore": match = ee.repeatCount >= 3; break;
+            case "explore_count": match = ee.exploreCount >= 20 && ee.friendship >= 10; break;
+            case "skip_count": match = state.skipCount >= 8 && state.totalRests >= 3; break;
+            case "repeat_explore": match = ee.repeatCount >= 5 && ee.friendship >= 8; break;
             case "all_locations":
                 match = LOCATIONS.filter(l => !l.hidden || isLocationUnlocked(l)).every(l => ee.visitedLocations.has(l.id));
                 break;
             case "three_stones":
                 match = ["물의돌","불꽃의돌","천둥의돌"].filter(s => hasItem(s)).length >= 3;
+                break;
+            case "dragon":
+                match = state.collected.has("gmax") && state.collected.has("mega") && state._deliveredItem === "용의비늘" && ee.friendship >= 15;
                 break;
         }
         if (match) {
@@ -649,9 +648,9 @@ function doExplore(location) {
     }
     ee.lastLocation = location.id;
 
-    // 열매와 아이템을 독립 판정 (힌트 부스트 적용)
-    const fruitPool = location.items.filter(i => i.type === "fruit");
-    const boosted = state.hintBoosts.filter(b => b.locId === location.id);
+    // 열매(공통 풀)와 아이템(장소별)을 독립 판정 (힌트 부스트 적용)
+    const fruitPool = FRUITS.map(f => ({name: f, type: "fruit", weight: 1}));
+    const boosted = state.hintBoosts ? state.hintBoosts.filter(b => b.locId === location.id) : [];
     const itemPool = location.items.filter(i => i.type !== "fruit").map(i => {
         if (boosted.some(b => b.itemName === i.name)) return { ...i, weight: i.weight * 2 };
         return i;
@@ -664,14 +663,14 @@ function doExplore(location) {
         const d = weightedRandom(itemPool);
         drops.push(d);
     }
-    // 열매: 60% 확률로 등장
-    if (fruitPool.length > 0 && Math.random() < 0.60) {
+    // 열매: 60% 확률로 등장 (모든 열매 균등)
+    if (Math.random() < 0.60) {
         const d = weightedRandom(fruitPool);
         drops.push(d);
     }
     // 둘 다 안 나오면 열매 1개 보장
     if (drops.length === 0) {
-        drops.push(fruitPool.length > 0 ? weightedRandom(fruitPool) : weightedRandom(location.items));
+        drops.push(weightedRandom(fruitPool));
     }
 
     // 농장 바닥에 랜덤 배치
@@ -705,36 +704,55 @@ function feedItem(itemName) {
     if (isFruit) {
         removeItem(itemName);
         let reaction = "neutral";
+        let delta = 0;
         if (itemName === ee.likedFruit) {
+            const before = ee.friendship;
             ee.friendship = clamp(ee.friendship + FRIENDSHIP.liked, -5, FRIENDSHIP.max + 5);
+            delta = ee.friendship - before;
             reaction = "liked"; ee.knownLiked = true;
         } else if (itemName === ee.dislikedFruit) {
+            const before = ee.friendship;
+            ee.friendship = clamp(ee.friendship + FRIENDSHIP.disliked, -5, FRIENDSHIP.max + 5);
+            delta = ee.friendship - before;
+            console.log(`[싫은열매] ${itemName}: 친밀도 ${before} → ${ee.friendship} (delta: ${delta})`);
             reaction = "disliked"; ee.knownDisliked = true;
         } else {
-            // 보통 열매 → 스태미나 1칸 회복
             ee.stamina = Math.min(STAMINA.max, ee.stamina + 1);
             reaction = "stamina";
         }
         const scr = worldToScreen(ee.wx, ee.wy);
-        state.feedbackAnim = { type: reaction, timer: 70, x: scr.sx, y: scr.sy - 30 };
+        state.feedbackAnim = { type: reaction, timer: 70, x: scr.sx, y: scr.sy - 30, delta };
         state.panel = null; state.panelSlide = 0;
+        // 친밀도 0 이하 시 즉시 고스트 진화 체크
+        if (ee.friendship <= 0) {
+            const evo = checkEvolution();
+            if (evo) { triggerEvolution(evo); return; }
+        }
     } else if (itemName === "태양조각" || itemName === "달조각") {
         removeItem(itemName);
         const isMatch = (itemName === "태양조각" && state.timeOfDay === "day") ||
                          (itemName === "달조각" && state.timeOfDay === "night");
         if (isMatch) {
+            const before = ee.friendship;
             ee.friendship = clamp(ee.friendship + FRIENDSHIP.sun_day, -5, FRIENDSHIP.max + 5);
+            const d = ee.friendship - before;
             const scr = worldToScreen(ee.wx, ee.wy);
-            state.feedbackAnim = { type: "liked", timer: 70, x: scr.sx, y: scr.sy - 30 };
+            state.feedbackAnim = { type: "liked", timer: 70, x: scr.sx, y: scr.sy - 30, delta: d };
         } else {
             const scr = worldToScreen(ee.wx, ee.wy);
             state.feedbackAnim = { type: "neutral", timer: 70, x: scr.sx, y: scr.sy - 30 };
         }
         state.panel = null; state.panelSlide = 0;
+        // 친밀도 max 시 즉시 진화 체크
+        if (ee.friendship >= FRIENDSHIP.max) {
+            const evo = checkEvolution();
+            if (evo) { triggerEvolution(evo); return; }
+        }
     } else {
-        // 님피아 리본: 친밀도 부족 시 전달 거부
-        if (itemName === "리본" && ee.friendship < FRIENDSHIP.max) {
-            showMessage("이브이가 아직 리본을 받을 준비가 안 된 것 같다...", 120);
+        // 친밀도 부족 시 전달 거부
+        const friendReq = {"리본": FRIENDSHIP.max, "다이버섯": 10, "이브이나이트": 10, "용의비늘": 15};
+        if (friendReq[itemName] && ee.friendship < friendReq[itemName]) {
+            showMessage("이브이가 아직 이 아이템을 받아들일 준비가 안 된 것 같다...", 120);
             state.panel = null; state.panelSlide = 0;
             return;
         }
@@ -807,10 +825,10 @@ function getHint() {
     if (!state.collected.has("sylveon")) hints.push("이브이와 충분히 친해진 뒤, 꽃밭에서 찾을 수 있는 리본을 주면...");
     if (base8Complete()) {
         if (!state.collected.has("gmax")) hints.push("새로운 탐색지가 열린 것 같다... 거대한 무언가의 기운이...");
-        if (!state.collected.has("ghost") && ee.friendship <= 2) hints.push("이브이가 점점 지쳐가고 있다... 이대로 계속 싫어하는 걸 주면...");
-        if (!state.collected.has("fighting") && ee.exploreCount >= 8) hints.push("탐색을 계속하면 이브이가 점점 강해지는 것 같다...");
-        if (!state.collected.has("ground") && state.skipCount >= 5) hints.push("가만히 시간을 보내다 보면 땅의 기운이 느껴진다...");
-        if (!state.collected.has("rock") && ee.repeatCount >= 3) hints.push("같은 장소를 계속 가다 보면 이브이가 변할지도...");
+        if (!state.collected.has("ghost")) hints.push("이브이가 싫어하는 열매를 계속 먹여서 친밀도를 0 이하로 떨어뜨리면... 어둠의 진화가 일어날지도...");
+        if (!state.collected.has("fighting") && ee.exploreCount >= 10) hints.push("이브이와 친해진 상태로 탐색을 많이 하면 강해질 것 같다...");
+        if (!state.collected.has("ground") && state.skipCount >= 4) hints.push("충분히 쉬다 보면 땅의 기운이 느껴진다...");
+        if (!state.collected.has("rock") && ee.repeatCount >= 3) hints.push("이브이와 친해진 상태로 같은 장소를 계속 가면 변할지도...");
         if (!state.collected.has("flying") && ee.visitedLocations.size >= 5) hints.push("더 많은 곳을 돌아다니면 이브이에게 날개가 생길지도...");
         if (!state.collected.has("steel")) hints.push("진화석 여러 종류를 동시에 갖고 있으면 무슨 일이 생길지도...");
     }
@@ -952,6 +970,46 @@ function consumeClick() {
     if (!clicked) return null;
     clicked = false;
     return { x: clickX, y: clickY };
+}
+
+/* ── 개발자 치트코드 (키 시퀀스: eevee) ── */
+let cheatBuf = "";
+document.addEventListener("keydown", e => {
+    cheatBuf += e.key.toLowerCase();
+    if (cheatBuf.length > 10) cheatBuf = cheatBuf.slice(-10);
+    if (cheatBuf.endsWith("eevee")) {
+        cheatBuf = "";
+        state.popup = { type: "cheat" };
+        state.popupTimer = 0;
+    }
+});
+
+function applyCheat(type) {
+    const ee = state.currentEevee;
+    if (type === "items") {
+        // 모든 열매 100개
+        for (const f of FRUITS) addItem(f, 100);
+        // 진화용 아이템
+        for (const name of ["물의돌","불꽃의돌","천둥의돌","리본","이끼바위조각","얼음바위조각","태양조각","달조각","다이버섯","이브이나이트","용의비늘"]) addItem(name, 10);
+        showMessage("🔧 모든 아이템 추가!", 90);
+    } else if (type === "friendship_max") {
+        if (ee) ee.friendship = FRIENDSHIP.max;
+        showMessage("🔧 친밀도 MAX!", 90);
+    } else if (type === "friendship_zero") {
+        if (ee) ee.friendship = -1;
+        showMessage("🔧 친밀도 → -1!", 90);
+    } else if (type === "stamina") {
+        if (ee) ee.stamina = STAMINA.max;
+        showMessage("🔧 스태미나 MAX!", 90);
+    } else if (type === "explore") {
+        if (ee) { ee.exploreCount = 25; ee.repeatCount = 6; }
+        state.skipCount = 15; state.totalRests = 10;
+        showMessage("🔧 탐색/휴식 카운트 충전!", 90);
+    } else if (type === "unlock_base8") {
+        for (const evo of EVOS.slice(0, 8)) state.collected.add(evo.id);
+        showMessage("🔧 기본 8종 해금!", 90);
+    }
+    state.popup = null;
 }
 
 function hitBox(cx, cy, bx, by, bw, bh) {
@@ -1382,8 +1440,14 @@ function drawFarmEntities() {
         ctx.globalAlpha = alpha;
         ctx.font = "24px system-ui";
         ctx.textAlign = "center";
-        if (fb.type === "liked") { ctx.fillStyle = "#FF69B4"; ctx.fillText("♥", fb.x, fb.y - yOff); }
-        else if (fb.type === "disliked") { ctx.fillStyle = "#FF4444"; ctx.fillText("💢", fb.x, fb.y - yOff); }
+        if (fb.type === "liked") {
+            ctx.fillStyle = "#FF69B4"; ctx.fillText("♥", fb.x, fb.y - yOff);
+            if (fb.delta) { ctx.font = "bold 14px system-ui"; ctx.fillText(`+${fb.delta}`, fb.x, fb.y - yOff + 20); }
+        }
+        else if (fb.type === "disliked") {
+            ctx.fillStyle = "#FF4444"; ctx.fillText("💢", fb.x, fb.y - yOff);
+            if (fb.delta) { ctx.font = "bold 14px system-ui"; ctx.fillText(`${fb.delta}`, fb.x, fb.y - yOff + 20); }
+        }
         else if (fb.type === "stamina") { ctx.fillStyle = "#4FC3F7"; ctx.fillText("⚡", fb.x, fb.y - yOff); }
         else { ctx.fillStyle = "#aaa"; ctx.fillText("...", fb.x, fb.y - yOff); }
         ctx.globalAlpha = 1;
@@ -1668,16 +1732,11 @@ function drawInventoryPanel() {
             }
         }
 
-        // 전달
-        const fbx = bx + bw - 70, fbw = 32;
-        ctx.fillStyle = "#3a7d44"; roundRect(fbx, by + 5, fbw, 26, 4); ctx.fill();
-        ctx.fillStyle = "#fff"; ctx.font = "bold 10px system-ui"; ctx.textAlign = "center";
-        ctx.fillText("전달", fbx + fbw / 2, by + 18);
-
         // 버리기
-        const dbx = bx + bw - 34, dbw = 32;
+        const dbx = bx + bw - 38, dbw = 34;
         ctx.fillStyle = "#555"; roundRect(dbx, by + 5, dbw, 26, 4); ctx.fill();
-        ctx.fillStyle = "#ccc"; ctx.fillText("버리기", dbx + dbw / 2, by + 18);
+        ctx.fillStyle = "#ccc"; ctx.font = "bold 10px system-ui"; ctx.textAlign = "center";
+        ctx.fillText("버리기", dbx + dbw / 2, by + 18);
     }
 
     // 아이템 컬럼 (우)
@@ -1695,16 +1754,11 @@ function drawInventoryPanel() {
         ctx.textAlign = "left"; ctx.fillStyle = "#ddd"; ctx.font = "12px system-ui";
         ctx.fillText(`${itemEmoji(name)} ${name} x${count}`, bx + 6, by + 13);
 
-        // 전달
-        const fbx = bx + bw - 70, fbw = 32;
-        ctx.fillStyle = "#3a7d44"; roundRect(fbx, by + 5, fbw, 26, 4); ctx.fill();
-        ctx.fillStyle = "#fff"; ctx.font = "bold 10px system-ui"; ctx.textAlign = "center";
-        ctx.fillText("전달", fbx + fbw / 2, by + 18);
-
         // 버리기
-        const dbx = bx + bw - 34, dbw = 32;
-        ctx.fillStyle = "#555"; roundRect(dbx, by + 5, dbw, 26, 4); ctx.fill();
-        ctx.fillStyle = "#ccc"; ctx.fillText("버리기", dbx + dbw / 2, by + 18);
+        const dbx2 = bx + bw - 38, dbw2 = 34;
+        ctx.fillStyle = "#555"; roundRect(dbx2, by + 5, dbw2, 26, 4); ctx.fill();
+        ctx.fillStyle = "#ccc"; ctx.font = "bold 10px system-ui"; ctx.textAlign = "center";
+        ctx.fillText("버리기", dbx2 + dbw2 / 2, by + 18);
     }
 
     ctx.restore();
@@ -2060,12 +2114,21 @@ function drawPopup() {
     const isFeedFarm = p.type === "feed_farm";
     let pw = 300, ph = 140;
     if (isFeedCurrent) {
-        const itemRows = Math.ceil(Object.keys(state.inventory).length / 3);
-        pw = 320; ph = 65 + Math.min(itemRows, 4) * 36;
+        const invFruits = Object.keys(state.inventory).filter(n => FRUITS.includes(n));
+        const invOthers = Object.keys(state.inventory).filter(n => !FRUITS.includes(n));
+        const frRows = Math.ceil(invFruits.length / 3);
+        const otRows = Math.ceil(invOthers.length / 3);
+        pw = 320;
+        ph = 50; // title + friendship
+        if (invFruits.length > 0) ph += 20 + frRows * 36;
+        if (invOthers.length > 0) ph += 20 + otRows * 36;
+        ph += 10;
     } else if (isFeedFarm) {
         const af = FRUITS.filter(f => hasItem(f));
         const fruitRows = Math.ceil(af.length / 3);
         ph = af.length > 0 ? 90 + fruitRows * 36 : 130;
+    } else if (p.type === "cheat") {
+        pw = 280; ph = 260;
     }
     const px = (CW - pw) / 2, py = (CH - ph) / 2 - 30;
 
@@ -2162,26 +2225,46 @@ function drawPopup() {
         const ee = state.currentEevee;
         ctx.fillStyle = "#FFD54F"; ctx.font = "bold 15px system-ui";
         ctx.fillText("이브이에게 아이템 주기", px + pw / 2, py + 22);
-        // 친밀도 + 스태미나 표시
         ctx.fillStyle = "#4FC3F7"; ctx.font = "11px system-ui";
         ctx.fillText(`친밀도: ${Math.round(ee.friendship)} / ${FRIENDSHIP.max}  ⚡스태미나: ${Math.floor(ee.stamina)} / ${STAMINA.max}`, px + pw / 2, py + 40);
-        // 아이템 버튼들
-        const allItems = Object.entries(state.inventory);
+        // 열매와 아이템 분리
+        const invFruits = Object.entries(state.inventory).filter(([n]) => FRUITS.includes(n));
+        const invOthers = Object.entries(state.inventory).filter(([n]) => !FRUITS.includes(n));
         const cols = 3;
-        for (let i = 0; i < allItems.length && i < 12; i++) {
-            const [name, count] = allItems[i];
-            const col = i % cols, row = Math.floor(i / cols);
-            const fbx = px + 10 + col * 100, fby = py + 55 + row * 36, fbw = 92, fbh = 30;
-            // 좋아함/싫어함 테두리
-            let border = "#555";
-            if (FRUITS.includes(name)) {
+        let curY = py + 50;
+        // ── 열매 섹션 ──
+        if (invFruits.length > 0) {
+            ctx.fillStyle = "#8BC34A"; ctx.font = "bold 11px system-ui";
+            ctx.fillText("── 열매 ──", px + pw / 2, curY + 10);
+            curY += 20;
+            for (let i = 0; i < invFruits.length; i++; i++) {
+                const [name, count] = invFruits[i];
+                const col = i % cols, row = Math.floor(i / cols);
+                const fbx = px + 10 + col * 100, fby = curY + row * 36, fbw = 92, fbh = 30;
+                let border = "#555";
                 if (ee.knownLiked && name === ee.likedFruit) border = "#4CAF50";
                 else if (ee.knownDisliked && name === ee.dislikedFruit) border = "#E53935";
+                ctx.fillStyle = "rgba(50,50,90,0.9)"; ctx.strokeStyle = border; ctx.lineWidth = border === "#555" ? 1 : 2;
+                roundRect(fbx, fby, fbw, fbh, 5); ctx.fill(); ctx.stroke();
+                ctx.fillStyle = "#fff"; ctx.font = "11px system-ui";
+                ctx.fillText(`${itemEmoji(name)} x${count}`, fbx + fbw / 2, fby + fbh / 2);
             }
-            ctx.fillStyle = "rgba(50,50,90,0.9)"; ctx.strokeStyle = border; ctx.lineWidth = border === "#555" ? 1 : 2;
-            roundRect(fbx, fby, fbw, fbh, 5); ctx.fill(); ctx.stroke();
-            ctx.fillStyle = "#fff"; ctx.font = "11px system-ui";
-            ctx.fillText(`${itemEmoji(name)} x${count}`, fbx + fbw / 2, fby + fbh / 2);
+            curY += Math.ceil(invFruits.length / cols) * 36;
+        }
+        // ── 아이템 섹션 ──
+        if (invOthers.length > 0) {
+            ctx.fillStyle = "#FFD54F"; ctx.font = "bold 11px system-ui";
+            ctx.fillText("── 아이템 ──", px + pw / 2, curY + 10);
+            curY += 20;
+            for (let i = 0; i < invOthers.length; i++; i++) {
+                const [name, count] = invOthers[i];
+                const col = i % cols, row = Math.floor(i / cols);
+                const fbx = px + 10 + col * 100, fby = curY + row * 36, fbw = 92, fbh = 30;
+                ctx.fillStyle = "rgba(50,50,90,0.9)"; ctx.strokeStyle = "#555"; ctx.lineWidth = 1;
+                roundRect(fbx, fby, fbw, fbh, 5); ctx.fill(); ctx.stroke();
+                ctx.fillStyle = "#fff"; ctx.font = "11px system-ui";
+                ctx.fillText(`${itemEmoji(name)} x${count}`, fbx + fbw / 2, fby + fbh / 2);
+            }
         }
     } else if (p.type === "feed_farm") {
         const e = state.farm[p.farmIdx];
@@ -2224,16 +2307,35 @@ function drawPopup() {
         ctx.fillText(`휴식하고 ${nextTime}으로 넘길까요?`, px + pw / 2, py + 35);
         ctx.fillStyle = "#aaa"; ctx.font = "13px system-ui";
         ctx.fillText(`스태미나가 회복됩니다`, px + pw / 2, py + 60);
-        // 확인 버튼
-        const ybx = px + 30, ybw = (pw - 80) / 2, yby = py + 85, ybh = 34;
+        // 확인 버튼 (간격 축소)
+        const ybw = (pw - 50) / 2, yby = py + 85, ybh = 34;
+        const ybx = px + 20;
         ctx.fillStyle = "#3a7d44"; roundRect(ybx, yby, ybw, ybh, 6); ctx.fill();
         ctx.fillStyle = "#fff"; ctx.font = "bold 14px system-ui";
         ctx.fillText("확인", ybx + ybw / 2, yby + ybh / 2);
         // 취소 버튼
-        const nbx = px + pw - 30 - ybw;
+        const nbx = px + pw - 20 - ybw;
         ctx.fillStyle = "#555"; roundRect(nbx, yby, ybw, ybh, 6); ctx.fill();
         ctx.fillStyle = "#ddd";
         ctx.fillText("취소", nbx + ybw / 2, yby + ybh / 2);
+    } else if (p.type === "cheat") {
+        ctx.fillStyle = "#FF5722"; ctx.font = "bold 15px system-ui";
+        ctx.fillText("🔧 DEV CHEAT 🔧", px + pw / 2, py + 22);
+        const btns = [
+            { label: "모든 아이템 추가", type: "items" },
+            { label: "친밀도 MAX", type: "friendship_max" },
+            { label: "친밀도 → -1", type: "friendship_zero" },
+            { label: "스태미나 MAX", type: "stamina" },
+            { label: "탐색/휴식 카운트 충전", type: "explore" },
+            { label: "기본 8종 해금", type: "unlock_base8" },
+        ];
+        for (let i = 0; i < btns.length; i++) {
+            const bx = px + 15, by = py + 38 + i * 36, bw = pw - 30, bh = 30;
+            ctx.fillStyle = "rgba(50,50,90,0.9)"; ctx.strokeStyle = "#FF5722"; ctx.lineWidth = 1;
+            roundRect(bx, by, bw, bh, 5); ctx.fill(); ctx.stroke();
+            ctx.fillStyle = "#fff"; ctx.font = "13px system-ui";
+            ctx.fillText(btns[i].label, bx + bw / 2, by + bh / 2);
+        }
     }
 }
 
@@ -2397,19 +2499,44 @@ function handleInput() {
     // 팝업 우선
     if (state.popup) {
         if (state.popup.type === "feed_current") {
-            const itemRows = Math.ceil(Object.keys(state.inventory).length / 3);
-            const pw = 320, ph = 65 + Math.min(itemRows, 4) * 36;
+            const invFruits = Object.entries(state.inventory).filter(([n]) => FRUITS.includes(n));
+            const invOthers = Object.entries(state.inventory).filter(([n]) => !FRUITS.includes(n));
+            const frRows = Math.ceil(invFruits.length / 3);
+            const otRows = Math.ceil(invOthers.length / 3);
+            const pw = 320;
+            let ph = 50;
+            if (invFruits.length > 0) ph += 20 + frRows * 36;
+            if (invOthers.length > 0) ph += 20 + otRows * 36;
+            ph += 10;
             const px = (CW - pw) / 2, py = (CH - ph) / 2 - 30;
-            const allItems = Object.entries(state.inventory);
             const cols = 3;
-            for (let i = 0; i < allItems.length && i < 12; i++) {
-                const [name] = allItems[i];
-                const col = i % cols, row = Math.floor(i / cols);
-                const fbx = px + 10 + col * 100, fby = py + 55 + row * 36, fbw = 92, fbh = 30;
-                if (hitBox(x, y, fbx, fby, fbw, fbh)) {
-                    feedItem(name);
-                    state.popup = null;
-                    return;
+            let curY = py + 50;
+            // 열매 클릭 → 팝업 유지
+            if (invFruits.length > 0) {
+                curY += 20;
+                for (let i = 0; i < invFruits.length; i++; i++) {
+                    const [name] = invFruits[i];
+                    const col = i % cols, row = Math.floor(i / cols);
+                    const fbx = px + 10 + col * 100, fby = curY + row * 36, fbw = 92, fbh = 30;
+                    if (hitBox(x, y, fbx, fby, fbw, fbh)) {
+                        feedItem(name);
+                        return;
+                    }
+                }
+                curY += Math.ceil(invFruits.length / cols) * 36;
+            }
+            // 아이템 클릭 → 팝업 닫기
+            if (invOthers.length > 0) {
+                curY += 20;
+                for (let i = 0; i < invOthers.length; i++; i++) {
+                    const [name] = invOthers[i];
+                    const col = i % cols, row = Math.floor(i / cols);
+                    const fbx = px + 10 + col * 100, fby = curY + row * 36, fbw = 92, fbh = 30;
+                    if (hitBox(x, y, fbx, fby, fbw, fbh)) {
+                        feedItem(name);
+                        state.popup = null;
+                        return;
+                    }
                 }
             }
             if (!hitBox(x, y, px, py, pw, ph)) { state.popup = null; }
@@ -2435,11 +2562,26 @@ function handleInput() {
             if (!hitBox(x, y, px, py, pw, ph)) { state.popup = null; state.selectedFarmEevee = null; }
             return;
         }
+        if (state.popup.type === "cheat") {
+            const pw = 280, ph = 260;
+            const px = (CW - pw) / 2, py = (CH - ph) / 2 - 30;
+            const types = ["items","friendship_max","friendship_zero","stamina","explore","unlock_base8"];
+            for (let i = 0; i < types.length; i++) {
+                const bx = px + 15, by = py + 38 + i * 36, bw = pw - 30, bh = 30;
+                if (hitBox(x, y, bx, by, bw, bh)) {
+                    applyCheat(types[i]);
+                    return;
+                }
+            }
+            if (!hitBox(x, y, px, py, pw, ph)) { state.popup = null; }
+            return;
+        }
         if (state.popup.type === "confirm_rest") {
             const pw = 300, ph = 140;
             const px = (CW - pw) / 2, py = (CH - ph) / 2 - 40;
-            const ybx = px + 30, ybw = (pw - 80) / 2, yby = py + 85, ybh = 34;
-            const nbx = px + pw - 30 - ybw;
+            const ybw = (pw - 50) / 2, yby = py + 85, ybh = 34;
+            const ybx = px + 20;
+            const nbx = px + pw - 20 - ybw;
             if (hitBox(x, y, ybx, yby, ybw, ybh)) {
                 state.popup = null; doRest();
             } else if (hitBox(x, y, nbx, yby, ybw, ybh)) {
@@ -2552,10 +2694,8 @@ function handleInput() {
                 const by = colStartY + HEADER_H + i * ITEM_H;
                 if (by + 38 < listTop) continue;
                 if (by > CH) break;
-                const fbx = bx + bw - 70;
-                if (hitBox(x, y, fbx, by + 5, 32, 26)) { feedItem(name); return; }
-                const dbx = bx + bw - 34;
-                if (hitBox(x, y, dbx, by + 5, 32, 26)) { dropItem(name); return; }
+                const dbx = bx + bw - 38;
+                if (hitBox(x, y, dbx, by + 5, 34, 26)) { dropItem(name); return; }
             }
             // 아이템 컬럼 클릭
             for (let i = 0; i < others.length; i++) {
@@ -2564,10 +2704,8 @@ function handleInput() {
                 const by = colStartY + HEADER_H + i * ITEM_H;
                 if (by + 38 < listTop) continue;
                 if (by > CH) break;
-                const fbx = bx + bw - 70;
-                if (hitBox(x, y, fbx, by + 5, 32, 26)) { feedItem(name); return; }
-                const dbx = bx + bw - 34;
-                if (hitBox(x, y, dbx, by + 5, 32, 26)) { dropItem(name); return; }
+                const dbx2 = bx + bw - 38;
+                if (hitBox(x, y, dbx2, by + 5, 34, 26)) { dropItem(name); return; }
             }
         } else if (state.panel === "dex") {
             // 도감은 클릭 동작 없음
