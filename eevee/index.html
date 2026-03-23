@@ -1,0 +1,2416 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <title>이브이 농장</title>
+    <style>
+        :root { color-scheme: dark }
+        * { box-sizing: border-box; margin: 0; padding: 0 }
+        html, body { height: 100%; overflow: hidden }
+        body {
+            background: #1a1a2e;
+            color: #e8e8ea;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: system-ui, -apple-system, sans-serif;
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-touch-callout: none;
+            touch-action: none;
+        }
+        canvas { display: block; image-rendering: pixelated; }
+    </style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+"use strict";
+
+/* ═══════════════════════════════════════════
+   1. CONSTANTS & CONFIG
+   ═══════════════════════════════════════════ */
+const CW = 480, CH = 720;
+const canvas = document.getElementById("c");
+let ctx = canvas.getContext("2d");
+
+/* ── roundRect 폴리필 ── */
+if (!CanvasRenderingContext2D.prototype.roundRect) {
+    CanvasRenderingContext2D.prototype.roundRect = function(x,y,w,h,r) {
+        if (typeof r === "number") r = [r,r,r,r];
+        if (Array.isArray(r) && r.length === 1) r = [r[0],r[0],r[0],r[0]];
+        const [tl,tr,br,bl] = r;
+        this.moveTo(x+tl,y);
+        this.lineTo(x+w-tr,y); this.quadraticCurveTo(x+w,y,x+w,y+tr);
+        this.lineTo(x+w,y+h-br); this.quadraticCurveTo(x+w,y+h,x+w-br,y+h);
+        this.lineTo(x+bl,y+h); this.quadraticCurveTo(x,y+h,x,y+h-bl);
+        this.lineTo(x,y+tl); this.quadraticCurveTo(x,y,x+tl,y);
+        this.closePath();
+    };
+}
+
+/* ── 배경 캐시 (오프스크린 캔버스) ── */
+let bgCache = null;
+let bgCacheTod = null;
+function invalidateBgCache() { bgCache = null; bgCacheTod = null; }
+
+function resize() {
+    const s = Math.min(window.innerWidth / CW, window.innerHeight / CH, 2);
+    canvas.width = CW; canvas.height = CH;
+    canvas.style.width = (CW * s) + "px";
+    canvas.style.height = (CH * s) + "px";
+    invalidateBgCache();
+}
+window.addEventListener("resize", resize);
+resize();
+
+function getBgCache() {
+    if (bgCache && bgCacheTod === state.timeOfDay) return bgCache;
+    const off = document.createElement("canvas");
+    off.width = CW; off.height = CH;
+    const origCtx = ctx;
+    ctx = off.getContext("2d");
+    drawBackground();
+    drawFloor();
+    ctx = origCtx;
+    bgCache = off;
+    bgCacheTod = state.timeOfDay;
+    return bgCache;
+}
+
+/* ── 쿼터뷰 농장 영역 ── */
+const FLOOR_TOP = 180, FLOOR_BOT = 520;
+const FLOOR_H = FLOOR_BOT - FLOOR_TOP;
+const FLOOR_PAD = 30;
+
+function worldToScreen(wx, wy) {
+    // wx: 0~1 (좌~우), wy: 0~1 (뒤~앞)
+    const perspective = 0.6 + wy * 0.4; // 뒤쪽 좁고 앞쪽 넓음
+    const sx = CW / 2 + (wx - 0.5) * (CW - FLOOR_PAD * 2) * perspective;
+    const sy = FLOOR_TOP + wy * FLOOR_H;
+    return { sx, sy };
+}
+
+function spriteSize(wy) {
+    return 36 + wy * 18; // 뒤쪽 작고 앞쪽 큼
+}
+
+/* ── 진화 데이터 ── */
+const EVOS = [
+    { id:"vaporeon",  name:"샤미드",     type:"물",     img:"샤미드.png",      condition:"stone", stone:"물의돌" },
+    { id:"jolteon",   name:"쥬피썬더",   type:"전기",   img:"쥬피썬더.png",    condition:"stone", stone:"천둥의돌" },
+    { id:"flareon",   name:"부스터",     type:"불",     img:"부스터.png",      condition:"stone", stone:"불꽃의돌" },
+    { id:"espeon",    name:"에브이",     type:"에스퍼", img:"에브이.png",      condition:"friendship_day" },
+    { id:"umbreon",   name:"블래키",     type:"악",     img:"블래키.png",      condition:"friendship_night" },
+    { id:"leafeon",   name:"리피아",     type:"풀",     img:"리피아.png",      condition:"craft", craft:"이끼바위" },
+    { id:"glaceon",   name:"글레이시아", type:"얼음",   img:"글레이시아.png",  condition:"craft", craft:"얼음바위" },
+    { id:"sylveon",   name:"님피아",     type:"페어리", img:"님피아.png",      condition:"friendship_item", item:"리본" },
+    { id:"gmax",      name:"다이브이",   type:"왕",     img:"왕이브이.png",    condition:"stone", stone:"다이버섯", postGame:true },
+    { id:"mega",      name:"메가브이",   type:"메가",   img:"이브이메가.png",  condition:"stone", stone:"이브이나이트", postGame:true },
+    { id:"fighting",  name:"파이티아",   type:"격투",   img:"이브이격투.png",  condition:"explore_count", postGame:true },
+    { id:"ghost",     name:"레이시아",   type:"고스트", img:"이브이고스트.png", condition:"friendship_zero", postGame:true },
+    { id:"dragon",    name:"드라키온",   type:"드래곤", img:"이브이드래곤.png", condition:"dragon", postGame:true },
+    { id:"ground",    name:"샌디온",     type:"땅",     img:"이브이땅.png",    condition:"skip_count", postGame:true },
+    { id:"rock",      name:"록키온",     type:"바위",   img:"이브이바위.png",  condition:"repeat_explore", postGame:true },
+    { id:"flying",    name:"에어리아",   type:"비행",   img:"이브이비행.png",  condition:"all_locations", postGame:true },
+    { id:"steel",     name:"메탈리아",   type:"강철",   img:"이브이강철.png",  condition:"three_stones", postGame:true },
+];
+
+/* ── 탐색지 ── */
+const LOCATIONS = [
+    { id:"lake",    name:"호수",   time:"day",   attr:"물",     items:[
+        {name:"크라보열매",type:"fruit",weight:30},{name:"오랭열매",type:"fruit",weight:30},
+        {name:"물의돌",type:"stone",weight:25},{name:"태양조각",type:"shard",weight:15}]},
+    { id:"volcano", name:"화산",   time:"day",   attr:"불",     items:[
+        {name:"치리열매",type:"fruit",weight:30},{name:"오랭열매",type:"fruit",weight:30},
+        {name:"불꽃의돌",type:"stone",weight:25},{name:"태양조각",type:"shard",weight:15}]},
+    { id:"flower",  name:"꽃밭",   time:"day",   attr:"페어리", items:[
+        {name:"모모열매",type:"fruit",weight:30},{name:"오랭열매",type:"fruit",weight:30},
+        {name:"리본",type:"special",weight:25},{name:"태양조각",type:"shard",weight:15}]},
+    { id:"forest",  name:"숲",     time:"any",   attr:"풀",     items:[
+        {name:"모모열매",type:"fruit",weight:30},{name:"나나열매",type:"fruit",weight:30},
+        {name:"이끼바위조각",type:"material",weight:25},{name:"오랭열매",type:"fruit",weight:15}]},
+    { id:"plant",   name:"발전소", time:"any",   attr:"전기",   items:[
+        {name:"나나열매",type:"fruit",weight:30},{name:"치리열매",type:"fruit",weight:30},
+        {name:"천둥의돌",type:"stone",weight:25},{name:"오랭열매",type:"fruit",weight:15}]},
+    { id:"snow",    name:"설산",   time:"any",   attr:"얼음",   items:[
+        {name:"크라보열매",type:"fruit",weight:30},{name:"라즈열매",type:"fruit",weight:30},
+        {name:"얼음바위조각",type:"material",weight:25},{name:"오랭열매",type:"fruit",weight:15}]},
+    { id:"temple",  name:"신전",   time:"night", attr:"에스퍼", items:[
+        {name:"라즈열매",type:"fruit",weight:30},{name:"오랭열매",type:"fruit",weight:30},
+        {name:"태양조각",type:"shard",weight:25},{name:"달조각",type:"shard",weight:15}]},
+    { id:"tower",   name:"폐탑",   time:"night", attr:"악",     items:[
+        {name:"나나열매",type:"fruit",weight:30},{name:"라즈열매",type:"fruit",weight:30},
+        {name:"달조각",type:"shard",weight:25},{name:"태양조각",type:"shard",weight:15}]},
+    { id:"den",     name:"거대소굴", time:"any",  attr:"왕",   hidden:true, unlock:"base8", items:[
+        {name:"다이버섯",type:"stone",weight:30},{name:"오랭열매",type:"fruit",weight:40},{name:"나나열매",type:"fruit",weight:30}]},
+    { id:"ruins",   name:"고대유적", time:"night",attr:"메가", hidden:true, unlock:"gmax", items:[
+        {name:"이브이나이트",type:"stone",weight:30},{name:"라즈열매",type:"fruit",weight:40},{name:"달조각",type:"shard",weight:30}]},
+    { id:"valley",  name:"용의계곡", time:"day",  attr:"드래곤",hidden:true, unlock:"gmax_mega", items:[
+        {name:"용의비늘",type:"stone",weight:30},{name:"치리열매",type:"fruit",weight:40},{name:"태양조각",type:"shard",weight:30}]},
+];
+
+const FRUITS = ["오랭열매","치리열매","크라보열매","모모열매","나나열매","라즈열매"];
+const FRIENDSHIP = { start:3, max:20, liked:3, neutral:1, disliked:-2, sun_day:4, moon_night:4 };
+const STAMINA = { max:3, rechargeDay:0.0003, rechargeNight:0.0005 }; // 프레임당 충전량 (낮~100초, 밤~60초 per 1칸)
+const RECIPES = { "이끼바위":{material:"이끼바위조각",count:3}, "얼음바위":{material:"얼음바위조각",count:3} };
+
+/* ── 아이템 이모지 ── */
+const ITEM_EMOJI = {
+    "오랭열매":"🍊","치리열매":"🌶️","크라보열매":"🍋","모모열매":"🍑","나나열매":"🍌","라즈열매":"🫐",
+    "물의돌":"💧","불꽃의돌":"🔥","천둥의돌":"⚡","태양조각":"☀️","달조각":"🌙",
+    "이끼바위조각":"🪨","얼음바위조각":"🧊","이끼바위":"🌿","얼음바위":"❄️",
+    "리본":"🎀","다이버섯":"🍄","이브이나이트":"💎","용의비늘":"🐉",
+};
+function itemEmoji(name) { return ITEM_EMOJI[name] || "📦"; }
+
+/* ═══════════════════════════════════════════
+   2. GAME STATE
+   ═══════════════════════════════════════════ */
+const state = {
+    scene: "title",       // title | farm | evolving
+    panel: null,          // null | "explore" | "inventory" | "dex"
+    panelSlide: 0,        // 0~1 animation
+    popup: null,          // null | { type, ... }
+    popupTimer: 0,
+
+    timeOfDay: "day",
+    _pendingDayNightFlip: false,
+    hintUsed: false,        // 턴당 힌트 1회
+    totalExplores: 0,       // 총 탐색 횟수
+    totalRests: 0,          // 총 휴식 횟수
+    turnNumber: 0,
+    skipCount: 0,
+    _deliveredItem: null,
+
+    currentEevee: null,
+    farm: [],             // { evoId, wx, wy, vx, vy, sprite, facing, aiState, aiTimer }
+    farmItems: [],        // { name, wx, wy, vx, vy }
+
+    collected: new Set(),
+    inventory: {},
+
+    turnLocations: [],        // 이번 턴에 갈 수 있는 탐색지
+    selectedFarmEevee: null, // 농장 이브이 터치 시 인덱스
+    invScroll: 0,             // 인벤토리 스크롤 오프셋
+    message: null,
+    feedbackAnim: null,
+};
+
+function resetCurrentEevee() {
+    const liked = FRUITS[Math.floor(Math.random() * FRUITS.length)];
+    let disliked;
+    do { disliked = FRUITS[Math.floor(Math.random() * FRUITS.length)]; } while (disliked === liked);
+    state.currentEevee = {
+        friendship: FRIENDSHIP.start,
+        likedFruit: liked, dislikedFruit: disliked,
+        knownLiked: false, knownDisliked: false,
+        stamina: STAMINA.max, // 스태미나 (0~3, 소수점)
+        exploreCount: 0, lastLocation: null, repeatCount: 0,
+        visitedLocations: new Set(),
+        wx: 0.5, wy: 0.5, vx: 0, vy: 0,
+        facing: 1, aiState: "idle", aiTimer: 80,
+    };
+}
+
+/* ═══════════════════════════════════════════
+   3. IMAGE LOADING
+   ═══════════════════════════════════════════ */
+const images = {};
+let imagesLoaded = 0;
+const imageList = [
+    "이브이.png","샤미드.png","쥬피썬더.png","부스터.png","에브이.png",
+    "블래키.png","리피아.png","글레이시아.png","님피아.png",
+    "왕이브이.png","이브이메가.png","이브이격투.png","이브이고스트.png",
+    "이브이드래곤.png","이브이땅.png","이브이바위.png","이브이비행.png","이브이강철.png",
+];
+const totalImages = imageList.length;
+imageList.forEach(name => {
+    const img = new Image();
+    img.onload = () => { imagesLoaded++; };
+    img.src = "image/" + name;
+    images[name] = img;
+});
+
+/* ═══════════════════════════════════════════
+   4. UTILITY
+   ═══════════════════════════════════════════ */
+function weightedRandom(items) {
+    const total = items.reduce((s,i) => s + i.weight, 0);
+    let r = Math.random() * total;
+    for (const item of items) { r -= item.weight; if (r <= 0) return item; }
+    return items[items.length - 1];
+}
+function addItem(n, c=1) { state.inventory[n] = (state.inventory[n]||0) + c; }
+function removeItem(n, c=1) { if (!state.inventory[n]) return false; state.inventory[n]-=c; if (state.inventory[n]<=0) delete state.inventory[n]; return true; }
+function hasItem(n, c=1) { return (state.inventory[n]||0) >= c; }
+function itemCount(n) { return state.inventory[n]||0; }
+function totalEevees() { return state.farm.length + 1; }
+function base8Complete() { return EVOS.slice(0,8).every(e => state.collected.has(e.id)); }
+function allComplete() { return EVOS.every(e => state.collected.has(e.id)); }
+function showMessage(text, dur=120) { state.message = { text, timer: dur }; }
+function clamp(v,lo,hi) { return Math.max(lo,Math.min(hi,v)); }
+function lerp(a,b,t) { return a + (b-a)*t; }
+
+/* ═══════════════════════════════════════════
+   5. FARM ENTITIES (쿼터뷰 2D 이동)
+   ═══════════════════════════════════════════ */
+const ACTIVITY_MAX = 50; // 활동성 MAX (친밀도 MAX=20보다 훨씬 높음)
+const ACTIVITY_FRUIT_LIKED = 5;
+const ACTIVITY_FRUIT_NEUTRAL = 2;
+const ACTIVITY_FRUIT_DISLIKED = -3;
+const ACTIVITY_MIN_SPEED = 0.0002;  // 활동성 0일 때
+const ACTIVITY_MAX_SPEED = 0.0015;  // 활동성 MAX일 때
+
+function addFarmEevee(evoId) {
+    const evo = EVOS.find(e => e.id === evoId);
+    // 진화한 이브이도 좋아하는/싫어하는 열매 랜덤 세팅
+    const liked = FRUITS[Math.floor(Math.random() * FRUITS.length)];
+    let disliked;
+    do { disliked = FRUITS[Math.floor(Math.random() * FRUITS.length)]; } while (disliked === liked);
+    state.farm.push({
+        evoId,
+        wx: Math.random() * 0.6 + 0.2,
+        wy: Math.random() * 0.6 + 0.2,
+        vx: 0, vy: 0,
+        sprite: evo ? evo.img : "이브이.png",
+        facing: 1,
+        aiState: "walk",
+        aiTimer: Math.random() * 200 + 100,
+        activity: 5,          // 활동성 (0 ~ ACTIVITY_MAX)
+        likedFruit: liked,
+        dislikedFruit: disliked,
+    });
+}
+
+function getEeveeSpeed(e) {
+    const ratio = clamp((e.activity || 0) / ACTIVITY_MAX, 0, 1);
+    return lerp(ACTIVITY_MIN_SPEED, ACTIVITY_MAX_SPEED, ratio);
+}
+
+function addFarmItem(name) {
+    const ce = state.currentEevee;
+    state.farmItems.push({
+        name,
+        wx: ce.wx + (Math.random()-0.5)*0.1,
+        wy: ce.wy + 0.05,
+        vx: (Math.random()-0.5)*0.01,
+        vy: (Math.random()-0.5)*0.005,
+    });
+}
+
+function updateEeveeAI(e, isNight) {
+    const actRatio = clamp((e.activity || 0) / ACTIVITY_MAX, 0, 1);
+    e.aiTimer--;
+    if (e.aiTimer <= 0) {
+        // 활동성 높으면 walk 많이, 낮으면 idle/sleep 많이
+        const walkChance = isNight ? 0.15 + actRatio * 0.35 : 0.3 + actRatio * 0.5;
+        const sleepChance = isNight ? 0.5 - actRatio * 0.3 : 0.05;
+        const r = Math.random();
+        if (r < sleepChance) e.aiState = "sleep";
+        else if (r < sleepChance + (1 - sleepChance - walkChance)) e.aiState = "idle";
+        else e.aiState = "walk";
+
+        e.aiTimer = Math.random() * 200 + 100;
+        if (e.aiState === "walk") {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = typeof e.activity !== "undefined" ? getEeveeSpeed(e) : (Math.random() * 0.001 + 0.0005);
+            e.vx = Math.cos(angle) * speed;
+            e.vy = Math.sin(angle) * speed * 0.5;
+        }
+    }
+    if (e.aiState === "walk") {
+        e.wx += e.vx;
+        e.wy += e.vy;
+        e.facing = e.vx > 0 ? 1 : e.vx < 0 ? -1 : e.facing;
+        e.wx = clamp(e.wx, 0.05, 0.95);
+        e.wy = clamp(e.wy, 0.05, 0.95);
+        if (e.wx <= 0.06 || e.wx >= 0.94) e.vx = -e.vx;
+        if (e.wy <= 0.06 || e.wy >= 0.94) e.vy = -e.vy;
+    }
+}
+
+function updateFarmEntities() {
+    const isNight = state.timeOfDay === "night";
+
+    // 스태미나 자동 충전 (농장에 있을 때)
+    if (state.currentEevee && state.scene === "farm" && !state.panel && !state.popup) {
+        const rate = isNight ? STAMINA.rechargeNight : STAMINA.rechargeDay;
+        state.currentEevee.stamina = Math.min(STAMINA.max, state.currentEevee.stamina + rate);
+    }
+
+    // 현재 이브이 AI
+    if (state.currentEevee) updateEeveeAI(state.currentEevee, isNight);
+
+    // 수집된 이브이 AI
+    for (const e of state.farm) updateEeveeAI(e, isNight);
+
+    // 바닥 아이템 물리 + 진화이브이 자동 섭취
+    for (let fi = state.farmItems.length - 1; fi >= 0; fi--) {
+        const item = state.farmItems[fi];
+        item.wx += item.vx;
+        item.wy += item.vy;
+        item.vx *= 0.98;
+        item.vy *= 0.98;
+        item.wx = clamp(item.wx, 0.05, 0.95);
+        item.wy = clamp(item.wy, 0.05, 0.95);
+
+        let eaten = false;
+        const isFruit = FRUITS.includes(item.name);
+
+        const allEe = [...state.farm];
+        if (state.currentEevee) allEe.push(state.currentEevee);
+
+        for (const e of allEe) {
+            const dx = item.wx - e.wx, dy = item.wy - e.wy;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dist < 0.08) {
+                const isFarmEevee = state.farm.includes(e);
+                if (isFruit && isFarmEevee && e.aiState === "walk") {
+                    // 진화 이브이가 열매 자동 섭취
+                    let delta = ACTIVITY_FRUIT_NEUTRAL;
+                    let reaction = "neutral";
+                    if (item.name === e.likedFruit) { delta = ACTIVITY_FRUIT_LIKED; reaction = "liked"; }
+                    else if (item.name === e.dislikedFruit) { delta = ACTIVITY_FRUIT_DISLIKED; reaction = "disliked"; }
+                    e.activity = clamp((e.activity || 0) + delta, 0, ACTIVITY_MAX);
+                    const scr = worldToScreen(e.wx, e.wy);
+                    state.feedbackAnim = { type: reaction, timer: 50, x: scr.sx, y: scr.sy - 20 };
+                    state.farmItems.splice(fi, 1);
+                    eaten = true;
+                    break;
+                } else if (dist > 0.001) {
+                    // 밀어내기 (겹침 방지)
+                    const nx = dx / dist, ny = dy / dist;
+                    const push = 0.003;
+                    item.vx += nx * push;
+                    item.vy += ny * push;
+                }
+            }
+        }
+    }
+}
+
+/* ═══════════════════════════════════════════
+   6. EVOLUTION CHECK
+   ═══════════════════════════════════════════ */
+function checkEvolution() {
+    const ee = state.currentEevee;
+    const tod = state.timeOfDay;
+    for (const evo of EVOS) {
+        if (state.collected.has(evo.id)) continue;
+        if (evo.postGame && !base8Complete()) continue;
+        let match = false;
+        switch (evo.condition) {
+            case "stone": match = state._deliveredItem === evo.stone; break;
+            case "friendship_day": match = ee.friendship >= FRIENDSHIP.max && tod === "day"; break;
+            case "friendship_night": match = ee.friendship >= FRIENDSHIP.max && tod === "night"; break;
+            case "craft": match = state._deliveredItem === evo.craft; break;
+            case "friendship_item": match = ee.friendship >= FRIENDSHIP.max && state._deliveredItem === evo.item; break;
+            case "friendship_zero": match = ee.friendship <= 0; break;
+            case "explore_count": match = ee.exploreCount >= 15; break;
+            case "skip_count": match = state.skipCount >= 10; break;
+            case "repeat_explore": match = ee.repeatCount >= 3; break;
+            case "all_locations":
+                match = LOCATIONS.filter(l => !l.hidden || isLocationUnlocked(l)).every(l => ee.visitedLocations.has(l.id));
+                break;
+            case "three_stones":
+                match = ["물의돌","불꽃의돌","천둥의돌"].filter(s => hasItem(s)).length >= 3;
+                break;
+            case "dragon":
+                match = state.collected.has("gmax") && state.collected.has("mega") && state._deliveredItem === "용의비늘";
+                break;
+        }
+        if (match) {
+            // 아이템은 feedItem에서 이미 제거됨 → 중복 제거 안 함
+            return evo;
+        }
+    }
+    return null;
+}
+
+function isLocationUnlocked(loc) {
+    if (!loc.hidden) return true;
+    if (loc.unlock === "base8") return base8Complete();
+    if (loc.unlock === "gmax") return state.collected.has("gmax");
+    if (loc.unlock === "gmax_mega") return state.collected.has("gmax") && state.collected.has("mega");
+    return false;
+}
+
+const LOCATIONS_PER_TURN = 3; // 턴당 제공되는 탐색지 수
+
+function getAllAvailableLocations() {
+    return LOCATIONS.filter(loc => {
+        if (!isLocationUnlocked(loc)) return false;
+        if (loc.time === "day" && state.timeOfDay !== "day") return false;
+        if (loc.time === "night" && state.timeOfDay !== "night") return false;
+        return true;
+    });
+}
+
+function rollTurnLocations() {
+    const all = getAllAvailableLocations();
+    // 셔플 후 N개 선택
+    for (let i = all.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [all[i], all[j]] = [all[j], all[i]];
+    }
+    state.turnLocations = all.slice(0, Math.min(LOCATIONS_PER_TURN, all.length));
+}
+
+function getAvailableLocations() {
+    return state.turnLocations || [];
+}
+
+/* ═══════════════════════════════════════════
+   7. TURN LOGIC
+   ═══════════════════════════════════════════ */
+function triggerEvolution(evo) {
+    state.collected.add(evo.id);
+    state.evolvingEvo = evo;
+    state.evolvingTimer = 0;
+    state.scene = "evolving";
+    state.panel = null;
+    addFarmEevee(evo.id);
+}
+
+function doRest() {
+    state.skipCount++;
+    state.totalRests++;
+    state.turnNumber++;
+    // 현재 밤낮 기준으로 진화 체크 (전환 전!)
+    const evo = checkEvolution();
+    if (evo) {
+        triggerEvolution(evo);
+        // 진화 후 밤낮 전환 + 풀충전은 진화 완료 시 처리
+        state._pendingDayNightFlip = true;
+        return;
+    }
+    // 밤낮 전환 + 스태미나 풀충전
+    state.timeOfDay = state.timeOfDay === "day" ? "night" : "day";
+    if (state.currentEevee) state.currentEevee.stamina = STAMINA.max;
+    state._deliveredItem = null;
+    state.hintUsed = false;
+    rollTurnLocations();
+    invalidateBgCache();
+    state.scene = "farm";
+}
+
+function finishPostEvolution() {
+    // 진화 완료 후 밤낮 전환 처리
+    if (state._pendingDayNightFlip) {
+        state.timeOfDay = state.timeOfDay === "day" ? "night" : "day";
+        state._pendingDayNightFlip = false;
+        invalidateBgCache();
+    }
+    resetCurrentEevee();
+    if (state.currentEevee) state.currentEevee.stamina = STAMINA.max;
+    state._deliveredItem = null;
+    rollTurnLocations();
+}
+
+function startGame() {
+    state.turnNumber = 1;
+    state._deliveredItem = null;
+    rollTurnLocations();
+    state.scene = "farm";
+}
+
+/* ═══════════════════════════════════════════
+   8. ACTIONS
+   ═══════════════════════════════════════════ */
+function doExplore(location) {
+    const ee = state.currentEevee;
+    if (ee.stamina < 1) { showMessage("이브이가 지쳐있다... 좀 쉬게 해주자.", 100); return; }
+    ee.stamina = Math.max(0, ee.stamina - 1);
+    state.totalExplores++;
+    ee.exploreCount++;
+    ee.visitedLocations.add(location.id);
+    if (ee.lastLocation === location.id) ee.repeatCount++;
+    else ee.repeatCount = 1;
+    ee.lastLocation = location.id;
+
+    // 열매와 아이템을 독립 판정
+    const fruitPool = location.items.filter(i => i.type === "fruit");
+    const itemPool = location.items.filter(i => i.type !== "fruit");
+    const drops = [];
+
+    // 아이템: 40% 확률로 등장
+    if (itemPool.length > 0 && Math.random() < 0.40) {
+        const d = weightedRandom(itemPool);
+        drops.push(d);
+    }
+    // 열매: 60% 확률로 등장
+    if (fruitPool.length > 0 && Math.random() < 0.60) {
+        const d = weightedRandom(fruitPool);
+        drops.push(d);
+    }
+    // 둘 다 안 나오면 열매 1개 보장
+    if (drops.length === 0) {
+        drops.push(fruitPool.length > 0 ? weightedRandom(fruitPool) : weightedRandom(location.items));
+    }
+
+    // 농장 바닥에 랜덤 배치
+    for (const drop of drops) {
+        state.farmItems.push({
+            name: drop.name,
+            wx: Math.random() * 0.7 + 0.15,
+            wy: Math.random() * 0.7 + 0.15,
+            vx: 0, vy: 0,
+        });
+    }
+
+    // 바위조각 첫 획득 힌트
+    if (drops.some(d => d.name === "이끼바위조각") && state.farmItems.filter(i => i.name === "이끼바위조각").length === 1)
+        showMessage("이 이끼바위조각으로 커다란 이끼바위를 만들 수 있을 것 같다...", 180);
+    if (drops.some(d => d.name === "얼음바위조각") && state.farmItems.filter(i => i.name === "얼음바위조각").length === 1)
+        showMessage("이 얼음바위조각으로 커다란 얼음바위를 만들 수 있을 것 같다...", 180);
+
+    // 탐색 진행 연출 → 결과 (첫 번째 아이템 우선 표시, 복수면 전부 표시)
+    const dropNames = drops.map(d => `${itemEmoji(d.name)} ${d.name}`).join(", ");
+    state.popup = { type: "exploring", locationId: location.id, locationName: location.name, attr: location.attr, itemName: dropNames, itemType: drops[0].type, phase: 0 };
+    state.popupTimer = 0;
+    state.panel = null; state.panelSlide = 0; // 패널 닫기
+}
+
+function feedItem(itemName) {
+    if (!hasItem(itemName)) return;
+    const ee = state.currentEevee;
+    const isFruit = FRUITS.includes(itemName);
+
+    if (isFruit) {
+        removeItem(itemName);
+        let reaction = "neutral";
+        if (itemName === ee.likedFruit) {
+            ee.friendship = clamp(ee.friendship + FRIENDSHIP.liked, -5, FRIENDSHIP.max + 5);
+            reaction = "liked"; ee.knownLiked = true;
+        } else if (itemName === ee.dislikedFruit) {
+            ee.friendship = clamp(ee.friendship + FRIENDSHIP.disliked, -5, FRIENDSHIP.max + 5);
+            reaction = "disliked"; ee.knownDisliked = true;
+        } else {
+            // 보통 열매 → 스태미나 1칸 회복
+            ee.stamina = Math.min(STAMINA.max, ee.stamina + 1);
+            reaction = "stamina";
+        }
+        const scr = worldToScreen(ee.wx, ee.wy);
+        state.feedbackAnim = { type: reaction, timer: 70, x: scr.sx, y: scr.sy - 30 };
+        state.panel = null; state.panelSlide = 0;
+    } else if (itemName === "태양조각" || itemName === "달조각") {
+        removeItem(itemName);
+        const isMatch = (itemName === "태양조각" && state.timeOfDay === "day") ||
+                         (itemName === "달조각" && state.timeOfDay === "night");
+        if (isMatch) {
+            ee.friendship = clamp(ee.friendship + FRIENDSHIP.sun_day, -5, FRIENDSHIP.max + 5);
+            const scr = worldToScreen(ee.wx, ee.wy);
+            state.feedbackAnim = { type: "liked", timer: 70, x: scr.sx, y: scr.sy - 30 };
+        } else {
+            const scr = worldToScreen(ee.wx, ee.wy);
+            state.feedbackAnim = { type: "neutral", timer: 70, x: scr.sx, y: scr.sy - 30 };
+        }
+        state.panel = null; state.panelSlide = 0;
+    } else {
+        // 님피아 리본: 친밀도 부족 시 전달 거부
+        if (itemName === "리본" && ee.friendship < FRIENDSHIP.max) {
+            showMessage("이브이가 아직 리본을 받을 준비가 안 된 것 같다...", 120);
+            state.panel = null; state.panelSlide = 0;
+            return;
+        }
+        state._deliveredItem = itemName;
+        removeItem(itemName);
+        showMessage(`${itemEmoji(itemName)} ${itemName}을(를) 이브이에게 전달했다!`);
+        state.panel = null; state.panelSlide = 0;
+        // 전달 직후 진화 체크 (돌/제작/리본 등)
+        const evo = checkEvolution();
+        if (evo) { triggerEvolution(evo); return; }
+    }
+}
+
+function tryCraft(recipeName) {
+    const r = RECIPES[recipeName];
+    if (!r || !hasItem(r.material, r.count)) return;
+    removeItem(r.material, r.count);
+    addItem(recipeName);
+    showMessage(`${itemEmoji(recipeName)} ${recipeName}을(를) 만들었다!`);
+}
+
+function feedFarmEevee(farmIdx, fruitName) {
+    if (farmIdx < 0 || farmIdx >= state.farm.length) return;
+    if (!hasItem(fruitName)) return;
+    if (!FRUITS.includes(fruitName)) return;
+    removeItem(fruitName);
+
+    const e = state.farm[farmIdx];
+    let delta = ACTIVITY_FRUIT_NEUTRAL;
+    let reaction = "neutral";
+    if (fruitName === e.likedFruit) { delta = ACTIVITY_FRUIT_LIKED; reaction = "liked"; }
+    if (fruitName === e.dislikedFruit) { delta = ACTIVITY_FRUIT_DISLIKED; reaction = "disliked"; }
+    e.activity = clamp((e.activity || 0) + delta, 0, ACTIVITY_MAX);
+
+    const scr = worldToScreen(e.wx, e.wy);
+    state.feedbackAnim = { type: reaction, timer: 70, x: scr.sx, y: scr.sy - 30 };
+    state.selectedFarmEevee = null;
+    state.panel = null; state.panelSlide = 0;
+}
+
+function dropItem(itemName) {
+    if (!hasItem(itemName)) return;
+    removeItem(itemName);
+    addFarmItem(itemName);
+}
+
+function getHint() {
+    if (state.hintUsed || allComplete()) return;
+    state.hintUsed = true;
+    const ee = state.currentEevee;
+    const hints = [];
+    if (!state.collected.has("vaporeon")) hints.push("호수에서 반짝이는 돌을 본 적 있는 것 같다...");
+    if (!state.collected.has("jolteon")) hints.push("발전소 근처에 특별한 돌이 있다는 소문이...");
+    if (!state.collected.has("flareon")) hints.push("화산 깊은 곳에 뜨거운 돌이 잠들어 있다던데...");
+    if (!state.collected.has("espeon") && ee.friendship >= 6) hints.push("이브이와 충분히 친해지면, 낮에 무슨 일이 생길지도...");
+    if (!state.collected.has("umbreon") && ee.friendship >= 6) hints.push("이브이와 충분히 친해지면, 밤에 무슨 일이 생길지도...");
+    if (!state.collected.has("leafeon")) hints.push("숲에서 이끼 낀 바위조각을 모으면 뭔가 만들 수 있을 것 같다...");
+    if (!state.collected.has("glaceon")) hints.push("설산에서 얼음바위조각을 모으면 뭔가 만들 수 있을 것 같다...");
+    if (!state.collected.has("sylveon")) hints.push("이브이와 충분히 친해진 뒤, 꽃밭에서 찾을 수 있는 리본을 주면...");
+    if (base8Complete()) {
+        if (!state.collected.has("gmax")) hints.push("새로운 탐색지가 열린 것 같다... 거대한 무언가의 기운이...");
+        if (!state.collected.has("ghost") && ee.friendship <= 2) hints.push("이브이가 점점 지쳐가고 있다... 이대로 계속 싫어하는 걸 주면...");
+        if (!state.collected.has("fighting") && ee.exploreCount >= 8) hints.push("탐색을 계속하면 이브이가 점점 강해지는 것 같다...");
+        if (!state.collected.has("ground") && state.skipCount >= 5) hints.push("가만히 시간을 보내다 보면 땅의 기운이 느껴진다...");
+        if (!state.collected.has("rock") && ee.repeatCount >= 3) hints.push("같은 장소를 계속 가다 보면 이브이가 변할지도...");
+        if (!state.collected.has("flying") && ee.visitedLocations.size >= 5) hints.push("더 많은 곳을 돌아다니면 이브이에게 날개가 생길지도...");
+        if (!state.collected.has("steel")) hints.push("진화석 여러 종류를 동시에 갖고 있으면 무슨 일이 생길지도...");
+    }
+    const text = hints.length > 0 ? hints[Math.floor(Math.random() * hints.length)] : "이브이가 평화로워 보인다...";
+    state.popup = { type: "hint", text };
+    state.popupTimer = 0;
+}
+
+/* ═══════════════════════════════════════════
+   9. INPUT
+   ═══════════════════════════════════════════ */
+let clickX = -1, clickY = -1, clicked = false;
+
+function getPos(e) {
+    const rect = canvas.getBoundingClientRect();
+    const cx = e.touches ? e.touches[0].clientX : e.clientX;
+    const cy = e.touches ? e.touches[0].clientY : e.clientY;
+    return { x: (cx - rect.left) * (CW / rect.width), y: (cy - rect.top) * (CH / rect.height) };
+}
+
+let touchStartY = -1, touchDragging = false;
+
+canvas.addEventListener("mousedown", e => { const p = getPos(e); clickX = p.x; clickY = p.y; });
+canvas.addEventListener("mouseup", () => { clicked = true; });
+canvas.addEventListener("touchstart", e => {
+    e.preventDefault();
+    const p = getPos(e);
+    clickX = p.x; clickY = p.y;
+    touchStartY = p.y; touchDragging = false;
+});
+canvas.addEventListener("touchmove", e => {
+    e.preventDefault();
+    if (state.panel === "inventory" && touchStartY >= 0) {
+        const p = getPos(e);
+        const dy = touchStartY - p.y;
+        if (Math.abs(dy) > 3) { touchDragging = true; state.invScroll += dy; touchStartY = p.y; }
+    }
+});
+canvas.addEventListener("touchend", e => {
+    e.preventDefault();
+    if (!touchDragging) clicked = true;
+    touchStartY = -1; touchDragging = false;
+});
+canvas.addEventListener("wheel", e => {
+    if (state.panel === "inventory") { state.invScroll += e.deltaY * 0.5; e.preventDefault(); }
+}, { passive: false });
+
+function consumeClick() {
+    if (!clicked) return null;
+    clicked = false;
+    return { x: clickX, y: clickY };
+}
+
+function hitBox(cx, cy, bx, by, bw, bh) {
+    return cx >= bx && cx <= bx + bw && cy >= by && cy <= by + bh;
+}
+
+/* ═══════════════════════════════════════════
+   10. RENDERING
+   ═══════════════════════════════════════════ */
+let frame = 0;
+
+/* ── 배경 ── */
+function drawBackground() {
+    const isNight = state.timeOfDay === "night";
+
+    // 하늘
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, FLOOR_TOP + 40);
+    if (isNight) {
+        skyGrad.addColorStop(0,"#050510");
+        skyGrad.addColorStop(0.4,"#0a0a20");
+        skyGrad.addColorStop(1,"#141430");
+    } else {
+        skyGrad.addColorStop(0,"#4A90D9");
+        skyGrad.addColorStop(0.5,"#7EC8E3");
+        skyGrad.addColorStop(1,"#C5E8F0");
+    }
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, CW, FLOOR_TOP + 40);
+
+    // 구름 (낮)
+    if (!isNight) {
+        ctx.fillStyle = "rgba(255,255,255,0.5)";
+        for (let i = 0; i < 4; i++) {
+            const cx = ((i * 157 + frame * 0.05) % (CW + 100)) - 50;
+            const cy = 30 + i * 25;
+            ctx.beginPath();
+            ctx.ellipse(cx, cy, 35 + i * 5, 12, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath();
+            ctx.ellipse(cx + 20, cy - 5, 25, 10, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath();
+            ctx.ellipse(cx - 15, cy + 2, 20, 8, 0, 0, Math.PI * 2); ctx.fill();
+        }
+    }
+
+    // 별 (밤)
+    if (isNight) {
+        ctx.fillStyle = "#fff";
+        for (let i = 0; i < 60; i++) {
+            const sx = (i * 137 + 50) % CW;
+            const sy = (i * 97 + 10) % (FLOOR_TOP - 30) + 10;
+            const twinkle = 0.15 + Math.sin(frame * 0.02 + i * 2.7) * 0.25;
+            ctx.globalAlpha = twinkle;
+            const sr = i % 7 === 0 ? 2 : 1;
+            ctx.beginPath(); ctx.arc(sx, sy, sr, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+        // 달 + 달빛
+        ctx.fillStyle = "rgba(245,230,200,0.08)";
+        ctx.beginPath(); ctx.arc(CW - 60, 50, 50, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#F5E6CC";
+        ctx.beginPath(); ctx.arc(CW - 60, 50, 22, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#E8D8B8";
+        ctx.beginPath(); ctx.arc(CW - 55, 45, 18, 0, Math.PI * 2); ctx.fill();
+    } else {
+        // 태양 + 광선
+        ctx.fillStyle = "rgba(255,215,0,0.08)";
+        ctx.beginPath(); ctx.arc(70, 50, 55, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "rgba(255,215,0,0.15)";
+        ctx.beginPath(); ctx.arc(70, 50, 38, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#FFD700";
+        ctx.beginPath(); ctx.arc(70, 50, 24, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#FFF176";
+        ctx.beginPath(); ctx.arc(70, 50, 14, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // 원경 산 (레이어드)
+    ctx.fillStyle = isNight ? "#0e0e20" : "#6B9E6B";
+    for (let i = 0; i < 6; i++) {
+        const mx = i * 110 + 20;
+        ctx.beginPath();
+        ctx.ellipse(mx, FLOOR_TOP + 25, 90, 55, 0, Math.PI, 0);
+        ctx.fill();
+    }
+    ctx.fillStyle = isNight ? "#151528" : "#7DB87D";
+    for (let i = 0; i < 5; i++) {
+        const mx = i * 130 + 60;
+        ctx.beginPath();
+        ctx.ellipse(mx, FLOOR_TOP + 22, 75, 40, 0, Math.PI, 0);
+        ctx.fill();
+    }
+
+    // 나무 실루엣 (울타리 뒤)
+    const treeColor = isNight ? "#0c1a10" : "#3E8B3E";
+    const trunkColor = isNight ? "#1a1510" : "#6B4226";
+    const trees = [50, 140, 350, 430];
+    for (const tx of trees) {
+        // 줄기
+        ctx.fillStyle = trunkColor;
+        ctx.fillRect(tx - 3, FLOOR_TOP - 15, 6, 20);
+        // 잎
+        ctx.fillStyle = treeColor;
+        ctx.beginPath(); ctx.arc(tx, FLOOR_TOP - 25, 18, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(tx - 10, FLOOR_TOP - 18, 14, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(tx + 10, FLOOR_TOP - 18, 14, 0, Math.PI * 2); ctx.fill();
+    }
+}
+
+/* ── 쿼터뷰 바닥 ── */
+function drawFloor() {
+    const isNight = state.timeOfDay === "night";
+
+    // 바닥 (사다리꼴 - 원근)
+    const topW = CW * 0.55, botW = CW * 0.95;
+    const topL = (CW - topW) / 2, topR = topL + topW;
+    const botL = (CW - botW) / 2, botR = botL + botW;
+
+    const floorGrad = ctx.createLinearGradient(0, FLOOR_TOP, 0, FLOOR_BOT);
+    if (isNight) { floorGrad.addColorStop(0,"#1a3020"); floorGrad.addColorStop(1,"#2a4030"); }
+    else { floorGrad.addColorStop(0,"#5DAA68"); floorGrad.addColorStop(1,"#4CAF50"); }
+
+    ctx.fillStyle = floorGrad;
+    ctx.beginPath();
+    ctx.moveTo(topL, FLOOR_TOP);
+    ctx.lineTo(topR, FLOOR_TOP);
+    ctx.lineTo(botR, FLOOR_BOT);
+    ctx.lineTo(botL, FLOOR_BOT);
+    ctx.closePath();
+    ctx.fill();
+
+    // 잔디 패치 (랜덤 색상 변화)
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(topL, FLOOR_TOP); ctx.lineTo(topR, FLOOR_TOP);
+    ctx.lineTo(botR, FLOOR_BOT); ctx.lineTo(botL, FLOOR_BOT);
+    ctx.closePath();
+    ctx.clip();
+
+    // 잔디 얼룩
+    for (let i = 0; i < 25; i++) {
+        const t = (i * 71 + 13) % 100 / 100; // wy
+        const s = (i * 53 + 7) % 100 / 100;  // wx
+        const gy = FLOOR_TOP + t * FLOOR_H;
+        const perspective = 0.6 + t * 0.4;
+        const gx = CW / 2 + (s - 0.5) * (CW - FLOOR_PAD * 2) * perspective;
+        const patchSize = 15 + t * 20;
+        ctx.fillStyle = isNight
+            ? `rgba(${30 + i % 3 * 5},${55 + i % 4 * 5},${35 + i % 3 * 5},0.4)`
+            : `rgba(${60 + i % 3 * 10},${150 + i % 5 * 10},${60 + i % 3 * 10},0.3)`;
+        ctx.beginPath();
+        ctx.ellipse(gx, gy, patchSize, patchSize * 0.4, (i * 0.5) % Math.PI, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // 잔디 풀 꼬리 (작은 V 모양)
+    for (let i = 0; i < 40; i++) {
+        const t = (i * 37 + 19) % 100 / 100;
+        const s = (i * 61 + 3) % 100 / 100;
+        const gy = FLOOR_TOP + t * FLOOR_H;
+        const perspective = 0.6 + t * 0.4;
+        const gx = CW / 2 + (s - 0.5) * (CW - FLOOR_PAD * 2) * perspective;
+        const grassH = 4 + t * 4;
+        ctx.strokeStyle = isNight ? "rgba(80,140,80,0.3)" : "rgba(50,120,50,0.35)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(gx - 2, gy); ctx.lineTo(gx, gy - grassH); ctx.lineTo(gx + 2, gy);
+        ctx.stroke();
+    }
+
+    // 작은 꽃 (낮만)
+    if (!isNight) {
+        const flowerColors = ["#FFE082","#F48FB1","#CE93D8","#FFF"];
+        for (let i = 0; i < 12; i++) {
+            const t = (i * 43 + 27) % 100 / 100;
+            const s = (i * 67 + 11) % 100 / 100;
+            const gy = FLOOR_TOP + t * FLOOR_H;
+            const perspective = 0.6 + t * 0.4;
+            const gx = CW / 2 + (s - 0.5) * (CW - FLOOR_PAD * 2) * perspective;
+            const fsize = 2 + t * 2;
+            ctx.fillStyle = flowerColors[i % flowerColors.length];
+            ctx.beginPath(); ctx.arc(gx, gy, fsize, 0, Math.PI * 2); ctx.fill();
+        }
+    }
+
+    // 돌멩이
+    for (let i = 0; i < 6; i++) {
+        const t = (i * 59 + 41) % 100 / 100;
+        const s = (i * 83 + 17) % 100 / 100;
+        const gy = FLOOR_TOP + t * FLOOR_H;
+        const perspective = 0.6 + t * 0.4;
+        const gx = CW / 2 + (s - 0.5) * (CW - FLOOR_PAD * 2) * perspective;
+        ctx.fillStyle = isNight ? "rgba(60,60,50,0.5)" : "rgba(160,155,140,0.5)";
+        ctx.beginPath();
+        ctx.ellipse(gx, gy, 3 + t * 2, 2 + t * 1, i * 0.7, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    ctx.restore();
+
+    // 울타리 (가로대 2줄)
+    const fenceColor = isNight ? "#3a2a1a" : "#A07030";
+    const fenceDark = isNight ? "#2a1a0a" : "#7A5520";
+
+    // 왼쪽 울타리
+    for (let i = 0; i <= 5; i++) {
+        const t = i / 5;
+        const ly = FLOOR_TOP + t * FLOOR_H;
+        const lx = lerp(topL, botL, t);
+        // 기둥
+        const postH = 16 + t * 6;
+        ctx.fillStyle = fenceDark;
+        ctx.fillRect(lx - 3, ly - postH, 5, postH + 2);
+        ctx.fillStyle = fenceColor;
+        ctx.fillRect(lx - 2, ly - postH, 3, postH);
+    }
+    // 왼쪽 가로대
+    ctx.strokeStyle = fenceColor; ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    for (let i = 0; i <= 5; i++) {
+        const t = i / 5;
+        const ly = FLOOR_TOP + t * FLOOR_H - 8 - t * 3;
+        const lx = lerp(topL, botL, t);
+        i === 0 ? ctx.moveTo(lx, ly) : ctx.lineTo(lx, ly);
+    }
+    ctx.stroke();
+    ctx.beginPath();
+    for (let i = 0; i <= 5; i++) {
+        const t = i / 5;
+        const ly = FLOOR_TOP + t * FLOOR_H - 14 - t * 4;
+        const lx = lerp(topL, botL, t);
+        i === 0 ? ctx.moveTo(lx, ly) : ctx.lineTo(lx, ly);
+    }
+    ctx.stroke();
+
+    // 오른쪽 울타리
+    for (let i = 0; i <= 5; i++) {
+        const t = i / 5;
+        const ry = FLOOR_TOP + t * FLOOR_H;
+        const rx = lerp(topR, botR, t);
+        const postH = 16 + t * 6;
+        ctx.fillStyle = fenceDark;
+        ctx.fillRect(rx - 2, ry - postH, 5, postH + 2);
+        ctx.fillStyle = fenceColor;
+        ctx.fillRect(rx - 1, ry - postH, 3, postH);
+    }
+    ctx.strokeStyle = fenceColor; ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    for (let i = 0; i <= 5; i++) {
+        const t = i / 5;
+        const ry = FLOOR_TOP + t * FLOOR_H - 8 - t * 3;
+        const rx = lerp(topR, botR, t);
+        i === 0 ? ctx.moveTo(rx, ry) : ctx.lineTo(rx, ry);
+    }
+    ctx.stroke();
+    ctx.beginPath();
+    for (let i = 0; i <= 5; i++) {
+        const t = i / 5;
+        const ry = FLOOR_TOP + t * FLOOR_H - 14 - t * 4;
+        const rx = lerp(topR, botR, t);
+        i === 0 ? ctx.moveTo(rx, ry) : ctx.lineTo(rx, ry);
+    }
+    ctx.stroke();
+
+    // 뒤쪽 울타리
+    ctx.strokeStyle = fenceColor; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(topL, FLOOR_TOP - 8); ctx.lineTo(topR, FLOOR_TOP - 8); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(topL, FLOOR_TOP - 14); ctx.lineTo(topR, FLOOR_TOP - 14); ctx.stroke();
+    for (let i = 0; i <= 6; i++) {
+        const px = topL + (topW / 6) * i;
+        ctx.fillStyle = fenceDark;
+        ctx.fillRect(px - 2, FLOOR_TOP - 18, 4, 20);
+        ctx.fillStyle = fenceColor;
+        ctx.fillRect(px - 1, FLOOR_TOP - 17, 2, 18);
+    }
+
+    // 바닥 아래 (앞면 흙 - 레이어드)
+    const dirtGrad = ctx.createLinearGradient(0, FLOOR_BOT, 0, FLOOR_BOT + 16);
+    if (isNight) { dirtGrad.addColorStop(0,"#2a2018"); dirtGrad.addColorStop(1,"#1a1008"); }
+    else { dirtGrad.addColorStop(0,"#8B7355"); dirtGrad.addColorStop(1,"#6B5335"); }
+    ctx.fillStyle = dirtGrad;
+    ctx.fillRect(botL, FLOOR_BOT, botW, 16);
+    // 흙 디테일
+    ctx.fillStyle = isNight ? "rgba(60,40,20,0.3)" : "rgba(120,90,50,0.3)";
+    for (let i = 0; i < 10; i++) {
+        const dx = botL + (i * 47 + 15) % Math.floor(botW);
+        ctx.beginPath(); ctx.arc(dx, FLOOR_BOT + 6 + (i % 3) * 3, 3, 0, Math.PI * 2); ctx.fill();
+    }
+}
+
+/* ── 스프라이트 ── */
+function drawSprite(imgName, sx, sy, facing, size) {
+    const img = images[imgName];
+    if (!img || !img.complete) return;
+    const w = size;
+    const h = w * (img.height / img.width);
+    ctx.save();
+    ctx.translate(sx, sy);
+    if (facing < 0) ctx.scale(-1, 1);
+    ctx.drawImage(img, -w / 2, -h, w, h);
+    ctx.restore();
+}
+
+/* ── 농장 엔티티 렌더 ── */
+function drawFarmEntities() {
+    // 모든 엔티티 수집 + wy 정렬
+    const entities = [];
+
+    // 현재 이브이
+    if (state.currentEevee) {
+        const ce = state.currentEevee;
+        entities.push({ type: "current", wx: ce.wx, wy: ce.wy, facing: ce.facing, sprite: "이브이.png", aiState: ce.aiState });
+    }
+
+    // 수집된 이브이
+    for (const e of state.farm) {
+        entities.push({ type: "farm", wx: e.wx, wy: e.wy, facing: e.facing, sprite: e.sprite, aiState: e.aiState, activity: e.activity || 0 });
+    }
+
+    // 바닥 아이템
+    for (const item of state.farmItems) {
+        entities.push({ type: "item", wx: item.wx, wy: item.wy, name: item.name });
+    }
+
+    // wy 기준 정렬 (뒤 → 앞)
+    entities.sort((a, b) => a.wy - b.wy);
+
+    for (const ent of entities) {
+        const { sx, sy } = worldToScreen(ent.wx, ent.wy);
+        const baseSize = spriteSize(ent.wy);
+        const size = ent.type === "farm" ? baseSize * 1.2 : baseSize;
+
+        if (ent.type === "item") {
+            ctx.globalAlpha = 1;
+            const isize = 10 + ent.wy * 8;
+            // 그림자
+            ctx.fillStyle = "#00000040";
+            ctx.beginPath(); ctx.ellipse(sx, sy + 4, 8, 3, 0, 0, Math.PI * 2); ctx.fill();
+            // 이모지
+            ctx.font = `${isize}px system-ui`;
+            ctx.textAlign = "center"; ctx.textBaseline = "middle";
+            ctx.fillStyle = "#000";
+            ctx.fillText(itemEmoji(ent.name), sx, sy - 1);
+        } else {
+            // 그림자
+            ctx.fillStyle = "rgba(0,0,0,0.15)";
+            ctx.beginPath(); ctx.ellipse(sx, sy + 2, size * 0.35, size * 0.12, 0, 0, Math.PI * 2); ctx.fill();
+
+            // 바운스
+            let bounce = 0;
+            if (ent.aiState === "walk") bounce = Math.sin(frame * 0.1 + ent.wx * 100) * 2;
+            if (ent.aiState === "sleep") bounce = 1;
+
+            drawSprite(ent.sprite, sx, sy - bounce, ent.facing, size);
+
+            // 수면 z
+            if (ent.aiState === "sleep") {
+                ctx.fillStyle = "#fff";
+                ctx.globalAlpha = 0.4 + Math.sin(frame * 0.03) * 0.2;
+                ctx.font = `${10 + ent.wy * 4}px system-ui`;
+                ctx.textAlign = "center";
+                ctx.fillText("z", sx + size * 0.3, sy - size * 0.6 + Math.sin(frame * 0.02) * 4);
+                ctx.globalAlpha = 1;
+            }
+
+            // 현재 이브이: 친밀도 바 (파랑/핑크) + 하트
+            if (ent.type === "current") {
+                const heartSize = 8;
+                const barW = size * 1.2, barH = 4;
+                const barX = sx - barW / 2 + heartSize + 2, barY = sy - size * 0.9;
+                // 하트 아이콘
+                ctx.fillStyle = "#FF69B4";
+                ctx.font = `${heartSize}px system-ui`;
+                ctx.textAlign = "center"; ctx.textBaseline = "middle";
+                ctx.fillText("♥", barX - heartSize / 2 - 2, barY + barH / 2);
+                // 바
+                const adjBarW = barW - heartSize - 2;
+                ctx.fillStyle = "rgba(0,0,0,0.4)";
+                ctx.fillRect(barX, barY, adjBarW, barH);
+                const ratio = clamp(state.currentEevee.friendship / FRIENDSHIP.max, 0, 1);
+                ctx.fillStyle = ratio >= 1 ? "#FF69B4" : "#4FC3F7";
+                ctx.fillRect(barX, barY, adjBarW * ratio, barH);
+                ctx.strokeStyle = "rgba(255,255,255,0.3)";
+                ctx.lineWidth = 0.5;
+                ctx.strokeRect(barX, barY, adjBarW, barH);
+            }
+
+            // 진화 이브이: 활동성 바 (주황)
+            if (ent.type === "farm" && typeof ent.activity !== "undefined") {
+                const barW = size * 1.0, barH = 3;
+                const barX = sx - barW / 2, barY = sy - size * 0.85;
+                ctx.fillStyle = "rgba(0,0,0,0.35)";
+                ctx.fillRect(barX, barY, barW, barH);
+                const ratio = clamp(ent.activity / ACTIVITY_MAX, 0, 1);
+                ctx.fillStyle = ratio >= 0.7 ? "#FF9800" : ratio >= 0.3 ? "#FFB74D" : "#795548";
+                ctx.fillRect(barX, barY, barW * ratio, barH);
+                ctx.strokeStyle = "rgba(255,255,255,0.2)";
+                ctx.lineWidth = 0.5;
+                ctx.strokeRect(barX, barY, barW, barH);
+            }
+        }
+    }
+
+    // 피드백 애니메이션
+    if (state.feedbackAnim) {
+        const fb = state.feedbackAnim;
+        fb.timer--;
+        const alpha = clamp(fb.timer / 40, 0, 1);
+        const yOff = (70 - fb.timer) * 0.7;
+        ctx.globalAlpha = alpha;
+        ctx.font = "24px system-ui";
+        ctx.textAlign = "center";
+        if (fb.type === "liked") { ctx.fillStyle = "#FF69B4"; ctx.fillText("♥", fb.x, fb.y - yOff); }
+        else if (fb.type === "disliked") { ctx.fillStyle = "#FF4444"; ctx.fillText("💢", fb.x, fb.y - yOff); }
+        else if (fb.type === "stamina") { ctx.fillStyle = "#4FC3F7"; ctx.fillText("⚡", fb.x, fb.y - yOff); }
+        else { ctx.fillStyle = "#aaa"; ctx.fillText("...", fb.x, fb.y - yOff); }
+        ctx.globalAlpha = 1;
+        if (fb.timer <= 0) state.feedbackAnim = null;
+    }
+}
+
+/* ── HUD ── */
+function drawHUD() {
+    const isNight = state.timeOfDay === "night";
+    ctx.fillStyle = "rgba(0,0,0,0.45)";
+    roundRect(0, 0, CW, 50, 0);
+    ctx.fill();
+
+    ctx.textBaseline = "middle";
+    ctx.font = "bold 13px system-ui";
+    ctx.textAlign = "left";
+    ctx.fillStyle = isNight ? "#B0BEC5" : "#FFD54F";
+    ctx.fillText(isNight ? "🌙 밤" : "☀️ 낮", 10, 14);
+
+    ctx.fillStyle = "#ddd";
+    ctx.font = "12px system-ui";
+    ctx.fillStyle = "#ddd"; ctx.font = "12px system-ui";
+
+    // 스태미나 바
+    if (state.currentEevee) {
+        const st = state.currentEevee.stamina;
+        ctx.fillStyle = "#999"; ctx.font = "11px system-ui"; ctx.textAlign = "left";
+        ctx.fillText("⚡", 10, 36);
+        for (let i = 0; i < STAMINA.max; i++) {
+            const sx = 28 + i * 22, sy = 30, sw = 18, sh = 10;
+            ctx.fillStyle = "#333";
+            roundRect(sx, sy, sw, sh, 3); ctx.fill();
+            if (st >= i + 1) {
+                ctx.fillStyle = "#4FC3F7";
+                roundRect(sx, sy, sw, sh, 3); ctx.fill();
+            } else if (st > i) {
+                const partial = st - i;
+                ctx.fillStyle = "#4FC3F7";
+                roundRect(sx, sy, sw * partial, sh, 3); ctx.fill();
+            }
+            ctx.strokeStyle = "#555"; ctx.lineWidth = 0.5;
+            roundRect(sx, sy, sw, sh, 3); ctx.stroke();
+        }
+    }
+
+    ctx.textAlign = "center";
+    ctx.fillText(`${totalEevees()}마리`, CW / 2, 14);
+
+    ctx.textAlign = "right";
+    ctx.fillStyle = "#aaa";
+    ctx.fillText(`턴 ${state.turnNumber}`, CW - 10, 14);
+}
+
+/* ── 하단 버튼 ── */
+const BTN_Y = CH - 62;
+const BTN_H = 42;
+const BUTTONS = [
+    { id:"explore", label:"탐색",  x:10,  w:82 },
+    { id:"bag",     label:"가방",  x:100, w:82 },
+    { id:"hint",    label:"힌트",  x:190, w:68 },
+    { id:"dex",     label:"도감",  x:266, w:68 },
+    { id:"rest",    label:"💤 휴식",x:342, w:128 },
+];
+
+function drawFarmButtons() {
+    // 버튼 배경
+    ctx.fillStyle = "rgba(0,0,0,0.4)";
+    ctx.fillRect(0, CH - 72, CW, 72);
+
+    ctx.textBaseline = "middle";
+    for (const btn of BUTTONS) {
+        const noStamina = state.currentEevee && state.currentEevee.stamina < 1;
+        const disabled = (btn.id === "explore" && noStamina) || (btn.id === "hint" && state.hintUsed);
+        const hide = btn.id === "hint" && allComplete();
+        if (hide) continue;
+
+        ctx.fillStyle = disabled ? "rgba(40,40,60,0.8)" : "rgba(50,50,90,0.9)";
+        ctx.strokeStyle = disabled ? "#444" : "#7B73FF";
+        ctx.lineWidth = 1.5;
+        roundRect(btn.x, BTN_Y, btn.w, BTN_H, 8);
+        ctx.fill(); ctx.stroke();
+
+        ctx.fillStyle = disabled ? "#555" : "#fff";
+        ctx.font = "bold 13px system-ui";
+        ctx.textAlign = "center";
+        ctx.fillText(btn.label, btn.x + btn.w / 2, BTN_Y + BTN_H / 2);
+    }
+}
+
+/* ── 패널 (하단 슬라이드) ── */
+const PANEL_H = { explore: 280, inventory: 420, dex: 420 };
+function panelH() { return (state.panel && PANEL_H[state.panel]) || 420; }
+function panelTopTarget() { return CH - panelH(); }
+
+function drawPanelBg() {
+    const py = lerp(CH, panelTopTarget(), state.panelSlide);
+    ctx.fillStyle = "rgba(20,20,40,0.93)";
+    roundRect(0, py, CW, panelH() + 20, 16);
+    ctx.fill();
+    ctx.strokeStyle = "#555";
+    ctx.lineWidth = 1;
+    roundRect(0, py, CW, panelH() + 20, 16);
+    ctx.stroke();
+
+    // 손잡이
+    ctx.fillStyle = "#666";
+    ctx.beginPath();
+    ctx.roundRect(CW / 2 - 20, py + 8, 40, 4, 2);
+    ctx.fill();
+
+    // 닫기 안내
+    ctx.fillStyle = "#555";
+    ctx.font = "11px system-ui";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    ctx.fillText("바깥 터치로 닫기", CW / 2, py + 16);
+
+    return py + 30;
+}
+
+const LOC_STYLE = {
+    lake:    { emoji:"🏞️", color:"#4A90D9", bg:"rgba(74,144,217,0.15)" },
+    volcano: { emoji:"🌋", color:"#E85830", bg:"rgba(232,88,48,0.15)" },
+    flower:  { emoji:"🌸", color:"#F48FB1", bg:"rgba(244,143,177,0.15)" },
+    forest:  { emoji:"🌲", color:"#4CAF50", bg:"rgba(76,175,80,0.15)" },
+    plant:   { emoji:"⚡", color:"#F7D02C", bg:"rgba(247,208,44,0.15)" },
+    snow:    { emoji:"❄️", color:"#90CAF9", bg:"rgba(144,202,249,0.15)" },
+    temple:  { emoji:"⛩️", color:"#CE93D8", bg:"rgba(206,147,216,0.15)" },
+    tower:   { emoji:"🏚️", color:"#78909C", bg:"rgba(120,144,156,0.15)" },
+    den:     { emoji:"🕳️", color:"#E57373", bg:"rgba(229,115,115,0.15)" },
+    ruins:   { emoji:"🏛️", color:"#7B73FF", bg:"rgba(123,115,255,0.15)" },
+    valley:  { emoji:"🐉", color:"#4DB6AC", bg:"rgba(77,182,172,0.15)" },
+};
+
+function drawExplorePanel() {
+    const startY = drawPanelBg();
+    const py = startY;
+
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillStyle = "#FFD54F"; ctx.font = "bold 18px system-ui";
+    ctx.fillText("탐색지 선택", CW / 2, py);
+
+    ctx.fillStyle = "#aaa"; ctx.font = "12px system-ui";
+    ctx.fillText(`⚡ 스태미나: ${Math.floor(state.currentEevee?.stamina || 0)} / ${STAMINA.max}`, CW / 2, py + 22);
+
+    const locs = getAvailableLocations();
+    for (let i = 0; i < locs.length; i++) {
+        const loc = locs[i];
+        const style = LOC_STYLE[loc.id] || { emoji:"📍", color:"#888", bg:"rgba(80,80,80,0.15)" };
+        const bx = 20, by = py + 40 + i * 52, bw = CW - 40, bh = 46;
+
+        // 배경 (속성 색상 틴트)
+        ctx.fillStyle = style.bg;
+        roundRect(bx, by, bw, bh, 8); ctx.fill();
+        ctx.strokeStyle = style.color; ctx.lineWidth = 1.5;
+        roundRect(bx, by, bw, bh, 8); ctx.stroke();
+
+        // 왼쪽 아이콘 원
+        ctx.fillStyle = style.color + "33";
+        ctx.beginPath(); ctx.arc(bx + 24, by + bh / 2, 16, 0, Math.PI * 2); ctx.fill();
+        ctx.font = "18px system-ui"; ctx.textAlign = "center";
+        ctx.fillText(style.emoji, bx + 24, by + bh / 2 + 1);
+
+        // 지역명
+        ctx.fillStyle = "#fff"; ctx.font = "bold 14px system-ui"; ctx.textAlign = "left";
+        ctx.fillText(loc.name, bx + 48, by + 15);
+
+        // 속성 라벨 (색상 칩)
+        ctx.fillStyle = style.color; ctx.font = "bold 10px system-ui";
+        const attrW = ctx.measureText(loc.attr).width + 10;
+        ctx.globalAlpha = 0.25;
+        roundRect(bx + 48, by + 25, attrW, 14, 3); ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = style.color; ctx.font = "bold 10px system-ui";
+        ctx.fillText(loc.attr, bx + 53, by + 32);
+
+        // 시간대
+        const tl = loc.time === "day" ? "☀️ 낮" : loc.time === "night" ? "🌙 밤" : "🕐 상시";
+        ctx.textAlign = "right"; ctx.fillStyle = "#999"; ctx.font = "11px system-ui";
+        ctx.fillText(tl, bx + bw - 12, by + bh / 2);
+    }
+}
+
+function drawInventoryPanel() {
+    const startY = drawPanelBg();
+    const py = startY;
+
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillStyle = "#FFD54F"; ctx.font = "bold 18px system-ui";
+    ctx.fillText("가방", CW / 2, py);
+
+    const items = Object.entries(state.inventory);
+    const craftable = Object.keys(RECIPES).filter(r => hasItem(RECIPES[r].material, RECIPES[r].count));
+    const ee = state.currentEevee;
+
+    // 스크롤 영역 설정
+    const listTop = py + 20;
+    const listBot = CH - 10;
+    const ITEM_H = 42;
+    const craftH = craftable.length * 38;
+    const totalH = craftH + items.length * ITEM_H;
+    const maxScroll = Math.max(0, totalH - (listBot - listTop));
+    state.invScroll = clamp(state.invScroll, 0, maxScroll);
+
+    // 클리핑
+    ctx.save();
+    ctx.beginPath(); ctx.rect(0, listTop, CW, listBot - listTop); ctx.clip();
+
+    let y = listTop - state.invScroll;
+
+    // 제작
+    for (const name of craftable) {
+        const bx = 20, bw = CW - 40, bh = 32;
+        if (y + bh > listTop - 40 && y < listBot) {
+            ctx.fillStyle = "rgba(62,39,35,0.9)"; ctx.strokeStyle = "#FF8F00"; ctx.lineWidth = 1;
+            roundRect(bx, y, bw, bh, 6); ctx.fill(); ctx.stroke();
+            ctx.fillStyle = "#FF8F00"; ctx.font = "bold 12px system-ui"; ctx.textAlign = "center";
+            ctx.fillText(`🔨 ${itemEmoji(name)} ${name} 제작 (${itemEmoji(RECIPES[name].material)}x${RECIPES[name].count})`, CW / 2, y + 16);
+        }
+        y += 38;
+    }
+
+    if (items.length === 0) {
+        ctx.fillStyle = "#666"; ctx.font = "13px system-ui"; ctx.textAlign = "center";
+        ctx.fillText("아이템이 없습니다", CW / 2, y + 40);
+    }
+
+    // 아이템 목록
+    for (let i = 0; i < items.length; i++) {
+        const [name, count] = items[i];
+        const bx = 20, bw = CW - 40, bh = 38;
+        const by = y + i * ITEM_H;
+        if (by + bh < listTop - 10) continue;
+        if (by > listBot + 10) break;
+
+        // 열매 테두리 색상: 좋아하는=초록, 싫어하는=빨강
+        const isFruit = FRUITS.includes(name);
+        let borderColor = "#444";
+        if (isFruit && ee) {
+            if (ee.knownLiked && name === ee.likedFruit) borderColor = "#4CAF50";
+            else if (ee.knownDisliked && name === ee.dislikedFruit) borderColor = "#E53935";
+        }
+
+        ctx.fillStyle = "rgba(50,50,80,0.8)";
+        ctx.strokeStyle = borderColor;
+        ctx.lineWidth = borderColor === "#444" ? 1 : 2.5;
+        roundRect(bx, by, bw, bh, 5); ctx.fill(); ctx.stroke();
+
+        ctx.textAlign = "left"; ctx.fillStyle = "#ddd"; ctx.font = "13px system-ui";
+        ctx.fillText(`${itemEmoji(name)} ${name}  x${count}`, bx + 10, by + 13);
+
+        // 좋아함/싫어함 라벨
+        if (isFruit && ee) {
+            if (ee.knownLiked && name === ee.likedFruit) {
+                ctx.fillStyle = "#4CAF50"; ctx.font = "bold 10px system-ui"; ctx.textAlign = "left";
+                ctx.fillText("♥좋아함", bx + 10, by + 30);
+            } else if (ee.knownDisliked && name === ee.dislikedFruit) {
+                ctx.fillStyle = "#E53935"; ctx.font = "bold 10px system-ui"; ctx.textAlign = "left";
+                ctx.fillText("💢싫어함", bx + 10, by + 30);
+            }
+        }
+
+        // 전달 버튼
+        const fbx = bx + bw - 95, fbw = 42;
+        ctx.fillStyle = "#3a7d44"; roundRect(fbx, by + 5, fbw, 26, 4); ctx.fill();
+        ctx.fillStyle = "#fff"; ctx.font = "bold 11px system-ui"; ctx.textAlign = "center";
+        ctx.fillText("전달", fbx + fbw / 2, by + 18);
+
+        // 버리기 버튼
+        const dbx = bx + bw - 48, dbw = 42;
+        ctx.fillStyle = "#555"; roundRect(dbx, by + 5, dbw, 26, 4); ctx.fill();
+        ctx.fillStyle = "#ccc"; ctx.fillText("버리기", dbx + dbw / 2, by + 18);
+    }
+
+    ctx.restore();
+
+    // 스크롤바
+    if (maxScroll > 0) {
+        const sbH = (listBot - listTop) * ((listBot - listTop) / totalH);
+        const sbY = listTop + (state.invScroll / maxScroll) * ((listBot - listTop) - sbH);
+        ctx.fillStyle = "rgba(255,255,255,0.2)";
+        roundRect(CW - 8, sbY, 4, sbH, 2); ctx.fill();
+    }
+}
+
+function drawDexPanel() {
+    const startY = drawPanelBg();
+    const py = startY;
+
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillStyle = "#FFD54F"; ctx.font = "bold 18px system-ui";
+    ctx.fillText("진화 도감", CW / 2, py);
+
+    const showPost = base8Complete();
+    const list = showPost ? EVOS : EVOS.slice(0, 8);
+    const cols = 4;
+    const cellW = 100, cellH = 80;
+    const gridW = cols * cellW;
+    const offsetX = (CW - gridW) / 2;
+
+    for (let i = 0; i < list.length; i++) {
+        const evo = list[i];
+        const col = i % cols, row = Math.floor(i / cols);
+        const bx = offsetX + col * cellW + 4, by = py + 25 + row * (cellH + 6);
+        const bw = cellW - 8, bh = cellH;
+
+        if (by + bh > CH) break;
+
+        ctx.fillStyle = state.collected.has(evo.id) ? "rgba(50,50,100,0.7)" : "rgba(30,30,50,0.7)";
+        ctx.strokeStyle = state.collected.has(evo.id) ? "#6C63FF" : "#333";
+        ctx.lineWidth = 1;
+        roundRect(bx, by, bw, bh, 6); ctx.fill(); ctx.stroke();
+
+        if (state.collected.has(evo.id)) {
+            drawSprite(evo.img, bx + bw / 2, by + 46, 1, 32);
+            ctx.fillStyle = "#ddd"; ctx.font = "bold 10px system-ui"; ctx.textAlign = "center";
+            ctx.fillText(evo.name, bx + bw / 2, by + 68);
+        } else {
+            ctx.fillStyle = "#444"; ctx.font = "bold 22px system-ui"; ctx.textAlign = "center";
+            ctx.fillText("?", bx + bw / 2, by + 40);
+        }
+    }
+
+    ctx.fillStyle = "#888"; ctx.font = "12px system-ui"; ctx.textAlign = "center";
+    const total = showPost ? EVOS.length : 8;
+    ctx.fillText(`${state.collected.size} / ${total}`, CW / 2, CH - 10);
+}
+
+/* ── 팝업 (중앙 소형) ── */
+/* ── 탐색지 배경 그리기 ── */
+function drawLocationScene(locId, attr) {
+    const t = state.popupTimer;
+    const sceneH = CH - 180;
+
+    switch (locId) {
+        case "lake": // 호수 - 물
+            { const g = ctx.createLinearGradient(0,0,0,sceneH);
+              g.addColorStop(0,"#5BA3D9"); g.addColorStop(0.5,"#A8D8EA"); g.addColorStop(1,"#3A7BD5");
+              ctx.fillStyle = g; ctx.fillRect(0,0,CW,sceneH);
+              // 산
+              ctx.fillStyle = "#6B9E6B";
+              ctx.beginPath(); ctx.ellipse(120,sceneH*0.55,100,70,0,Math.PI,0); ctx.fill();
+              ctx.beginPath(); ctx.ellipse(350,sceneH*0.5,120,80,0,Math.PI,0); ctx.fill();
+              // 호수
+              ctx.fillStyle = "#4A90D9";
+              ctx.beginPath(); ctx.ellipse(CW/2,sceneH*0.75,180,50,0,0,Math.PI*2); ctx.fill();
+              // 물결
+              ctx.strokeStyle = "rgba(255,255,255,0.3)"; ctx.lineWidth = 1;
+              for (let i=0;i<5;i++){
+                  const wx=CW/2-100+i*50, wy=sceneH*0.73+Math.sin(t*0.05+i)*4;
+                  ctx.beginPath(); ctx.moveTo(wx,wy); ctx.quadraticCurveTo(wx+15,wy-3,wx+30,wy); ctx.stroke();
+              }
+              // 나무
+              ctx.fillStyle = "#5B8C5A"; ctx.beginPath(); ctx.arc(60,sceneH*0.5,25,0,Math.PI*2); ctx.fill();
+              ctx.fillStyle = "#6B4226"; ctx.fillRect(57,sceneH*0.5,6,30);
+            } break;
+
+        case "volcano": // 화산
+            { const g = ctx.createLinearGradient(0,0,0,sceneH);
+              g.addColorStop(0,"#D4553A"); g.addColorStop(0.4,"#E8956A"); g.addColorStop(1,"#4A3020");
+              ctx.fillStyle = g; ctx.fillRect(0,0,CW,sceneH);
+              // 화산
+              ctx.fillStyle = "#5A3A2A";
+              ctx.beginPath(); ctx.moveTo(CW/2-120,sceneH); ctx.lineTo(CW/2-20,sceneH*0.2);
+              ctx.lineTo(CW/2+20,sceneH*0.2); ctx.lineTo(CW/2+120,sceneH); ctx.fill();
+              // 분화구
+              ctx.fillStyle = "#FF6B35";
+              ctx.beginPath(); ctx.ellipse(CW/2,sceneH*0.22,22,10,0,0,Math.PI*2); ctx.fill();
+              // 용암 파편
+              ctx.fillStyle = "#FF4500";
+              for (let i=0;i<6;i++){
+                  const px=CW/2+(Math.sin(t*0.03+i*2)-0.5)*60;
+                  const py=sceneH*0.15-Math.abs(Math.sin(t*0.04+i*1.5))*40-i*8;
+                  ctx.beginPath(); ctx.arc(px,py,3+Math.random(),0,Math.PI*2); ctx.fill();
+              }
+              // 연기
+              ctx.fillStyle = "rgba(100,100,100,0.3)";
+              for (let i=0;i<3;i++){
+                  ctx.beginPath(); ctx.arc(CW/2+Math.sin(t*0.02+i)*15,sceneH*0.1-i*20-Math.sin(t*0.01)*5,15+i*8,0,Math.PI*2); ctx.fill();
+              }
+            } break;
+
+        case "flower": // 꽃밭
+            { const g = ctx.createLinearGradient(0,0,0,sceneH);
+              g.addColorStop(0,"#87CEEB"); g.addColorStop(0.5,"#C5E8F0"); g.addColorStop(1,"#7BC67E");
+              ctx.fillStyle = g; ctx.fillRect(0,0,CW,sceneH);
+              // 잔디
+              ctx.fillStyle = "#5DAA68"; ctx.fillRect(0,sceneH*0.55,CW,sceneH*0.45);
+              // 꽃
+              const colors = ["#FF69B4","#FFD54F","#CE93D8","#FF8A65","#FFF","#F48FB1"];
+              for (let i=0;i<30;i++){
+                  const fx=(i*67+23)%CW, fy=sceneH*0.58+(i*43+11)%(sceneH*0.35);
+                  ctx.fillStyle = colors[i%colors.length];
+                  ctx.beginPath(); ctx.arc(fx,fy,4+Math.sin(t*0.03+i)*1,0,Math.PI*2); ctx.fill();
+                  ctx.fillStyle = "#4CAF50";
+                  ctx.fillRect(fx-0.5,fy+3,1,5);
+              }
+              // 나비
+              ctx.fillStyle = "#FFD54F"; ctx.globalAlpha=0.7;
+              const bx=CW/2+Math.sin(t*0.03)*80, by=sceneH*0.4+Math.cos(t*0.04)*20;
+              ctx.beginPath(); ctx.ellipse(bx-5,by,4,7,Math.sin(t*0.1)*0.5,0,Math.PI*2); ctx.fill();
+              ctx.beginPath(); ctx.ellipse(bx+5,by,4,7,-Math.sin(t*0.1)*0.5,0,Math.PI*2); ctx.fill();
+              ctx.globalAlpha=1;
+            } break;
+
+        case "forest": // 숲
+            { const g = ctx.createLinearGradient(0,0,0,sceneH);
+              g.addColorStop(0,"#2D5A27"); g.addColorStop(0.3,"#3E7B34"); g.addColorStop(1,"#1A3A14");
+              ctx.fillStyle = g; ctx.fillRect(0,0,CW,sceneH);
+              // 나무들
+              for (let i=0;i<8;i++){
+                  const tx=i*65+20, trunk=sceneH*0.4+i%3*20;
+                  ctx.fillStyle = "#4A3020"; ctx.fillRect(tx-4,trunk,8,sceneH-trunk);
+                  ctx.fillStyle = `rgb(${40+i*5},${90+i*8},${35+i*5})`;
+                  ctx.beginPath(); ctx.arc(tx,trunk-5,22+i%3*8,0,Math.PI*2); ctx.fill();
+                  ctx.beginPath(); ctx.arc(tx-12,trunk+5,16,0,Math.PI*2); ctx.fill();
+                  ctx.beginPath(); ctx.arc(tx+12,trunk+5,16,0,Math.PI*2); ctx.fill();
+              }
+              // 이끼바위
+              ctx.fillStyle = "#5A7A5A";
+              ctx.beginPath(); ctx.ellipse(CW/2,sceneH*0.85,30,15,0,0,Math.PI*2); ctx.fill();
+              ctx.fillStyle = "#7AB87A";
+              ctx.beginPath(); ctx.ellipse(CW/2-5,sceneH*0.83,12,6,0,0,Math.PI*2); ctx.fill();
+              // 빛줄기
+              ctx.fillStyle="rgba(255,255,200,0.06)";
+              ctx.beginPath(); ctx.moveTo(200,0); ctx.lineTo(170,sceneH); ctx.lineTo(230,sceneH); ctx.fill();
+              ctx.beginPath(); ctx.moveTo(350,0); ctx.lineTo(320,sceneH); ctx.lineTo(380,sceneH); ctx.fill();
+            } break;
+
+        case "plant": // 발전소
+            { const g = ctx.createLinearGradient(0,0,0,sceneH);
+              g.addColorStop(0,"#3A3A50"); g.addColorStop(1,"#2A2A3A");
+              ctx.fillStyle = g; ctx.fillRect(0,0,CW,sceneH);
+              // 건물
+              ctx.fillStyle = "#4A4A5A";
+              ctx.fillRect(100,sceneH*0.3,120,sceneH*0.7);
+              ctx.fillRect(260,sceneH*0.4,100,sceneH*0.6);
+              // 창문
+              ctx.fillStyle = "#FFD54F";
+              for (let r=0;r<3;r++) for (let c=0;c<3;c++){
+                  ctx.fillRect(112+c*30,sceneH*0.35+r*40,12,15);
+              }
+              // 전선
+              ctx.strokeStyle = "#666"; ctx.lineWidth = 2;
+              ctx.beginPath(); ctx.moveTo(50,sceneH*0.3); ctx.quadraticCurveTo(180,sceneH*0.2,300,sceneH*0.3); ctx.stroke();
+              // 번개 이펙트
+              if (Math.sin(t*0.08)>0.7){
+                  ctx.strokeStyle = "#FFD54F"; ctx.lineWidth = 2; ctx.globalAlpha=0.8;
+                  ctx.beginPath(); ctx.moveTo(CW/2,0); ctx.lineTo(CW/2-10,40); ctx.lineTo(CW/2+10,60); ctx.lineTo(CW/2-5,100); ctx.stroke();
+                  ctx.globalAlpha=1;
+              }
+              // 철탑
+              ctx.strokeStyle = "#888"; ctx.lineWidth = 3;
+              ctx.beginPath(); ctx.moveTo(50,sceneH); ctx.lineTo(55,sceneH*0.15); ctx.lineTo(60,sceneH); ctx.stroke();
+              ctx.beginPath(); ctx.moveTo(420,sceneH); ctx.lineTo(425,sceneH*0.2); ctx.lineTo(430,sceneH); ctx.stroke();
+            } break;
+
+        case "snow": // 설산
+            { const g = ctx.createLinearGradient(0,0,0,sceneH);
+              g.addColorStop(0,"#B0C4DE"); g.addColorStop(0.4,"#D6E8F0"); g.addColorStop(1,"#F0F8FF");
+              ctx.fillStyle = g; ctx.fillRect(0,0,CW,sceneH);
+              // 눈산
+              ctx.fillStyle = "#E8E8F0";
+              ctx.beginPath(); ctx.moveTo(0,sceneH); ctx.lineTo(120,sceneH*0.2); ctx.lineTo(240,sceneH); ctx.fill();
+              ctx.beginPath(); ctx.moveTo(200,sceneH); ctx.lineTo(340,sceneH*0.15); ctx.lineTo(480,sceneH); ctx.fill();
+              // 산 음영
+              ctx.fillStyle = "#C8D8E8";
+              ctx.beginPath(); ctx.moveTo(120,sceneH*0.2); ctx.lineTo(180,sceneH*0.5); ctx.lineTo(240,sceneH); ctx.lineTo(120,sceneH*0.2); ctx.fill();
+              // 눈송이
+              ctx.fillStyle = "#fff";
+              for (let i=0;i<20;i++){
+                  const sx=(i*83+t*0.3)%CW, sy=(i*57+t*0.5)%sceneH;
+                  ctx.globalAlpha = 0.4+Math.sin(i)*0.3;
+                  ctx.beginPath(); ctx.arc(sx,sy,2,0,Math.PI*2); ctx.fill();
+              }
+              ctx.globalAlpha=1;
+              // 얼음바위
+              ctx.fillStyle = "#A0D0E0";
+              ctx.beginPath(); ctx.moveTo(CW/2-15,sceneH*0.8); ctx.lineTo(CW/2,sceneH*0.65); ctx.lineTo(CW/2+15,sceneH*0.8); ctx.fill();
+            } break;
+
+        case "temple": // 신전
+            { const g = ctx.createLinearGradient(0,0,0,sceneH);
+              g.addColorStop(0,"#1A1040"); g.addColorStop(0.5,"#2A1860"); g.addColorStop(1,"#3A2070");
+              ctx.fillStyle = g; ctx.fillRect(0,0,CW,sceneH);
+              // 별
+              ctx.fillStyle = "#fff";
+              for (let i=0;i<20;i++){
+                  ctx.globalAlpha=0.3+Math.sin(t*0.02+i*2)*0.2;
+                  ctx.beginPath(); ctx.arc((i*97)%CW,(i*53)%(sceneH*0.4),1.2,0,Math.PI*2); ctx.fill();
+              }
+              ctx.globalAlpha=1;
+              // 신전 건물
+              ctx.fillStyle = "#D4C8A0";
+              ctx.fillRect(CW/2-60,sceneH*0.35,120,sceneH*0.65);
+              // 기둥
+              ctx.fillStyle = "#C4B890";
+              ctx.fillRect(CW/2-55,sceneH*0.35,10,sceneH*0.65);
+              ctx.fillRect(CW/2+45,sceneH*0.35,10,sceneH*0.65);
+              // 지붕
+              ctx.fillStyle = "#8B6914";
+              ctx.beginPath(); ctx.moveTo(CW/2-75,sceneH*0.35); ctx.lineTo(CW/2,sceneH*0.15); ctx.lineTo(CW/2+75,sceneH*0.35); ctx.fill();
+              // 빛나는 구슬
+              ctx.fillStyle = "rgba(255,200,100,0.3)";
+              ctx.beginPath(); ctx.arc(CW/2,sceneH*0.5,20+Math.sin(t*0.04)*3,0,Math.PI*2); ctx.fill();
+              ctx.fillStyle = "#FFD54F";
+              ctx.beginPath(); ctx.arc(CW/2,sceneH*0.5,8,0,Math.PI*2); ctx.fill();
+            } break;
+
+        case "tower": // 폐탑
+            { const g = ctx.createLinearGradient(0,0,0,sceneH);
+              g.addColorStop(0,"#0A0A15"); g.addColorStop(0.5,"#1A1A25"); g.addColorStop(1,"#0F0F18");
+              ctx.fillStyle = g; ctx.fillRect(0,0,CW,sceneH);
+              // 달
+              ctx.fillStyle = "#C8B898"; ctx.beginPath(); ctx.arc(CW-70,50,18,0,Math.PI*2); ctx.fill();
+              // 탑
+              ctx.fillStyle = "#3A3A4A";
+              ctx.fillRect(CW/2-30,sceneH*0.1,60,sceneH*0.9);
+              ctx.fillRect(CW/2-40,sceneH*0.1,80,15);
+              // 금 간 부분
+              ctx.strokeStyle = "#2A2A35"; ctx.lineWidth = 1;
+              ctx.beginPath(); ctx.moveTo(CW/2-10,sceneH*0.3); ctx.lineTo(CW/2+5,sceneH*0.6); ctx.stroke();
+              // 창문 (어둡게 빛남)
+              ctx.fillStyle = "rgba(100,80,160,0.5)";
+              ctx.fillRect(CW/2-8,sceneH*0.25,16,20);
+              ctx.fillRect(CW/2-8,sceneH*0.55,16,20);
+              // 유령 파티클
+              ctx.fillStyle = "rgba(150,130,200,0.2)";
+              for (let i=0;i<5;i++){
+                  const gx=CW/2+Math.sin(t*0.02+i*2)*50;
+                  const gy=sceneH*0.4+Math.cos(t*0.03+i)*30;
+                  ctx.beginPath(); ctx.arc(gx,gy,6+Math.sin(t*0.04+i)*2,0,Math.PI*2); ctx.fill();
+              }
+              // 박쥐
+              ctx.fillStyle = "#222";
+              const batX=CW/2-80+Math.sin(t*0.025)*60, batY=sceneH*0.2+Math.cos(t*0.03)*15;
+              ctx.beginPath(); ctx.ellipse(batX-5,batY,5,3,Math.sin(t*0.12)*0.5,0,Math.PI*2); ctx.fill();
+              ctx.beginPath(); ctx.ellipse(batX+5,batY,5,3,-Math.sin(t*0.12)*0.5,0,Math.PI*2); ctx.fill();
+            } break;
+
+        case "den": // 거대소굴
+            { const g = ctx.createLinearGradient(0,0,0,sceneH);
+              g.addColorStop(0,"#2A1A1A"); g.addColorStop(1,"#1A0A0A");
+              ctx.fillStyle = g; ctx.fillRect(0,0,CW,sceneH);
+              // 동굴 입구
+              ctx.fillStyle = "#3A2020";
+              ctx.beginPath(); ctx.ellipse(CW/2,sceneH*0.6,140,120,0,Math.PI,0); ctx.fill();
+              ctx.fillStyle = "#1A0808";
+              ctx.beginPath(); ctx.ellipse(CW/2,sceneH*0.6,100,90,0,Math.PI,0); ctx.fill();
+              // 빛나는 버섯
+              ctx.fillStyle = "#FF6B9D"; ctx.globalAlpha=0.6+Math.sin(t*0.05)*0.2;
+              for (let i=0;i<4;i++){
+                  ctx.beginPath(); ctx.arc(CW/2-60+i*40,sceneH*0.55+i%2*15,5,0,Math.PI*2); ctx.fill();
+              }
+              ctx.globalAlpha=1;
+            } break;
+
+        case "ruins": // 고대유적
+            { const g = ctx.createLinearGradient(0,0,0,sceneH);
+              g.addColorStop(0,"#0A0A20"); g.addColorStop(1,"#1A1A30");
+              ctx.fillStyle = g; ctx.fillRect(0,0,CW,sceneH);
+              // 유적 기둥
+              ctx.fillStyle = "#5A5A6A";
+              ctx.fillRect(80,sceneH*0.3,25,sceneH*0.7);
+              ctx.fillRect(200,sceneH*0.2,25,sceneH*0.8);
+              ctx.fillRect(300,sceneH*0.35,25,sceneH*0.65);
+              ctx.fillRect(380,sceneH*0.25,25,sceneH*0.75);
+              // 빛나는 문양
+              ctx.strokeStyle = "#7B73FF"; ctx.lineWidth = 1; ctx.globalAlpha = 0.4+Math.sin(t*0.04)*0.2;
+              ctx.beginPath(); ctx.arc(CW/2,sceneH*0.5,30,0,Math.PI*2); ctx.stroke();
+              ctx.beginPath(); ctx.arc(CW/2,sceneH*0.5,45,0,Math.PI*2); ctx.stroke();
+              ctx.globalAlpha=1;
+              // 메가스톤 빛
+              ctx.fillStyle = "rgba(123,115,255,0.2)";
+              ctx.beginPath(); ctx.arc(CW/2,sceneH*0.5,15+Math.sin(t*0.06)*5,0,Math.PI*2); ctx.fill();
+            } break;
+
+        case "valley": // 용의계곡
+            { const g = ctx.createLinearGradient(0,0,0,sceneH);
+              g.addColorStop(0,"#4A6080"); g.addColorStop(0.5,"#7A90A0"); g.addColorStop(1,"#3A5060");
+              ctx.fillStyle = g; ctx.fillRect(0,0,CW,sceneH);
+              // 절벽
+              ctx.fillStyle = "#5A4A3A";
+              ctx.beginPath(); ctx.moveTo(0,sceneH*0.3); ctx.lineTo(0,sceneH); ctx.lineTo(100,sceneH); ctx.lineTo(80,sceneH*0.4); ctx.fill();
+              ctx.beginPath(); ctx.moveTo(CW,sceneH*0.25); ctx.lineTo(CW,sceneH); ctx.lineTo(380,sceneH); ctx.lineTo(400,sceneH*0.35); ctx.fill();
+              // 안개
+              ctx.fillStyle = "rgba(200,210,220,0.15)";
+              for (let i=0;i<3;i++){
+                  ctx.beginPath(); ctx.ellipse(CW/2+Math.sin(t*0.01+i)*40,sceneH*0.6+i*20,120,15,0,0,Math.PI*2); ctx.fill();
+              }
+              // 드래곤 실루엣 (먼 곳)
+              ctx.fillStyle = "rgba(30,40,50,0.3)";
+              const dx=CW/2+Math.sin(t*0.015)*30, dy=sceneH*0.2+Math.cos(t*0.02)*10;
+              ctx.beginPath(); ctx.ellipse(dx,dy,25,8,0.1,0,Math.PI*2); ctx.fill();
+              ctx.beginPath(); ctx.ellipse(dx-20,dy-2,12,18,-0.3,0,Math.PI*2); ctx.fill();
+              ctx.beginPath(); ctx.ellipse(dx+20,dy-2,12,18,0.3,0,Math.PI*2); ctx.fill();
+            } break;
+
+        default: // 기본
+            { ctx.fillStyle = "#2A2A3A"; ctx.fillRect(0,0,CW,sceneH); }
+    }
+}
+
+function drawPopup() {
+    if (!state.popup) return;
+    state.popupTimer++;
+    const p = state.popup;
+    // 팝업 타입별 크기
+    const isFeedCurrent = p.type === "feed_current";
+    const isFeedFarm = p.type === "feed_farm";
+    let pw = 300, ph = 140;
+    if (isFeedCurrent) {
+        const itemRows = Math.ceil(Object.keys(state.inventory).length / 3);
+        pw = 320; ph = 65 + Math.min(itemRows, 4) * 36;
+    } else if (isFeedFarm) {
+        const af = FRUITS.filter(f => hasItem(f));
+        const fruitRows = Math.ceil(af.length / 3);
+        ph = af.length > 0 ? 90 + fruitRows * 36 : 130;
+    }
+    const px = (CW - pw) / 2, py = (CH - ph) / 2 - 30;
+
+    // 배경 딤
+    ctx.fillStyle = "rgba(0,0,0,0.4)";
+    ctx.fillRect(0, 0, CW, CH);
+
+    // 팝업 박스
+    ctx.fillStyle = "rgba(30,30,55,0.95)";
+    ctx.strokeStyle = "#7B73FF";
+    ctx.lineWidth = 2;
+    roundRect(px, py, pw, ph, 12);
+    ctx.fill(); ctx.stroke();
+
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+
+    if (p.type === "exploring") {
+        // 팝업 크기
+        const epw = 340, eph = 260;
+        const epx = (CW - epw) / 2, epy = (CH - eph) / 2 - 30;
+
+        // 배경 딤
+        ctx.fillStyle = "rgba(0,0,0,0.4)";
+        ctx.fillRect(0, 0, CW, CH);
+
+        // 팝업 박스
+        ctx.fillStyle = "rgba(25,25,45,0.95)";
+        ctx.strokeStyle = "#7B73FF"; ctx.lineWidth = 2;
+        roundRect(epx, epy, epw, eph, 12); ctx.fill(); ctx.stroke();
+
+        // 지역 미니 뷰 (팝업 상단에 작은 풍경)
+        ctx.save();
+        ctx.beginPath(); ctx.roundRect(epx + 10, epy + 10, epw - 20, 100, 8); ctx.clip();
+        ctx.translate(epx + 10, epy + 10);
+        ctx.scale((epw - 20) / CW, 100 / (CH - 180));
+        drawLocationScene(p.locationId, p.attr);
+        ctx.restore();
+
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        const EXPLORE_DURATION = 75;
+        const cx = epx + epw / 2;
+
+        if (state.popupTimer < EXPLORE_DURATION) {
+            // 진행 중
+            ctx.fillStyle = "#fff"; ctx.font = "bold 15px system-ui";
+            ctx.fillText(`${p.locationName} 탐색 중...`, cx, epy + 130);
+
+            // 진행 바
+            const barW = epw - 60, barH = 6;
+            const bx = epx + 30, by = epy + 148;
+            ctx.fillStyle = "#333"; ctx.fillRect(bx, by, barW, barH);
+            ctx.fillStyle = "#FFD54F";
+            ctx.fillRect(bx, by, barW * (state.popupTimer / EXPLORE_DURATION), barH);
+            ctx.strokeStyle = "#555"; ctx.lineWidth = 0.5; ctx.strokeRect(bx, by, barW, barH);
+
+            // 이브이 걷기
+            const eeveeX = cx - 40 + (state.popupTimer / EXPLORE_DURATION) * 80;
+            const bounce = Math.sin(state.popupTimer * 0.15) * 2;
+            drawSprite("이브이.png", eeveeX, epy + 195 + bounce, 1, 36);
+
+            // 점 애니메이션
+            const dots = ".".repeat(Math.floor(state.popupTimer / 15) % 4);
+            ctx.fillStyle = "#888"; ctx.font = "14px system-ui";
+            ctx.fillText(dots, cx + 75, epy + 130);
+        } else {
+            // 결과
+            ctx.fillStyle = "#FFD54F"; ctx.font = "bold 16px system-ui";
+            ctx.fillText(`${p.locationName} 탐색 완료!`, cx, epy + 128);
+
+            ctx.fillStyle = "#fff"; ctx.font = "bold 20px system-ui";
+            ctx.fillText(p.itemName, cx, epy + 165);
+
+            const typeColors = {fruit:"#66BB6A",stone:"#FFD54F",shard:"#CE93D8",material:"#90A4AE",special:"#F48FB1"};
+            ctx.fillStyle = typeColors[p.itemType] || "#fff"; ctx.font = "12px system-ui";
+            const typeNames = {fruit:"열매",stone:"진화석",shard:"조각",material:"재료",special:"특수"};
+            ctx.fillText(typeNames[p.itemType] || "", cx, epy + 192);
+
+            const alpha = Math.sin(frame * 0.05) * 0.3 + 0.7;
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = "#888"; ctx.font = "13px system-ui";
+            ctx.fillText("터치하여 계속", cx, epy + eph - 18);
+            ctx.globalAlpha = 1;
+        }
+        return;
+    }
+
+    if (p.type === "hint") {
+        drawSprite("이브이.png", px + pw / 2, py + 45, 1, 40);
+        ctx.fillStyle = "#E0E0E0"; ctx.font = "14px system-ui";
+        ctx.fillText(p.text, px + pw / 2, py + 85);
+        ctx.fillStyle = "#777"; ctx.font = "12px system-ui";
+        ctx.fillText("터치하여 계속", px + pw / 2, py + 118);
+    } else if (p.type === "feed_current") {
+        const ee = state.currentEevee;
+        ctx.fillStyle = "#FFD54F"; ctx.font = "bold 15px system-ui";
+        ctx.fillText("이브이에게 아이템 주기", px + pw / 2, py + 22);
+        // 친밀도 + 스태미나 표시
+        ctx.fillStyle = "#4FC3F7"; ctx.font = "11px system-ui";
+        ctx.fillText(`친밀도: ${Math.round(ee.friendship)} / ${FRIENDSHIP.max}  ⚡스태미나: ${Math.floor(ee.stamina)} / ${STAMINA.max}`, px + pw / 2, py + 40);
+        // 아이템 버튼들
+        const allItems = Object.entries(state.inventory);
+        const cols = 3;
+        for (let i = 0; i < allItems.length && i < 12; i++) {
+            const [name, count] = allItems[i];
+            const col = i % cols, row = Math.floor(i / cols);
+            const fbx = px + 10 + col * 100, fby = py + 55 + row * 36, fbw = 92, fbh = 30;
+            // 좋아함/싫어함 테두리
+            let border = "#555";
+            if (FRUITS.includes(name)) {
+                if (ee.knownLiked && name === ee.likedFruit) border = "#4CAF50";
+                else if (ee.knownDisliked && name === ee.dislikedFruit) border = "#E53935";
+            }
+            ctx.fillStyle = "rgba(50,50,90,0.9)"; ctx.strokeStyle = border; ctx.lineWidth = border === "#555" ? 1 : 2;
+            roundRect(fbx, fby, fbw, fbh, 5); ctx.fill(); ctx.stroke();
+            ctx.fillStyle = "#fff"; ctx.font = "11px system-ui";
+            ctx.fillText(`${itemEmoji(name)} x${count}`, fbx + fbw / 2, fby + fbh / 2);
+        }
+    } else if (p.type === "feed_farm") {
+        const e = state.farm[p.farmIdx];
+        const evo = EVOS.find(ev => ev.id === e.evoId);
+        const ename = evo ? evo.name : "이브이";
+        // 스프라이트
+        drawSprite(e.sprite, px + 30, py + 30, 1, 28);
+        ctx.fillStyle = "#FFD54F"; ctx.font = "bold 14px system-ui";
+        ctx.textAlign = "left";
+        ctx.fillText(ename, px + 50, py + 20);
+        ctx.fillStyle = "#aaa"; ctx.font = "11px system-ui";
+        ctx.fillText(`${evo ? evo.type : ""} 타입`, px + 50, py + 36);
+        // 활동성 바
+        ctx.textAlign = "center";
+        const actR = clamp((e.activity || 0) / ACTIVITY_MAX, 0, 1);
+        ctx.fillStyle = "#444"; ctx.fillRect(px + 15, py + 52, pw - 30, 6);
+        ctx.fillStyle = actR >= 0.7 ? "#FF9800" : actR >= 0.3 ? "#FFB74D" : "#795548";
+        ctx.fillRect(px + 15, py + 52, (pw - 30) * actR, 6);
+        ctx.strokeStyle = "#555"; ctx.lineWidth = 0.5; ctx.strokeRect(px + 15, py + 52, pw - 30, 6);
+        ctx.fillStyle = "#999"; ctx.font = "10px system-ui";
+        ctx.fillText(`활동성 ${Math.round(e.activity || 0)} / ${ACTIVITY_MAX}`, px + pw / 2, py + 70);
+        // 열매 버튼들
+        const availFruits = FRUITS.filter(f => hasItem(f));
+        if (availFruits.length > 0) {
+            const cols = 3;
+            for (let i = 0; i < availFruits.length; i++) {
+                const col = i % cols, row = Math.floor(i / cols);
+                const fbx = px + 15 + col * 92, fby = py + 82 + row * 36, fbw = 85, fbh = 30;
+                ctx.fillStyle = "rgba(50,50,90,0.9)"; roundRect(fbx, fby, fbw, fbh, 5); ctx.fill();
+                ctx.fillStyle = "#fff"; ctx.font = "12px system-ui";
+                ctx.fillText(`${itemEmoji(availFruits[i])} x${itemCount(availFruits[i])}`, fbx + fbw / 2, fby + fbh / 2);
+            }
+        } else {
+            ctx.fillStyle = "#666"; ctx.font = "12px system-ui";
+            ctx.fillText("줄 수 있는 열매가 없습니다", px + pw / 2, py + 100);
+        }
+    } else if (p.type === "confirm_rest") {
+        const nextTime = state.timeOfDay === "day" ? "밤" : "낮";
+        ctx.fillStyle = "#FFD54F"; ctx.font = "bold 16px system-ui";
+        ctx.fillText(`휴식하고 ${nextTime}으로 넘길까요?`, px + pw / 2, py + 35);
+        ctx.fillStyle = "#aaa"; ctx.font = "13px system-ui";
+        ctx.fillText(`스태미나가 회복됩니다`, px + pw / 2, py + 60);
+        // 확인 버튼
+        const ybx = px + 30, ybw = (pw - 80) / 2, yby = py + 85, ybh = 34;
+        ctx.fillStyle = "#3a7d44"; roundRect(ybx, yby, ybw, ybh, 6); ctx.fill();
+        ctx.fillStyle = "#fff"; ctx.font = "bold 14px system-ui";
+        ctx.fillText("확인", ybx + ybw / 2, yby + ybh / 2);
+        // 취소 버튼
+        const nbx = px + pw - 30 - ybw;
+        ctx.fillStyle = "#555"; roundRect(nbx, yby, ybw, ybh, 6); ctx.fill();
+        ctx.fillStyle = "#ddd";
+        ctx.fillText("취소", nbx + ybw / 2, yby + ybh / 2);
+    }
+}
+
+/* ── 메시지 토스트 ── */
+function drawMessage() {
+    if (!state.message) return;
+    state.message.timer--;
+    const alpha = clamp(state.message.timer / 30, 0, 1);
+    ctx.globalAlpha = alpha;
+    const tw = ctx.measureText(state.message.text).width;
+    const mw = Math.min(CW - 40, tw + 40);
+    const mx = (CW - mw) / 2;
+    ctx.fillStyle = "rgba(0,0,0,0.75)";
+    roundRect(mx, 50, mw, 36, 8);
+    ctx.fill();
+    ctx.fillStyle = "#fff"; ctx.font = "13px system-ui"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText(state.message.text, CW / 2, 68);
+    ctx.globalAlpha = 1;
+    if (state.message.timer <= 0) state.message = null;
+}
+
+/* ── 진화 연출 (전체화면) ── */
+function drawEvolving() {
+    const evo = state.evolvingEvo;
+    state.evolvingTimer++;
+
+    ctx.fillStyle = "#0a0a1a"; ctx.fillRect(0, 0, CW, CH);
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+
+    if (state.evolvingTimer < 60) {
+        const flash = Math.sin(state.evolvingTimer * 0.3) * 0.5 + 0.5;
+        ctx.globalAlpha = flash;
+        drawSprite("이브이.png", CW / 2, CH / 2, 1, 60 + state.evolvingTimer * 0.3);
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = "#fff"; ctx.font = "bold 20px system-ui";
+        ctx.fillText("...?!", CW / 2, CH / 2 + 60);
+    } else {
+        const alpha = clamp((state.evolvingTimer - 60) / 20, 0, 1);
+        ctx.globalAlpha = alpha;
+        drawSprite(evo.img, CW / 2, CH / 2, 1, 80);
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = "#FFD54F"; ctx.font = "bold 26px system-ui";
+        ctx.fillText(`${evo.name}(으)로 진화!`, CW / 2, CH / 2 + 70);
+        ctx.fillStyle = "#aaa"; ctx.font = "15px system-ui";
+        ctx.fillText(`${evo.type} 타입`, CW / 2, CH / 2 + 100);
+
+        if (state.evolvingTimer >= 120) {
+            const a = Math.sin(frame * 0.05) * 0.3 + 0.7;
+            ctx.globalAlpha = a;
+            ctx.fillStyle = "#fff"; ctx.font = "16px system-ui";
+            ctx.fillText("터치하여 계속", CW / 2, CH / 2 + 150);
+            ctx.globalAlpha = 1;
+        }
+    }
+}
+
+/* ── 타이틀 ── */
+function drawEnding() {
+    state.endingTimer++;
+    ctx.fillStyle = "#0a0a1a"; ctx.fillRect(0, 0, CW, CH);
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+
+    // 타이틀
+    const alpha = clamp(state.endingTimer / 40, 0, 1);
+    ctx.globalAlpha = alpha;
+
+    ctx.fillStyle = "#FFD54F"; ctx.font = "bold 28px system-ui";
+    ctx.fillText("★ 축하합니다! ★", CW / 2, 80);
+
+    ctx.fillStyle = "#ddd"; ctx.font = "16px system-ui";
+    ctx.fillText("모든 이브이 진화형을 수집했습니다!", CW / 2, 115);
+
+    // 이브이 행진
+    const evoCount = EVOS.length;
+    for (let i = 0; i < evoCount && i < state.endingTimer / 3; i++) {
+        const ex = 40 + (i % 9) * 46;
+        const ey = 160 + Math.floor(i / 9) * 55;
+        const bounce = Math.sin(frame * 0.06 + i * 0.5) * 2;
+        drawSprite(EVOS[i].img, ex, ey + bounce, i % 2 === 0 ? 1 : -1, 28);
+    }
+
+    // 리더보드
+    if (state.endingTimer > 60) {
+        const boardAlpha = clamp((state.endingTimer - 60) / 30, 0, 1);
+        ctx.globalAlpha = boardAlpha;
+
+        const by = 330;
+        ctx.fillStyle = "rgba(30,30,55,0.9)";
+        ctx.strokeStyle = "#FFD54F"; ctx.lineWidth = 2;
+        roundRect(50, by, CW - 100, 180, 12); ctx.fill(); ctx.stroke();
+
+        ctx.fillStyle = "#FFD54F"; ctx.font = "bold 18px system-ui";
+        ctx.fillText("📊 기록", CW / 2, by + 30);
+
+        ctx.fillStyle = "#ddd"; ctx.font = "15px system-ui";
+        ctx.textAlign = "left";
+        const lx = 90, rx = CW - 90;
+
+        ctx.fillText("🔍 총 탐색 횟수", lx, by + 65);
+        ctx.textAlign = "right"; ctx.fillStyle = "#4FC3F7";
+        ctx.fillText(`${state.totalExplores}회`, rx, by + 65);
+
+        ctx.textAlign = "left"; ctx.fillStyle = "#ddd";
+        ctx.fillText("💤 총 휴식 횟수", lx, by + 95);
+        ctx.textAlign = "right"; ctx.fillStyle = "#CE93D8";
+        ctx.fillText(`${state.totalRests}회`, rx, by + 95);
+
+        ctx.textAlign = "left"; ctx.fillStyle = "#ddd";
+        ctx.fillText("📅 총 턴 수", lx, by + 125);
+        ctx.textAlign = "right"; ctx.fillStyle = "#FFD54F";
+        ctx.fillText(`${state.turnNumber}턴`, rx, by + 125);
+
+        ctx.textAlign = "left"; ctx.fillStyle = "#ddd";
+        ctx.fillText("🐾 수집한 이브이", lx, by + 155);
+        ctx.textAlign = "right"; ctx.fillStyle = "#FF69B4";
+        ctx.fillText(`${state.collected.size}종`, rx, by + 155);
+    }
+
+    // 계속 버튼
+    if (state.endingTimer > 100) {
+        const a = Math.sin(frame * 0.05) * 0.3 + 0.7;
+        ctx.globalAlpha = a;
+        ctx.fillStyle = "#fff"; ctx.font = "15px system-ui"; ctx.textAlign = "center";
+        ctx.fillText("터치하여 농장으로 돌아가기", CW / 2, CH - 50);
+    }
+    ctx.globalAlpha = 1;
+}
+
+function drawTitle() {
+    ctx.fillStyle = "#1a1a2e"; ctx.fillRect(0, 0, CW, CH);
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+
+    const b = Math.sin(frame * 0.03) * 5;
+    drawSprite("이브이.png", CW / 2, CH / 2 - 20 + b, 1, 80);
+
+    ctx.fillStyle = "#FFD54F"; ctx.font = "bold 34px system-ui";
+    ctx.fillText("이브이 농장", CW / 2, CH / 2 - 130);
+    ctx.fillStyle = "#aaa"; ctx.font = "15px system-ui";
+    ctx.fillText("모든 이브이 진화형을 모아보세요!", CW / 2, CH / 2 - 95);
+
+    ctx.globalAlpha = Math.sin(frame * 0.04) * 0.3 + 0.7;
+    ctx.fillStyle = "#fff"; ctx.font = "18px system-ui";
+    ctx.fillText("터치하여 시작", CW / 2, CH / 2 + 90);
+    ctx.globalAlpha = 1;
+}
+
+/* ── roundRect helper ── */
+function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, h, r);
+}
+
+/* ═══════════════════════════════════════════
+   11. INPUT HANDLING
+   ═══════════════════════════════════════════ */
+function handleInput() {
+    const click = consumeClick();
+    if (!click) return;
+    const { x, y } = click;
+
+    // 팝업 우선
+    if (state.popup) {
+        if (state.popup.type === "feed_current") {
+            const itemRows = Math.ceil(Object.keys(state.inventory).length / 3);
+            const pw = 320, ph = 65 + Math.min(itemRows, 4) * 36;
+            const px = (CW - pw) / 2, py = (CH - ph) / 2 - 30;
+            const allItems = Object.entries(state.inventory);
+            const cols = 3;
+            for (let i = 0; i < allItems.length && i < 12; i++) {
+                const [name] = allItems[i];
+                const col = i % cols, row = Math.floor(i / cols);
+                const fbx = px + 10 + col * 100, fby = py + 55 + row * 36, fbw = 92, fbh = 30;
+                if (hitBox(x, y, fbx, fby, fbw, fbh)) {
+                    feedItem(name);
+                    state.popup = null;
+                    return;
+                }
+            }
+            if (!hitBox(x, y, px, py, pw, ph)) { state.popup = null; }
+            return;
+        }
+        if (state.popup.type === "feed_farm") {
+            const availFruits = FRUITS.filter(f => hasItem(f));
+            const fruitRows = Math.ceil(availFruits.length / 3);
+            const pw = 300, ph = availFruits.length > 0 ? 90 + fruitRows * 36 : 130;
+            const px = (CW - pw) / 2, py = (CH - ph) / 2 - 30;
+            if (availFruits.length > 0) {
+                const cols = 3;
+                for (let i = 0; i < availFruits.length; i++) {
+                    const col = i % cols, row = Math.floor(i / cols);
+                    const fbx = px + 15 + col * 92, fby = py + 82 + row * 36, fbw = 85, fbh = 30;
+                    if (hitBox(x, y, fbx, fby, fbw, fbh)) {
+                        feedFarmEevee(state.popup.farmIdx, availFruits[i]);
+                        state.popup = null;
+                        return;
+                    }
+                }
+            }
+            if (!hitBox(x, y, px, py, pw, ph)) { state.popup = null; state.selectedFarmEevee = null; }
+            return;
+        }
+        if (state.popup.type === "confirm_rest") {
+            const pw = 300, ph = 140;
+            const px = (CW - pw) / 2, py = (CH - ph) / 2 - 40;
+            const ybx = px + 30, ybw = (pw - 80) / 2, yby = py + 85, ybh = 34;
+            const nbx = px + pw - 30 - ybw;
+            if (hitBox(x, y, ybx, yby, ybw, ybh)) {
+                state.popup = null; doRest();
+            } else if (hitBox(x, y, nbx, yby, ybw, ybh)) {
+                state.popup = null;
+            }
+            return;
+        }
+        if (state.popup.type === "exploring") {
+            if (state.popupTimer >= 75) {
+                state.popup = null;
+                rollTurnLocations();
+            }
+            return;
+        }
+        if (state.popupTimer > 15) {
+            state.popup = null;
+        }
+        return;
+    }
+
+    // 엔딩
+    if (state.scene === "ending") {
+        if (state.endingTimer >= 100) {
+            state.scene = "farm";
+            showMessage("이브이가 한 마리 더 놀러왔다!", 180);
+        }
+        return;
+    }
+
+    // 진화 연출
+    if (state.scene === "evolving") {
+        if (state.evolvingTimer >= 120) {
+            if (allComplete()) {
+                addFarmEevee("eevee_extra");
+                state.farm[state.farm.length - 1].sprite = "이브이.png";
+                state.scene = "ending";
+                state.endingTimer = 0;
+            } else {
+                finishPostEvolution();
+                state.currentEevee.wx = 0.4 + Math.random() * 0.2;
+                state.currentEevee.wy = 1.15; // 아래 밖에서 시작
+                state.scene = "new_eevee";
+                state.newEeveeTimer = 0;
+            }
+        }
+        return;
+    }
+
+    // 새 이브이 등장 연출
+    if (state.scene === "new_eevee") {
+        if (state.newEeveeTimer >= 90) {
+            state.scene = "farm";
+        }
+        return;
+    }
+
+    // 타이틀
+    if (state.scene === "title") {
+        resetCurrentEevee();
+        startGame();
+        return;
+    }
+
+    // 패널 열려있을 때
+    if (state.panel && state.panelSlide > 0.8) {
+        const panelTop = lerp(CH, panelTopTarget(), state.panelSlide);
+
+        if (y < panelTop) {
+            // 패널 바깥 클릭 → 닫기
+            state.panel = null;
+            return;
+        }
+
+        // 패널 내부 클릭
+        const contentY = panelTop + 30;
+
+        if (state.panel === "explore") {
+            const locs = getAvailableLocations();
+            for (let i = 0; i < locs.length; i++) {
+                const by = contentY + 40 + i * 52;
+                if (hitBox(x, y, 20, by, CW - 40, 46)) {
+                    doExplore(locs[i]);
+                    // 탐색 후 패널은 닫힘 (doExplore에서 처리)
+                    return;
+                }
+            }
+        } else if (state.panel === "inventory") {
+            const listTop = contentY + 20;
+            const ITEM_H = 42;
+            const craftable = Object.keys(RECIPES).filter(r => hasItem(RECIPES[r].material, RECIPES[r].count));
+            let cy = listTop - state.invScroll;
+            for (const name of craftable) {
+                if (hitBox(x, y, 20, cy, CW - 40, 32)) { tryCraft(name); return; }
+                cy += 38;
+            }
+            const items = Object.entries(state.inventory);
+            for (let i = 0; i < items.length; i++) {
+                const [name] = items[i];
+                const bx = 20, bw = CW - 40;
+                const by = cy + i * ITEM_H;
+                if (by + 38 < listTop) continue;
+                if (by > CH) break;
+                const fbx = bx + bw - 95;
+                if (hitBox(x, y, fbx, by + 5, 42, 26)) { feedItem(name); return; }
+                const dbx = bx + bw - 48;
+                if (hitBox(x, y, dbx, by + 5, 42, 26)) { dropItem(name); return; }
+            }
+        } else if (state.panel === "dex") {
+            // 도감은 클릭 동작 없음
+        }
+        return;
+    }
+
+    // 바닥 아이템 터치 → 회수
+    for (let i = state.farmItems.length - 1; i >= 0; i--) {
+        const item = state.farmItems[i];
+        const scr = worldToScreen(item.wx, item.wy);
+        if (Math.abs(x - scr.sx) < 18 && Math.abs(y - scr.sy) < 18) {
+            addItem(item.name);
+            state.farmItems.splice(i, 1);
+            showMessage(`${itemEmoji(item.name)} ${item.name} 회수!`, 60);
+            return;
+        }
+    }
+
+    // 현재 이브이 터치 → 아이템 선택 팝업
+    if (state.currentEevee) {
+        const ce = state.currentEevee;
+        const scr = worldToScreen(ce.wx, ce.wy);
+        const sz = spriteSize(ce.wy);
+        if (Math.abs(x - scr.sx) < sz * 0.5 && y > scr.sy - sz && y < scr.sy + 5) {
+            const hasItems = Object.keys(state.inventory).length > 0;
+            if (hasItems) {
+                state.popup = { type: "feed_current" };
+                state.popupTimer = 0;
+            }
+            return;
+        }
+    }
+
+    // 농장 이브이 터치 (수집된 이브이) — 열매 없어도 정보 팝업
+    for (let i = state.farm.length - 1; i >= 0; i--) {
+        const e = state.farm[i];
+        const scr = worldToScreen(e.wx, e.wy);
+        const sz = spriteSize(e.wy) * 1.2;
+        if (Math.abs(x - scr.sx) < sz * 0.5 && y > scr.sy - sz && y < scr.sy + 5) {
+            state.selectedFarmEevee = i;
+            state.popup = { type: "feed_farm", farmIdx: i };
+            state.popupTimer = 0;
+            return;
+        }
+    }
+
+    // 농장 하단 버튼
+    for (const btn of BUTTONS) {
+        if (btn.id === "hint" && allComplete()) continue;
+        if (hitBox(x, y, btn.x, BTN_Y, btn.w, BTN_H)) {
+            if (btn.id === "explore") {
+                state.panel = "explore"; state.panelSlide = 0;
+            } else if (btn.id === "bag") {
+                state.panel = "inventory"; state.panelSlide = 0; state.invScroll = 0;
+            } else if (btn.id === "hint") {
+                getHint();
+            } else if (btn.id === "dex") {
+                state.panel = "dex"; state.panelSlide = 0;
+            } else if (btn.id === "rest") {
+                state.popup = { type: "confirm_rest" };
+                state.popupTimer = 0;
+            }
+            return;
+        }
+    }
+}
+
+/* ═══════════════════════════════════════════
+   12. MAIN LOOP
+   ═══════════════════════════════════════════ */
+function loop() {
+    frame++;
+    ctx.clearRect(0, 0, CW, CH);
+
+    if (imagesLoaded < totalImages) {
+        ctx.fillStyle = "#1a1a2e"; ctx.fillRect(0, 0, CW, CH);
+        ctx.fillStyle = "#fff"; ctx.font = "16px system-ui";
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText(`로딩 중... ${imagesLoaded}/${totalImages}`, CW / 2, CH / 2);
+        requestAnimationFrame(loop); return;
+    }
+
+    handleInput();
+
+    // 패널 슬라이드 애니메이션
+    if (state.panel) {
+        state.panelSlide = Math.min(1, state.panelSlide + 0.08);
+    } else {
+        state.panelSlide = Math.max(0, state.panelSlide - 0.12);
+    }
+
+    if (state.scene === "title") {
+        drawTitle();
+    } else if (state.scene === "evolving") {
+        drawEvolving();
+    } else if (state.scene === "ending") {
+        drawEnding();
+    } else if (state.scene === "new_eevee") {
+        state.newEeveeTimer++;
+        // 농장 배경
+        updateFarmEntities();
+        ctx.drawImage(getBgCache(), 0, 0);
+
+        // 새 이브이를 왼쪽에서 걸어오게
+        const ce = state.currentEevee;
+        const t = Math.min(state.newEeveeTimer / 60, 1); // 0~1 (60프레임 이동)
+        ce.wy = lerp(1.15, 0.5, t);
+        ce.aiState = t < 1 ? "walk" : "idle";
+        ce.facing = 1;
+
+        drawFarmEntities();
+
+        // 말풍선
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        if (state.newEeveeTimer > 50) {
+            const scr = worldToScreen(ce.wx, ce.wy);
+            const alpha = clamp((state.newEeveeTimer - 50) / 20, 0, 1);
+            ctx.globalAlpha = alpha;
+            // 말풍선 배경
+            ctx.fillStyle = "rgba(255,255,255,0.9)";
+            roundRect(scr.sx - 40, scr.sy - spriteSize(ce.wy) - 28, 80, 24, 8);
+            ctx.fill();
+            // 꼬리
+            ctx.beginPath();
+            ctx.moveTo(scr.sx - 5, scr.sy - spriteSize(ce.wy) - 4);
+            ctx.lineTo(scr.sx, scr.sy - spriteSize(ce.wy) + 2);
+            ctx.lineTo(scr.sx + 5, scr.sy - spriteSize(ce.wy) - 4);
+            ctx.fill();
+            // 텍스트
+            ctx.fillStyle = "#333"; ctx.font = "bold 12px system-ui";
+            ctx.fillText("안녕!", scr.sx, scr.sy - spriteSize(ce.wy) - 16);
+            ctx.globalAlpha = 1;
+        }
+
+        drawHUD();
+
+        // 안내
+        if (state.newEeveeTimer >= 60) {
+            const a = Math.sin(frame * 0.05) * 0.3 + 0.7;
+            ctx.globalAlpha = a;
+            ctx.fillStyle = "#fff"; ctx.font = "15px system-ui";
+            ctx.fillText("새 이브이가 놀러왔다!", CW / 2, CH - 100);
+            ctx.font = "13px system-ui"; ctx.fillStyle = "#aaa";
+            ctx.fillText("터치하여 계속", CW / 2, CH - 75);
+            ctx.globalAlpha = 1;
+        }
+    } else {
+        // 농장 (항상 배경 - 캐시 사용)
+        updateFarmEntities();
+        ctx.drawImage(getBgCache(), 0, 0);
+        drawFarmEntities();
+        drawHUD();
+        drawFarmButtons();
+        drawMessage();
+
+        // 패널 오버레이
+        if (state.panelSlide > 0.01) {
+            if (state.panel === "explore") drawExplorePanel();
+            else if (state.panel === "inventory") drawInventoryPanel();
+            else if (state.panel === "dex") drawDexPanel();
+        }
+
+        // 팝업
+        drawPopup();
+    }
+
+    requestAnimationFrame(loop);
+}
+
+loop();
+</script>
+</body>
+</html>
