@@ -57,9 +57,13 @@ function invalidateBgCache() { bgCache = null; bgCacheTod = null; }
 
 function resize() {
     const s = Math.min(window.innerWidth / CW, window.innerHeight / CH, 2);
-    canvas.width = CW; canvas.height = CH;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = CW * dpr; canvas.height = CH * dpr;
     canvas.style.width = (CW * s) + "px";
     canvas.style.height = (CH * s) + "px";
+    ctx = canvas.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.imageSmoothingEnabled = false;
     invalidateBgCache();
 }
 window.addEventListener("resize", resize);
@@ -119,10 +123,10 @@ const EVOS = [
 
 /* ── 탐색지 ── */
 const LOCATIONS = [
-    { id:"lake",    name:"호수",   time:"day",   attr:"물",     items:[
+    { id:"lake",    name:"호수",   time:"any",   attr:"물",     items:[
         {name:"크라보열매",type:"fruit",weight:30},{name:"오랭열매",type:"fruit",weight:30},
         {name:"물의돌",type:"stone",weight:25},{name:"태양조각",type:"shard",weight:15}]},
-    { id:"volcano", name:"화산",   time:"day",   attr:"불",     items:[
+    { id:"volcano", name:"화산",   time:"any",   attr:"불",     items:[
         {name:"치리열매",type:"fruit",weight:30},{name:"오랭열매",type:"fruit",weight:30},
         {name:"불꽃의돌",type:"stone",weight:25},{name:"태양조각",type:"shard",weight:15}]},
     { id:"flower",  name:"꽃밭",   time:"day",   attr:"페어리", items:[
@@ -137,22 +141,22 @@ const LOCATIONS = [
     { id:"snow",    name:"설산",   time:"any",   attr:"얼음",   items:[
         {name:"크라보열매",type:"fruit",weight:30},{name:"라즈열매",type:"fruit",weight:30},
         {name:"얼음바위조각",type:"material",weight:25},{name:"오랭열매",type:"fruit",weight:15}]},
-    { id:"temple",  name:"신전",   time:"night", attr:"에스퍼", items:[
+    { id:"temple",  name:"신전",   time:"day",   attr:"에스퍼", items:[
         {name:"라즈열매",type:"fruit",weight:30},{name:"오랭열매",type:"fruit",weight:30},
         {name:"태양조각",type:"shard",weight:25},{name:"달조각",type:"shard",weight:15}]},
     { id:"tower",   name:"폐탑",   time:"night", attr:"악",     items:[
         {name:"나나열매",type:"fruit",weight:30},{name:"라즈열매",type:"fruit",weight:30},
         {name:"달조각",type:"shard",weight:25},{name:"태양조각",type:"shard",weight:15}]},
-    { id:"den",     name:"거대소굴", time:"any",  attr:"왕",   hidden:true, unlock:"base8", items:[
+    { id:"den",     name:"거대소굴", time:"night", attr:"왕",   hidden:true, unlock:"base8", items:[
         {name:"다이버섯",type:"stone",weight:30},{name:"오랭열매",type:"fruit",weight:40},{name:"나나열매",type:"fruit",weight:30}]},
     { id:"ruins",   name:"고대유적", time:"night",attr:"메가", hidden:true, unlock:"gmax", items:[
         {name:"이브이나이트",type:"stone",weight:30},{name:"라즈열매",type:"fruit",weight:40},{name:"달조각",type:"shard",weight:30}]},
-    { id:"valley",  name:"용의계곡", time:"day",  attr:"드래곤",hidden:true, unlock:"gmax_mega", items:[
+    { id:"valley",  name:"용의계곡", time:"day",   attr:"드래곤",hidden:true, unlock:"gmax_mega", items:[
         {name:"용의비늘",type:"stone",weight:30},{name:"치리열매",type:"fruit",weight:40},{name:"태양조각",type:"shard",weight:30}]},
 ];
 
 const FRUITS = ["오랭열매","치리열매","크라보열매","모모열매","나나열매","라즈열매"];
-const FRIENDSHIP = { start:3, max:20, liked:3, neutral:1, disliked:-2, sun_day:4, moon_night:4 };
+const FRIENDSHIP = { start:3, max:10, liked:5, neutral:2, disliked:-2, sun_day:6, moon_night:6 };
 const STAMINA = { max:3, rechargeDay:0.0003, rechargeNight:0.0005 }; // 프레임당 충전량 (낮~100초, 밤~60초 per 1칸)
 const RECIPES = { "이끼바위":{material:"이끼바위조각",count:3}, "얼음바위":{material:"얼음바위조각",count:3} };
 
@@ -178,6 +182,8 @@ const state = {
     timeOfDay: "day",
     _pendingDayNightFlip: false,
     hintUsed: false,        // 턴당 힌트 1회
+    hintBoosts: [],          // 힌트로 활성화된 드롭률 부스트 [{locId, itemName}]
+    base8Notified: false,    // 8종 완성 알림 표시 여부
     totalExplores: 0,       // 총 탐색 횟수
     totalRests: 0,          // 총 휴식 횟수
     turnNumber: 0,
@@ -194,6 +200,7 @@ const state = {
     turnLocations: [],        // 이번 턴에 갈 수 있는 탐색지
     selectedFarmEevee: null, // 농장 이브이 터치 시 인덱스
     invScroll: 0,             // 인벤토리 스크롤 오프셋
+    dexScroll: 0,             // 도감 스크롤 오프셋
     message: null,
     feedbackAnim: null,
 };
@@ -263,6 +270,16 @@ const ACTIVITY_FRUIT_DISLIKED = -3;
 const ACTIVITY_MIN_SPEED = 0.0002;  // 활동성 0일 때
 const ACTIVITY_MAX_SPEED = 0.0015;  // 활동성 MAX일 때
 
+// 진화 아이템 ↔ 진화 이브이 매핑 (바닥 아이템 근처 시 활동성 부스트)
+const EVO_ITEM_AFFINITY = {
+    "물의돌": "vaporeon", "천둥의돌": "jolteon", "불꽃의돌": "flareon",
+    "태양조각": "espeon", "달조각": "umbreon",
+    "이끼바위조각": "leafeon", "이끼바위": "leafeon",
+    "얼음바위조각": "glaceon", "얼음바위": "glaceon",
+    "리본": "sylveon",
+    "다이버섯": "gmax", "이브이나이트": "mega", "용의비늘": "dragon",
+};
+
 function addFarmEevee(evoId) {
     const evo = EVOS.find(e => e.id === evoId);
     // 진화한 이브이도 좋아하는/싫어하는 열매 랜덤 세팅
@@ -285,23 +302,25 @@ function addFarmEevee(evoId) {
 }
 
 function getEeveeSpeed(e) {
+    const boost = e._activityBoost || 1;
     const ratio = clamp((e.activity || 0) / ACTIVITY_MAX, 0, 1);
-    return lerp(ACTIVITY_MIN_SPEED, ACTIVITY_MAX_SPEED, ratio);
+    return lerp(ACTIVITY_MIN_SPEED, ACTIVITY_MAX_SPEED, ratio) * boost;
 }
 
 function addFarmItem(name) {
-    const ce = state.currentEevee;
     state.farmItems.push({
         name,
-        wx: ce.wx + (Math.random()-0.5)*0.1,
-        wy: ce.wy + 0.05,
+        wx: Math.random() * 0.7 + 0.15,
+        wy: Math.random() * 0.7 + 0.15,
         vx: (Math.random()-0.5)*0.01,
         vy: (Math.random()-0.5)*0.005,
     });
 }
 
 function updateEeveeAI(e, isNight) {
-    const actRatio = clamp((e.activity || 0) / ACTIVITY_MAX, 0, 1);
+    const boost = e._activityBoost || 1;
+    const actRatio = clamp(((e.activity || 0) * boost) / ACTIVITY_MAX, 0, 1);
+    e._activityBoost = 1; // 매 프레임 리셋
     e.aiTimer--;
     if (e.aiTimer <= 0) {
         // 활동성 높으면 walk 많이, 낮으면 idle/sleep 많이
@@ -346,13 +365,84 @@ function updateFarmEntities() {
     // 수집된 이브이 AI
     for (const e of state.farm) updateEeveeAI(e, isNight);
 
+    // 바닥 진화아이템 근처 진화이브이 활동성 1.5배 부스트
+    for (const item of state.farmItems) {
+        const isFruit = FRUITS.includes(item.name);
+        const affinityEvo = EVO_ITEM_AFFINITY[item.name];
+        const isRock = ["이끼바위조각","이끼바위","얼음바위조각","얼음바위"].includes(item.name);
+        const isStone = ["물의돌","천둥의돌","불꽃의돌"].includes(item.name);
+        for (const e of state.farm) {
+            let match = false;
+            if (affinityEvo && e.evoId === affinityEvo) match = true;
+            if (e.evoId === "fighting" && !isFruit) match = true;   // 격투: 모든 아이템
+            if (e.evoId === "ground" && isRock) match = true;       // 땅: 바위계열
+            if (e.evoId === "steel" && isStone) match = true;       // 강철: 모든 돌
+            if (!match) continue;
+            const dx = item.wx - e.wx, dy = item.wy - e.wy;
+            if (Math.sqrt(dx * dx + dy * dy) < 0.15) {
+                e._activityBoost = 1.5;
+            }
+        }
+    }
+
+    // 비행: 낮에 부스트, 고스트: 밤에 부스트 (아이템 무관)
+    for (const e of state.farm) {
+        if (e.evoId === "flying" && !isNight) e._activityBoost = 1.5;
+        if (e.evoId === "ghost" && isNight) e._activityBoost = 1.5;
+    }
+
+    // 이브이 간 충돌 밀어내기
+    const allEevees = [...state.farm];
+    if (state.currentEevee) allEevees.push(state.currentEevee);
+    for (let i = 0; i < allEevees.length; i++) {
+        for (let j = i + 1; j < allEevees.length; j++) {
+            const a = allEevees[i], b = allEevees[j];
+            const dx = b.wx - a.wx, dy = b.wy - a.wy;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const minDist = 0.08;
+            if (dist < minDist && dist > 0.001) {
+                const nx = dx / dist, ny = dy / dist;
+                const overlap = (minDist - dist) * 0.5;
+                a.wx -= nx * overlap; a.wy -= ny * overlap;
+                b.wx += nx * overlap; b.wy += ny * overlap;
+                a.wx = clamp(a.wx, 0.05, 0.95); a.wy = clamp(a.wy, 0.05, 0.95);
+                b.wx = clamp(b.wx, 0.05, 0.95); b.wy = clamp(b.wy, 0.05, 0.95);
+            }
+        }
+    }
+
+    // 아이템 간 충돌 (최대 30개까지만 체크)
+    const itemLen = Math.min(state.farmItems.length, 30);
+    for (let i = 0; i < itemLen; i++) {
+        for (let j = i + 1; j < itemLen; j++) {
+            const a = state.farmItems[i], b = state.farmItems[j];
+            const dx = b.wx - a.wx, dy = b.wy - a.wy;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const minDist = 0.04;
+            if (dist < minDist && dist > 0.001) {
+                const nx = dx / dist, ny = dy / dist;
+                const overlap = (minDist - dist) * 0.5;
+                a.wx -= nx * overlap; a.wy -= ny * overlap;
+                b.wx += nx * overlap; b.wy += ny * overlap;
+                // 속도 교환 + 반발
+                const relV = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
+                if (relV < 0) {
+                    a.vx += nx * relV * 0.5; a.vy += ny * relV * 0.5;
+                    b.vx -= nx * relV * 0.5; b.vy -= ny * relV * 0.5;
+                }
+            }
+        }
+    }
+
     // 바닥 아이템 물리 + 진화이브이 자동 섭취
     for (let fi = state.farmItems.length - 1; fi >= 0; fi--) {
         const item = state.farmItems[fi];
         item.wx += item.vx;
         item.wy += item.vy;
-        item.vx *= 0.98;
-        item.vy *= 0.98;
+        item.vx *= 0.95;
+        item.vy *= 0.95;
+        if (item.wx <= 0.05 || item.wx >= 0.95) item.vx = -item.vx * 0.7;
+        if (item.wy <= 0.05 || item.wy >= 0.95) item.vy = -item.vy * 0.7;
         item.wx = clamp(item.wx, 0.05, 0.95);
         item.wy = clamp(item.wy, 0.05, 0.95);
 
@@ -380,10 +470,28 @@ function updateFarmEntities() {
                     state.farmItems.splice(fi, 1);
                     eaten = true;
                     break;
-                } else if (dist > 0.001) {
+                } else if (!isFruit && isFarmEevee && e.aiState === "walk") {
+                    // 진화 이브이가 관련 아이템 섭취 → 활동성 증가
+                    const affinity = EVO_ITEM_AFFINITY[item.name];
+                    const isRock = ["이끼바위조각","이끼바위","얼음바위조각","얼음바위"].includes(item.name);
+                    const isStone = ["물의돌","천둥의돌","불꽃의돌"].includes(item.name);
+                    let canEat = (affinity && e.evoId === affinity);
+                    if (e.evoId === "fighting") canEat = true;
+                    if (e.evoId === "ground" && isRock) canEat = true;
+                    if (e.evoId === "steel" && isStone) canEat = true;
+                    if (canEat) {
+                        e.activity = clamp((e.activity || 0) + ACTIVITY_FRUIT_LIKED, 0, ACTIVITY_MAX);
+                        const scr = worldToScreen(e.wx, e.wy);
+                        state.feedbackAnim = { type: "liked", timer: 50, x: scr.sx, y: scr.sy - 20 };
+                        state.farmItems.splice(fi, 1);
+                        eaten = true;
+                        break;
+                    }
+                }
+                if (!eaten && dist > 0.001) {
                     // 밀어내기 (겹침 방지)
                     const nx = dx / dist, ny = dy / dist;
-                    const push = 0.003;
+                    const push = 0.012;
                     item.vx += nx * push;
                     item.vy += ny * push;
                 }
@@ -411,15 +519,15 @@ function checkEvolution() {
             case "friendship_zero": match = ee.friendship <= 0; break;
             case "explore_count": match = ee.exploreCount >= 15; break;
             case "skip_count": match = state.skipCount >= 10; break;
+            case "dragon":
+                match = state.collected.has("gmax") && state.collected.has("mega") && state._deliveredItem === "용의비늘";
+                break;
             case "repeat_explore": match = ee.repeatCount >= 3; break;
             case "all_locations":
                 match = LOCATIONS.filter(l => !l.hidden || isLocationUnlocked(l)).every(l => ee.visitedLocations.has(l.id));
                 break;
             case "three_stones":
                 match = ["물의돌","불꽃의돌","천둥의돌"].filter(s => hasItem(s)).length >= 3;
-                break;
-            case "dragon":
-                match = state.collected.has("gmax") && state.collected.has("mega") && state._deliveredItem === "용의비늘";
                 break;
         }
         if (match) {
@@ -473,10 +581,18 @@ function triggerEvolution(evo) {
     state.scene = "evolving";
     state.panel = null;
     addFarmEevee(evo.id);
+
+    // 기본 8종 완성 시 알림 + 스태미나 확장
+    if (!state.base8Notified && base8Complete()) {
+        state.base8Notified = true;
+        STAMINA.max = 5;
+        if (state.currentEevee) state.currentEevee.stamina = STAMINA.max;
+        state._base8Alert = true;
+    }
 }
 
 function doRest() {
-    state.skipCount++;
+    if (base8Complete()) state.skipCount++;
     state.totalRests++;
     state.turnNumber++;
     // 현재 밤낮 기준으로 진화 체크 (전환 전!)
@@ -525,19 +641,26 @@ function doExplore(location) {
     if (ee.stamina < 1) { showMessage("이브이가 지쳐있다... 좀 쉬게 해주자.", 100); return; }
     ee.stamina = Math.max(0, ee.stamina - 1);
     state.totalExplores++;
-    ee.exploreCount++;
-    ee.visitedLocations.add(location.id);
-    if (ee.lastLocation === location.id) ee.repeatCount++;
-    else ee.repeatCount = 1;
+    if (base8Complete()) {
+        ee.exploreCount++;
+        ee.visitedLocations.add(location.id);
+        if (ee.lastLocation === location.id) ee.repeatCount++;
+        else ee.repeatCount = 1;
+    }
     ee.lastLocation = location.id;
 
-    // 열매와 아이템을 독립 판정
+    // 열매와 아이템을 독립 판정 (힌트 부스트 적용)
     const fruitPool = location.items.filter(i => i.type === "fruit");
-    const itemPool = location.items.filter(i => i.type !== "fruit");
+    const boosted = state.hintBoosts.filter(b => b.locId === location.id);
+    const itemPool = location.items.filter(i => i.type !== "fruit").map(i => {
+        if (boosted.some(b => b.itemName === i.name)) return { ...i, weight: i.weight * 2 };
+        return i;
+    });
     const drops = [];
 
-    // 아이템: 40% 확률로 등장
-    if (itemPool.length > 0 && Math.random() < 0.40) {
+    // 아이템: 40% 확률 (힌트 부스트 있으면 65%)
+    const itemChance = boosted.length > 0 ? 0.65 : 0.40;
+    if (itemPool.length > 0 && Math.random() < itemChance) {
         const d = weightedRandom(itemPool);
         drops.push(d);
     }
@@ -586,7 +709,6 @@ function feedItem(itemName) {
             ee.friendship = clamp(ee.friendship + FRIENDSHIP.liked, -5, FRIENDSHIP.max + 5);
             reaction = "liked"; ee.knownLiked = true;
         } else if (itemName === ee.dislikedFruit) {
-            ee.friendship = clamp(ee.friendship + FRIENDSHIP.disliked, -5, FRIENDSHIP.max + 5);
             reaction = "disliked"; ee.knownDisliked = true;
         } else {
             // 보통 열매 → 스태미나 1칸 회복
@@ -659,6 +781,17 @@ function dropItem(itemName) {
     addFarmItem(itemName);
 }
 
+// 힌트 → 드롭 부스트 매핑 (아이템 드롭 관련 힌트만)
+const HINT_BOOST_MAP = {
+    "호수에서 반짝이는 돌을 본 적 있는 것 같다...": { locId: "lake", itemName: "물의돌" },
+    "발전소 근처에 특별한 돌이 있다는 소문이...": { locId: "powerplant", itemName: "천둥의돌" },
+    "화산 깊은 곳에 뜨거운 돌이 잠들어 있다던데...": { locId: "volcano", itemName: "불꽃의돌" },
+    "숲에서 이끼 낀 바위조각을 모으면 뭔가 만들 수 있을 것 같다...": { locId: "forest", itemName: "이끼바위조각" },
+    "설산에서 얼음바위조각을 모으면 뭔가 만들 수 있을 것 같다...": { locId: "snowmtn", itemName: "얼음바위조각" },
+    "이브이와 충분히 친해진 뒤, 꽃밭에서 찾을 수 있는 리본을 주면...": { locId: "flowerfield", itemName: "리본" },
+    "새로운 탐색지가 열린 것 같다... 거대한 무언가의 기운이...": { locId: "giantlair", itemName: "다이버섯" },
+};
+
 function getHint() {
     if (state.hintUsed || allComplete()) return;
     state.hintUsed = true;
@@ -682,6 +815,13 @@ function getHint() {
         if (!state.collected.has("steel")) hints.push("진화석 여러 종류를 동시에 갖고 있으면 무슨 일이 생길지도...");
     }
     const text = hints.length > 0 ? hints[Math.floor(Math.random() * hints.length)] : "이브이가 평화로워 보인다...";
+
+    // 아이템 드롭 관련 힌트면 부스트 등록
+    const boost = HINT_BOOST_MAP[text];
+    if (boost && !state.hintBoosts.some(b => b.locId === boost.locId && b.itemName === boost.itemName)) {
+        state.hintBoosts.push(boost);
+    }
+
     state.popup = { type: "hint", text };
     state.popupTimer = 0;
 }
@@ -700,29 +840,112 @@ function getPos(e) {
 
 let touchStartY = -1, touchDragging = false;
 
-canvas.addEventListener("mousedown", e => { const p = getPos(e); clickX = p.x; clickY = p.y; });
-canvas.addEventListener("mouseup", () => { clicked = true; });
+// 이브이 드래그 관련
+let dragEevee = null;  // 드래그 중인 이브이 객체
+let dragOffset = { wx: 0, wy: 0 };
+let dragMoved = false;  // 실제로 드래그 이동했는지
+
+function screenToWorld(sx, sy) {
+    const wy = clamp((sy - FLOOR_TOP) / FLOOR_H, 0, 1);
+    const perspective = 0.6 + wy * 0.4;
+    const wx = (sx - CW / 2) / ((CW - FLOOR_PAD * 2) * perspective) + 0.5;
+    return { wx: clamp(wx, 0.05, 0.95), wy: clamp(wy, 0.05, 0.95) };
+}
+
+function findEeveeAtScreen(sx, sy) {
+    const allEe = [...state.farm];
+    if (state.currentEevee) allEe.push(state.currentEevee);
+    for (const e of allEe) {
+        const scr = worldToScreen(e.wx, e.wy);
+        const size = spriteSize(e.wy);
+        if (Math.abs(sx - scr.sx) < size * 0.6 && Math.abs(sy - scr.sy) < size * 0.8) {
+            return e;
+        }
+    }
+    return null;
+}
+
+canvas.addEventListener("mousedown", e => {
+    const p = getPos(e);
+    clickX = p.x; clickY = p.y;
+    if (state.scene === "farm" && !state.panel && !state.popup) {
+        const ee = findEeveeAtScreen(p.x, p.y);
+        if (ee) {
+            dragEevee = ee;
+            dragMoved = false;
+            const w = screenToWorld(p.x, p.y);
+            dragOffset.wx = ee.wx - w.wx;
+            dragOffset.wy = ee.wy - w.wy;
+        }
+    }
+});
+canvas.addEventListener("mousemove", e => {
+    if (!dragEevee) return;
+    dragMoved = true;
+    const p = getPos(e);
+    const w = screenToWorld(p.x, p.y);
+    dragEevee.wx = clamp(w.wx + dragOffset.wx, 0.05, 0.95);
+    dragEevee.wy = clamp(w.wy + dragOffset.wy, 0.05, 0.95);
+    dragEevee.vx = 0; dragEevee.vy = 0;
+    dragEevee.aiState = "idle"; dragEevee.aiTimer = 60;
+});
+canvas.addEventListener("mouseup", () => {
+    if (dragEevee) {
+        dragEevee.aiTimer = 60;
+        if (!dragMoved) clicked = true;
+        dragEevee = null;
+    } else { clicked = true; }
+});
 canvas.addEventListener("touchstart", e => {
     e.preventDefault();
     const p = getPos(e);
     clickX = p.x; clickY = p.y;
     touchStartY = p.y; touchDragging = false;
+    if (state.scene === "farm" && !state.panel && !state.popup) {
+        const ee = findEeveeAtScreen(p.x, p.y);
+        if (ee) {
+            dragEevee = ee;
+            dragMoved = false;
+        const w = screenToWorld(p.x, p.y);
+            dragOffset.wx = ee.wx - w.wx;
+            dragOffset.wy = ee.wy - w.wy;
+        }
+    }
 });
 canvas.addEventListener("touchmove", e => {
     e.preventDefault();
-    if (state.panel === "inventory" && touchStartY >= 0) {
+    if (dragEevee) {
+        dragMoved = true;
+        touchDragging = true;
+        const p = getPos(e);
+        const w = screenToWorld(p.x, p.y);
+        dragEevee.wx = clamp(w.wx + dragOffset.wx, 0.05, 0.95);
+        dragEevee.wy = clamp(w.wy + dragOffset.wy, 0.05, 0.95);
+        dragEevee.vx = 0; dragEevee.vy = 0;
+        dragEevee.aiState = "idle"; dragEevee.aiTimer = 60;
+    } else if ((state.panel === "inventory" || state.panel === "dex") && touchStartY >= 0) {
         const p = getPos(e);
         const dy = touchStartY - p.y;
-        if (Math.abs(dy) > 3) { touchDragging = true; state.invScroll += dy; touchStartY = p.y; }
+        if (Math.abs(dy) > 3) {
+            touchDragging = true;
+            if (state.panel === "inventory") state.invScroll += dy;
+            else if (state.panel === "dex") state.dexScroll += dy;
+            touchStartY = p.y;
+        }
     }
 });
 canvas.addEventListener("touchend", e => {
     e.preventDefault();
-    if (!touchDragging) clicked = true;
+    if (dragEevee) {
+        dragEevee.aiTimer = 60;
+        if (!dragMoved) clicked = true;
+        dragEevee = null;
+    } else if (!touchDragging) clicked = true;
     touchStartY = -1; touchDragging = false;
 });
 canvas.addEventListener("wheel", e => {
     if (state.panel === "inventory") { state.invScroll += e.deltaY * 0.5; e.preventDefault(); }
+    else if (state.panel === "dex") { state.dexScroll += e.deltaY * 0.5; e.preventDefault(); }
 }, { passive: false });
 
 function consumeClick() {
@@ -1018,14 +1241,24 @@ function drawFloor() {
 }
 
 /* ── 스프라이트 ── */
+// 스프라이트 기본 방향 (1=오른쪽, -1=왼쪽)
+const SPRITE_DEFAULT_FACING = {
+    "이브이.png": -1, "샤미드.png": -1, "쥬피썬더.png": -1, "부스터.png": -1,
+    "에브이.png": 1, "블래키.png": -1, "리피아.png": -1, "글레이시아.png": -1,
+    "님피아.png": -1, "왕이브이.png": -1, "이브이메가.png": -1, "이브이격투.png": -1,
+    "이브이고스트.png": 1, "이브이드래곤.png": -1, "이브이땅.png": 1,
+    "이브이바위.png": -1, "이브이비행.png": -1, "이브이강철.png": -1,
+};
+
 function drawSprite(imgName, sx, sy, facing, size) {
     const img = images[imgName];
     if (!img || !img.complete) return;
     const w = size;
     const h = w * (img.height / img.width);
+    const defaultDir = SPRITE_DEFAULT_FACING[imgName] || -1;
     ctx.save();
     ctx.translate(sx, sy);
-    if (facing < 0) ctx.scale(-1, 1);
+    if (facing !== defaultDir) ctx.scale(-1, 1);
     ctx.drawImage(img, -w / 2, -h, w, h);
     ctx.restore();
 }
@@ -1061,10 +1294,20 @@ function drawFarmEntities() {
 
         if (ent.type === "item") {
             ctx.globalAlpha = 1;
-            const isize = 10 + ent.wy * 8;
+            const isFruit = FRUITS.includes(ent.name);
+            const isize = isFruit ? (10 + ent.wy * 8) : (14 + ent.wy * 10);
             // 그림자
             ctx.fillStyle = "#00000040";
-            ctx.beginPath(); ctx.ellipse(sx, sy + 4, 8, 3, 0, 0, Math.PI * 2); ctx.fill();
+            const shadowR = isFruit ? 8 : 11;
+            ctx.beginPath(); ctx.ellipse(sx, sy + 4, shadowR, 3, 0, 0, Math.PI * 2); ctx.fill();
+            // 아이템류 테두리
+            if (!isFruit) {
+                ctx.fillStyle = "rgba(100,180,255,0.15)";
+                ctx.strokeStyle = "rgba(100,180,255,0.6)";
+                ctx.lineWidth = 1.5;
+                ctx.beginPath(); ctx.arc(sx, sy - 2, isize * 0.55, 0, Math.PI * 2);
+                ctx.fill(); ctx.stroke();
+            }
             // 이모지
             ctx.font = `${isize}px system-ui`;
             ctx.textAlign = "center"; ctx.textBaseline = "middle";
@@ -1325,6 +1568,13 @@ function drawExplorePanel() {
     }
 }
 
+function getInventorySections() {
+    const items = Object.entries(state.inventory);
+    const fruits = items.filter(([n]) => FRUITS.includes(n));
+    const others = items.filter(([n]) => !FRUITS.includes(n));
+    return { fruits, others };
+}
+
 function drawInventoryPanel() {
     const startY = drawPanelBg();
     const py = startY;
@@ -1333,20 +1583,25 @@ function drawInventoryPanel() {
     ctx.fillStyle = "#FFD54F"; ctx.font = "bold 18px system-ui";
     ctx.fillText("가방", CW / 2, py);
 
-    const items = Object.entries(state.inventory);
+    const { fruits, others } = getInventorySections();
     const craftable = Object.keys(RECIPES).filter(r => hasItem(RECIPES[r].material, RECIPES[r].count));
     const ee = state.currentEevee;
 
-    // 스크롤 영역 설정
     const listTop = py + 20;
     const listBot = CH - 10;
+    const COL_W = (CW - 50) / 2;
     const ITEM_H = 42;
+    const HEADER_H = 24;
     const craftH = craftable.length * 38;
-    const totalH = craftH + items.length * ITEM_H;
+
+    // 총 높이 계산 (제작 + 좌우 컬럼 중 긴 쪽)
+    const leftH = HEADER_H + fruits.length * ITEM_H;
+    const rightH = HEADER_H + others.length * ITEM_H;
+    const columnsH = Math.max(leftH, rightH);
+    const totalH = craftH + columnsH;
     const maxScroll = Math.max(0, totalH - (listBot - listTop));
     state.invScroll = clamp(state.invScroll, 0, maxScroll);
 
-    // 클리핑
     ctx.save();
     ctx.beginPath(); ctx.rect(0, listTop, CW, listBot - listTop); ctx.clip();
 
@@ -1364,23 +1619,33 @@ function drawInventoryPanel() {
         y += 38;
     }
 
-    if (items.length === 0) {
+    if (fruits.length === 0 && others.length === 0) {
         ctx.fillStyle = "#666"; ctx.font = "13px system-ui"; ctx.textAlign = "center";
         ctx.fillText("아이템이 없습니다", CW / 2, y + 40);
     }
 
-    // 아이템 목록
-    for (let i = 0; i < items.length; i++) {
-        const [name, count] = items[i];
-        const bx = 20, bw = CW - 40, bh = 38;
-        const by = y + i * ITEM_H;
+    const colStartY = y;
+    const leftX = 15;
+    const rightX = leftX + COL_W + 20;
+
+    // 열매 헤더
+    ctx.fillStyle = "#8BC34A"; ctx.font = "bold 13px system-ui"; ctx.textAlign = "left";
+    ctx.fillText("── 열매 ──", leftX + 10, colStartY + 12);
+
+    // 아이템 헤더
+    ctx.fillStyle = "#64B5F6"; ctx.font = "bold 13px system-ui"; ctx.textAlign = "left";
+    ctx.fillText("── 아이템 ──", rightX + 10, colStartY + 12);
+
+    // 열매 컬럼 (좌)
+    for (let i = 0; i < fruits.length; i++) {
+        const [name, count] = fruits[i];
+        const bx = leftX, bw = COL_W, bh = 38;
+        const by = colStartY + HEADER_H + i * ITEM_H;
         if (by + bh < listTop - 10) continue;
         if (by > listBot + 10) break;
 
-        // 열매 테두리 색상: 좋아하는=초록, 싫어하는=빨강
-        const isFruit = FRUITS.includes(name);
         let borderColor = "#444";
-        if (isFruit && ee) {
+        if (ee) {
             if (ee.knownLiked && name === ee.likedFruit) borderColor = "#4CAF50";
             else if (ee.knownDisliked && name === ee.dislikedFruit) borderColor = "#E53935";
         }
@@ -1390,28 +1655,54 @@ function drawInventoryPanel() {
         ctx.lineWidth = borderColor === "#444" ? 1 : 2.5;
         roundRect(bx, by, bw, bh, 5); ctx.fill(); ctx.stroke();
 
-        ctx.textAlign = "left"; ctx.fillStyle = "#ddd"; ctx.font = "13px system-ui";
-        ctx.fillText(`${itemEmoji(name)} ${name}  x${count}`, bx + 10, by + 13);
+        ctx.textAlign = "left"; ctx.fillStyle = "#ddd"; ctx.font = "12px system-ui";
+        ctx.fillText(`${itemEmoji(name)} ${name} x${count}`, bx + 6, by + 13);
 
-        // 좋아함/싫어함 라벨
-        if (isFruit && ee) {
+        if (ee) {
             if (ee.knownLiked && name === ee.likedFruit) {
-                ctx.fillStyle = "#4CAF50"; ctx.font = "bold 10px system-ui"; ctx.textAlign = "left";
-                ctx.fillText("♥좋아함", bx + 10, by + 30);
+                ctx.fillStyle = "#4CAF50"; ctx.font = "bold 9px system-ui";
+                ctx.fillText("♥좋아함", bx + 6, by + 28);
             } else if (ee.knownDisliked && name === ee.dislikedFruit) {
-                ctx.fillStyle = "#E53935"; ctx.font = "bold 10px system-ui"; ctx.textAlign = "left";
-                ctx.fillText("💢싫어함", bx + 10, by + 30);
+                ctx.fillStyle = "#E53935"; ctx.font = "bold 9px system-ui";
+                ctx.fillText("💢싫어함", bx + 6, by + 28);
             }
         }
 
-        // 전달 버튼
-        const fbx = bx + bw - 95, fbw = 42;
+        // 전달
+        const fbx = bx + bw - 70, fbw = 32;
         ctx.fillStyle = "#3a7d44"; roundRect(fbx, by + 5, fbw, 26, 4); ctx.fill();
-        ctx.fillStyle = "#fff"; ctx.font = "bold 11px system-ui"; ctx.textAlign = "center";
+        ctx.fillStyle = "#fff"; ctx.font = "bold 10px system-ui"; ctx.textAlign = "center";
         ctx.fillText("전달", fbx + fbw / 2, by + 18);
 
-        // 버리기 버튼
-        const dbx = bx + bw - 48, dbw = 42;
+        // 버리기
+        const dbx = bx + bw - 34, dbw = 32;
+        ctx.fillStyle = "#555"; roundRect(dbx, by + 5, dbw, 26, 4); ctx.fill();
+        ctx.fillStyle = "#ccc"; ctx.fillText("버리기", dbx + dbw / 2, by + 18);
+    }
+
+    // 아이템 컬럼 (우)
+    for (let i = 0; i < others.length; i++) {
+        const [name, count] = others[i];
+        const bx = rightX, bw = COL_W, bh = 38;
+        const by = colStartY + HEADER_H + i * ITEM_H;
+        if (by + bh < listTop - 10) continue;
+        if (by > listBot + 10) break;
+
+        ctx.fillStyle = "rgba(50,50,80,0.8)";
+        ctx.strokeStyle = "#555"; ctx.lineWidth = 1;
+        roundRect(bx, by, bw, bh, 5); ctx.fill(); ctx.stroke();
+
+        ctx.textAlign = "left"; ctx.fillStyle = "#ddd"; ctx.font = "12px system-ui";
+        ctx.fillText(`${itemEmoji(name)} ${name} x${count}`, bx + 6, by + 13);
+
+        // 전달
+        const fbx = bx + bw - 70, fbw = 32;
+        ctx.fillStyle = "#3a7d44"; roundRect(fbx, by + 5, fbw, 26, 4); ctx.fill();
+        ctx.fillStyle = "#fff"; ctx.font = "bold 10px system-ui"; ctx.textAlign = "center";
+        ctx.fillText("전달", fbx + fbw / 2, by + 18);
+
+        // 버리기
+        const dbx = bx + bw - 34, dbw = 32;
         ctx.fillStyle = "#555"; roundRect(dbx, by + 5, dbw, 26, 4); ctx.fill();
         ctx.fillStyle = "#ccc"; ctx.fillText("버리기", dbx + dbw / 2, by + 18);
     }
@@ -1441,14 +1732,27 @@ function drawDexPanel() {
     const cellW = 100, cellH = 80;
     const gridW = cols * cellW;
     const offsetX = (CW - gridW) / 2;
+    const rows = Math.ceil(list.length / cols);
+    const contentH = rows * (cellH + 6);
+    const listTop = py + 25;
+    const listBot = CH - 25;
+    const viewH = listBot - listTop;
+    const maxScroll = Math.max(0, contentH - viewH);
+    state.dexScroll = clamp(state.dexScroll, 0, maxScroll);
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, listTop, CW, viewH);
+    ctx.clip();
 
     for (let i = 0; i < list.length; i++) {
         const evo = list[i];
         const col = i % cols, row = Math.floor(i / cols);
-        const bx = offsetX + col * cellW + 4, by = py + 25 + row * (cellH + 6);
+        const bx = offsetX + col * cellW + 4;
+        const by = listTop + row * (cellH + 6) - state.dexScroll;
         const bw = cellW - 8, bh = cellH;
 
-        if (by + bh > CH) break;
+        if (by + bh < listTop || by > listBot) continue;
 
         ctx.fillStyle = state.collected.has(evo.id) ? "rgba(50,50,100,0.7)" : "rgba(30,30,50,0.7)";
         ctx.strokeStyle = state.collected.has(evo.id) ? "#6C63FF" : "#333";
@@ -1464,6 +1768,8 @@ function drawDexPanel() {
             ctx.fillText("?", bx + bw / 2, by + 40);
         }
     }
+
+    ctx.restore();
 
     ctx.fillStyle = "#888"; ctx.font = "12px system-ui"; ctx.textAlign = "center";
     const total = showPost ? EVOS.length : 8;
@@ -2173,6 +2479,10 @@ function handleInput() {
                 state.endingTimer = 0;
             } else {
                 finishPostEvolution();
+                if (state._base8Alert) {
+                    state._base8Alert = false;
+                    showMessage("도감에 새로운 페이지가 추가되었다! 스태미나가 증가했다!", 250);
+                }
                 state.currentEevee.wx = 0.4 + Math.random() * 0.2;
                 state.currentEevee.wy = 1.15; // 아래 밖에서 시작
                 state.scene = "new_eevee";
@@ -2223,23 +2533,41 @@ function handleInput() {
         } else if (state.panel === "inventory") {
             const listTop = contentY + 20;
             const ITEM_H = 42;
+            const HEADER_H = 24;
+            const COL_W = (CW - 50) / 2;
+            const leftX = 15;
+            const rightX = leftX + COL_W + 20;
             const craftable = Object.keys(RECIPES).filter(r => hasItem(RECIPES[r].material, RECIPES[r].count));
             let cy = listTop - state.invScroll;
             for (const name of craftable) {
                 if (hitBox(x, y, 20, cy, CW - 40, 32)) { tryCraft(name); return; }
                 cy += 38;
             }
-            const items = Object.entries(state.inventory);
-            for (let i = 0; i < items.length; i++) {
-                const [name] = items[i];
-                const bx = 20, bw = CW - 40;
-                const by = cy + i * ITEM_H;
+            const { fruits, others } = getInventorySections();
+            const colStartY = cy;
+            // 열매 컬럼 클릭
+            for (let i = 0; i < fruits.length; i++) {
+                const [name] = fruits[i];
+                const bx = leftX, bw = COL_W;
+                const by = colStartY + HEADER_H + i * ITEM_H;
                 if (by + 38 < listTop) continue;
                 if (by > CH) break;
-                const fbx = bx + bw - 95;
-                if (hitBox(x, y, fbx, by + 5, 42, 26)) { feedItem(name); return; }
-                const dbx = bx + bw - 48;
-                if (hitBox(x, y, dbx, by + 5, 42, 26)) { dropItem(name); return; }
+                const fbx = bx + bw - 70;
+                if (hitBox(x, y, fbx, by + 5, 32, 26)) { feedItem(name); return; }
+                const dbx = bx + bw - 34;
+                if (hitBox(x, y, dbx, by + 5, 32, 26)) { dropItem(name); return; }
+            }
+            // 아이템 컬럼 클릭
+            for (let i = 0; i < others.length; i++) {
+                const [name] = others[i];
+                const bx = rightX, bw = COL_W;
+                const by = colStartY + HEADER_H + i * ITEM_H;
+                if (by + 38 < listTop) continue;
+                if (by > CH) break;
+                const fbx = bx + bw - 70;
+                if (hitBox(x, y, fbx, by + 5, 32, 26)) { feedItem(name); return; }
+                const dbx = bx + bw - 34;
+                if (hitBox(x, y, dbx, by + 5, 32, 26)) { dropItem(name); return; }
             }
         } else if (state.panel === "dex") {
             // 도감은 클릭 동작 없음
@@ -2298,7 +2626,7 @@ function handleInput() {
             } else if (btn.id === "hint") {
                 getHint();
             } else if (btn.id === "dex") {
-                state.panel = "dex"; state.panelSlide = 0;
+                state.panel = "dex"; state.panelSlide = 0; state.dexScroll = 0;
             } else if (btn.id === "rest") {
                 state.popup = { type: "confirm_rest" };
                 state.popupTimer = 0;
