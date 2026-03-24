@@ -26,7 +26,8 @@
 </head>
 <body>
 <canvas id="c"></canvas>
-<input id="nickInput" type="text" maxlength="10" pattern="[a-zA-Z0-9]*" autocomplete="off" inputmode="latin" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:1px;height:1px;border:none;outline:none;background:transparent;color:transparent;caret-color:transparent;font-size:16px;z-index:-1;" />
+<input id="nickInput" type="text" maxlength="10" autocomplete="off" inputmode="latin"
+  style="position:fixed;top:-100px;left:0;width:200px;height:36px;font-size:18px;text-align:center;border:2px solid #7B73FF;border-radius:6px;background:rgba(17,17,17,0.95);color:#fff;outline:none;z-index:9999;" />
 <script>
 "use strict";
 
@@ -48,7 +49,7 @@ nickInput.addEventListener("keydown", e => {
         state.playerName = state._nicknameBuffer;
         if (!state.playerId) state.playerId = generatePlayerId();
         state.popup = null;
-        nickInput.blur();
+        closeNicknameInput();
         if (state.scene === "title") {
             resetCurrentEevee();
             state.scene = "farm";
@@ -57,15 +58,33 @@ nickInput.addEventListener("keydown", e => {
         }
     }
 });
+function positionNickInput() {
+    // 팝업의 입력 필드 위치에 HTML input을 겹침
+    const rect = canvas.getBoundingClientRect();
+    const scale = rect.width / CW;
+    const pw = 300, ph = 150;
+    const px = (CW - pw) / 2;
+    const py = BTN_Y - ph - 10;
+    const fieldX = px + 30;
+    const fieldY = py + 60;
+    const fieldW = pw - 60;
+    const fieldH = 34;
+    nickInput.style.left = (rect.left + fieldX * scale) + "px";
+    nickInput.style.top = (rect.top + fieldY * scale) + "px";
+    nickInput.style.width = (fieldW * scale) + "px";
+    nickInput.style.height = (fieldH * scale) + "px";
+    nickInput.style.fontSize = (18 * scale) + "px";
+}
 function openNicknameInput() {
     state.popup = { type: "nickname_input" };
     state.popupTimer = 0;
     state._nicknameBuffer = "";
     nickInput.value = "";
-    // 모바일 키보드를 올리려면 유저 제스처 직후에 focus 필요
-    nickInput.focus();
-    setTimeout(() => { nickInput.focus(); nickInput.click(); }, 50);
-    setTimeout(() => nickInput.focus(), 200);
+    positionNickInput();
+}
+function closeNicknameInput() {
+    nickInput.style.top = "-100px";
+    nickInput.blur();
 }
 
 /* ── roundRect 폴리필 ── */
@@ -4026,7 +4045,7 @@ function handleInput() {
                 state.playerName = buf;
                 if (!state.playerId) state.playerId = generatePlayerId();
                 state.popup = null;
-                nickInput.blur();
+                closeNicknameInput();
                 if (state.scene === "title") {
                     resetCurrentEevee();
                     startGame();
