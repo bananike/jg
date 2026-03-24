@@ -2028,7 +2028,25 @@ canvas.addEventListener("mouseup", () => {
     mouseDragY = -1; mouseDragging = false;
 });
 canvas.addEventListener("touchstart", e => {
-    if (state.popup && state.popup.type === "nickname_input") { nickInput.focus(); return; }
+    if (state.popup && state.popup.type === "nickname_input") {
+        e.preventDefault();
+        // "시작!" 버튼 터치 체크
+        const p = getPos(e);
+        const pw = 300, ph = 150;
+        const px = (CW - pw) / 2, py = BTN_Y - ph - 10;
+        const buf = state._nicknameBuffer || "";
+        if (buf.length >= 2 && hitBox(p.x, p.y, px + pw / 2 - 50, py + 108, 100, 30)) {
+            state.playerName = buf;
+            if (!state.playerId) state.playerId = generatePlayerId();
+            state.popup = null;
+            closeNicknameInput();
+            if (state.scene === "title") { resetCurrentEevee(); startGame(); }
+            saveGame();
+        } else {
+            nickInput.focus();
+        }
+        return;
+    }
     e.preventDefault();
     const p = getPos(e);
     clickX = p.x; clickY = p.y;
