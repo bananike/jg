@@ -338,6 +338,7 @@ const state = {
     expScroll: 0,             // 탐색 메인 리스트 스크롤
     message: null,
     feedbackAnim: null,
+    bagHighlight: false,
     playerName: "",           // 닉네임 (영어)
     playerId: "",             // 고유 ID
     leaderboard: [],          // 리더보드 캐시
@@ -415,7 +416,17 @@ function weightedRandom(items) {
     for (const item of items) { r -= item.weight; if (r <= 0) return item; }
     return items[items.length - 1];
 }
-function addItem(n, c=1) { state.inventory[n] = (state.inventory[n]||0) + c; }
+function addItem(n, c=1) {
+    state.inventory[n] = (state.inventory[n]||0) + c;
+    checkBagHighlight();
+}
+function checkBagHighlight() {
+    // 제작 가능 체크
+    const canCraft = Object.keys(RECIPES).some(r => hasItem(RECIPES[r].material, RECIPES[r].count));
+    // 진화 가능 아이템 체크
+    const hasEvoItem = Object.keys(state.inventory).some(n => (state.inventory[n] || 0) > 0 && canEvolveWith(n));
+    state.bagHighlight = canCraft || hasEvoItem;
+}
 function removeItem(n, c=1) { if (!state.inventory[n]) return false; state.inventory[n]-=c; if (state.inventory[n]<=0) delete state.inventory[n]; return true; }
 function hasItem(n, c=1) { return (state.inventory[n]||0) >= c; }
 function itemCount(n) { return state.inventory[n]||0; }
@@ -1790,6 +1801,7 @@ function feedItem(itemName) {
         state.panel = null; state.panelSlide = 0;
         // 전달 직후 진화 체크 (돌/제작/리본 등)
         const evo = checkEvolution();
+        checkBagHighlight();
         if (evo) { triggerEvolution(evo); return; }
     }
     saveGame();
@@ -2740,13 +2752,19 @@ function drawFarmButtons() {
         const hide = btn.id === "hint" && allComplete();
         if (hide) continue;
 
-        ctx.fillStyle = disabled ? "rgba(40,40,60,0.8)" : "rgba(50,50,90,0.9)";
-        ctx.strokeStyle = disabled ? "#444" : "#7B73FF";
-        ctx.lineWidth = 1.5;
+        const highlight = btn.id === "bag" && state.bagHighlight;
+        if (highlight) {
+            const glow = Math.sin(frame * 0.08) * 0.3 + 0.7;
+            ctx.fillStyle = `rgba(255,215,0,${glow * 0.2})`;
+            ctx.strokeStyle = `rgba(255,215,0,${glow})`; ctx.lineWidth = 2.5;
+        } else {
+            ctx.fillStyle = disabled ? "rgba(40,40,60,0.8)" : "rgba(50,50,90,0.9)";
+            ctx.strokeStyle = disabled ? "#444" : "#7B73FF"; ctx.lineWidth = 1.5;
+        }
         roundRect(btn.x, BTN_Y, btn.w, BTN_H, 8);
         ctx.fill(); ctx.stroke();
 
-        ctx.fillStyle = disabled ? "#555" : "#fff";
+        ctx.fillStyle = disabled ? "#555" : highlight ? "#FFD54F" : "#fff";
         ctx.font = "bold 13px system-ui";
         ctx.textAlign = "center";
         ctx.fillText(btn.label, btn.x + btn.w / 2, BTN_Y + BTN_H / 2);
@@ -3947,9 +3965,9 @@ function drawMonster() {
                 const dots = ".".repeat(Math.floor((elapsed - 40) / 30) % 4);
                 ctx.strokeText(`다음 몬스터 대기 중${dots}`, mx, my + 10);
                 ctx.fillText(`다음 몬스터 대기 중${dots}`, mx, my + 10);
-                // 스킵 버튼 (하단 고정)
+                // 스킵 버튼 (버튼바 위)
                 const skipW = 140, skipH = 34;
-                const skipX = CW / 2 - skipW / 2, skipY = BTN_Y - 10;
+                const skipX = CW / 2 - skipW / 2, skipY = BTN_Y - 46;
                 const pulse = 0.8 + Math.sin(frame * 0.1) * 0.2;
                 ctx.globalAlpha = pulse;
                 ctx.fillStyle = "rgba(50,50,90,0.9)";
@@ -4235,13 +4253,13 @@ function handleInput() {
     if (!click) return;
     const { x, y } = click;
 
-    // 처치 대기 중 스킵 버튼 (하단 고정)
+    // 처치 대기 중 스킵 버튼 (버튼바 위)
     if (state.monsterKillAnim > 0 && state.monster) {
         const totalKill = state.monster.isBoss ? 600 : 420;
         const elapsed = totalKill - state.monsterKillAnim;
         if (elapsed > 40) {
             const skipW = 140, skipH = 34;
-            const skipX = CW / 2 - skipW / 2, skipY = BTN_Y - 10;
+            const skipX = CW / 2 - skipW / 2, skipY = BTN_Y - 46;
             if (hitBox(x, y, skipX, skipY, skipW, skipH)) {
                 state.monsterKillAnim = 1;
                 return;
@@ -4630,6 +4648,7 @@ function handleInput() {
                 rollTurnLocations(); // 탐색 시작 시 리스트 새로고침
             } else if (btn.id === "bag") {
                 state.panel = "inventory"; state.panelSlide = 0; state.invScroll = 0;
+                state.bagHighlight = false;
             } else if (btn.id === "hint") {
                 getHint();
             } else if (btn.id === "dex") {
