@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
     <title>이브이 농장</title>
+    <link rel="icon" href="image/이브이.png" type="image/png" />
     <style>
         :root { color-scheme: dark }
         * { box-sizing: border-box; margin: 0; padding: 0 }
@@ -102,53 +103,72 @@ function spriteSize(wy) {
 
 /* ── 진화 데이터 ── */
 const EVOS = [
-    { id:"vaporeon",  name:"샤미드",     type:"물",     img:"샤미드.png",      condition:"stone", stone:"물의돌" },
-    { id:"jolteon",   name:"쥬피썬더",   type:"전기",   img:"쥬피썬더.png",    condition:"stone", stone:"천둥의돌" },
-    { id:"flareon",   name:"부스터",     type:"불",     img:"부스터.png",      condition:"stone", stone:"불꽃의돌" },
-    { id:"espeon",    name:"에브이",     type:"에스퍼", img:"에브이.png",      condition:"friendship_day" },
-    { id:"umbreon",   name:"블래키",     type:"악",     img:"블래키.png",      condition:"friendship_night" },
-    { id:"leafeon",   name:"리피아",     type:"풀",     img:"리피아.png",      condition:"craft", craft:"이끼바위" },
-    { id:"glaceon",   name:"글레이시아", type:"얼음",   img:"글레이시아.png",  condition:"craft", craft:"얼음바위" },
-    { id:"sylveon",   name:"님피아",     type:"페어리", img:"님피아.png",      condition:"friendship_item", item:"리본" },
-    { id:"gmax",      name:"다이브이",   type:"왕",     img:"왕이브이.png",    condition:"stone", stone:"다이버섯", postGame:true },
-    { id:"mega",      name:"메가브이",   type:"메가",   img:"이브이메가.png",  condition:"stone", stone:"이브이나이트", postGame:true },
-    { id:"fighting",  name:"파이티아",   type:"격투",   img:"이브이격투.png",  condition:"explore_count", postGame:true },
-    { id:"ghost",     name:"레이시아",   type:"고스트", img:"이브이고스트.png", condition:"friendship_zero", postGame:true },
-    { id:"dragon",    name:"드라키온",   type:"드래곤", img:"이브이드래곤.png", condition:"dragon", postGame:true },
-    { id:"ground",    name:"샌디온",     type:"땅",     img:"이브이땅.png",    condition:"skip_count", postGame:true },
-    { id:"rock",      name:"록키온",     type:"바위",   img:"이브이바위.png",  condition:"repeat_explore", postGame:true },
-    { id:"flying",    name:"에어리아",   type:"비행",   img:"이브이비행.png",  condition:"all_locations", postGame:true },
-    { id:"steel",     name:"메탈리아",   type:"강철",   img:"이브이강철.png",  condition:"three_stones", postGame:true },
+    { id:"vaporeon",  name:"샤미드",     type:"물",     img:"샤미드.png",      condition:"stone", stone:"물의돌",
+      ability:"수의장막",  abilityDesc:"탐색 시 열매 드롭 2개로 증가", abilityTag:"explore_fruit2" },
+    { id:"jolteon",   name:"쥬피썬더",   type:"전기",   img:"쥬피썬더.png",    condition:"stone", stone:"천둥의돌",
+      ability:"전광석화",  abilityDesc:"탐색 시간 50% 단축", abilityTag:"explore_speed" },
+    { id:"flareon",   name:"부스터",     type:"불",     img:"부스터.png",      condition:"stone", stone:"불꽃의돌",
+      ability:"화염투지",  abilityDesc:"전투 시 데미지 +30%", abilityTag:"battle_dmg" },
+    { id:"espeon",    name:"에브이",     type:"에스퍼", img:"에브이.png",      condition:"friendship_day",
+      ability:"예지",     abilityDesc:"탐색 시 희귀 아이템 확률 2배", abilityTag:"explore_rare" },
+    { id:"umbreon",   name:"블래키",     type:"악",     img:"블래키.png",      condition:"friendship_night",
+      ability:"야행성",   abilityDesc:"밤 탐색지에서 아이템 드롭 100%", abilityTag:"explore_night" },
+    { id:"leafeon",   name:"리피아",     type:"풀",     img:"리피아.png",      condition:"craft", craft:"이끼바위",
+      ability:"광합성",   abilityDesc:"농장:활동성 자동회복 / 탐색:열매 드롭 확률↑ / 전투:매턴 HP 3% 추가딜", abilityTag:"leafeon" },
+    { id:"glaceon",   name:"글레이시아", type:"얼음",   img:"글레이시아.png",  condition:"craft", craft:"얼음바위",
+      ability:"절대영도",  abilityDesc:"전투 시 10% 확률로 데미지 3배", abilityTag:"battle_crit" },
+    { id:"sylveon",   name:"님피아",     type:"페어리", img:"님피아.png",      condition:"friendship_item", item:"리본",
+      ability:"매력",     abilityDesc:"탐색:활동성 소모 없음 / 전투:데미지 +20% & 활동성 소모 절반", abilityTag:"sylveon" },
+    { id:"gmax",      name:"다이브이",   type:"왕",     img:"왕이브이.png",    condition:"stone", stone:"다이버섯", postGame:true,
+      ability:"왕의위엄",  abilityDesc:"전투 시 상성 불리 무시 (x1.0)", abilityTag:"battle_noweakness" },
+    { id:"mega",      name:"메가브이",   type:"메가",   img:"이브이메가.png",  condition:"stone", stone:"이브이나이트", postGame:true,
+      ability:"초월",     abilityDesc:"전투 시 모든 상성 유리 적용 (x1.5)", abilityTag:"battle_alladvantage" },
+    { id:"fighting",  name:"파이티아",   type:"격투",   img:"이브이격투.png",  condition:"explore_count", postGame:true,
+      ability:"근성",     abilityDesc:"활동성 낮을수록 전투 데미지 증가", abilityTag:"battle_guts" },
+    { id:"ghost",     name:"레이시아",   type:"고스트", img:"이브이고스트.png", condition:"friendship_zero_night", postGame:true,
+      ability:"저주",     abilityDesc:"전투 시 보스 최대HP의 5% 추가 데미지", abilityTag:"battle_curse" },
+    { id:"dragon",    name:"드라키온",   type:"드래곤", img:"이브이드래곤.png", condition:"dragon", postGame:true,
+      ability:"용의분노",  abilityDesc:"전투 시 고정 데미지 20 추가", abilityTag:"battle_fixed" },
+    { id:"ground",    name:"샌디온",     type:"땅",     img:"이브이땅.png",    condition:"ground_stone", postGame:true,
+      ability:"발굴",     abilityDesc:"탐색 시 아이템 추가 1개 드롭", abilityTag:"explore_extra" },
+    { id:"rock",      name:"록키온",     type:"바위",   img:"이브이바위.png",  condition:"rock_craft", postGame:true,
+      ability:"견고",     abilityDesc:"전투 후 활동성 소모 없음", abilityTag:"battle_noact" },
+    { id:"flying",    name:"에어리아",   type:"비행",   img:"이브이비행.png",  condition:"flying_feather", postGame:true,
+      ability:"질풍",     abilityDesc:"탐색 시간 60% 단축 (최고)", abilityTag:"explore_fastest" },
+    { id:"steel",     name:"메탈리아",   type:"강철",   img:"이브이강철.png",  condition:"four_stones", postGame:true,
+      ability:"강철방어",  abilityDesc:"전투 시 데미지 하한 보장 (최소 기본의 80%)", abilityTag:"battle_minroll" },
 ];
 
 /* ── 탐색지 ── */
 const LOCATIONS = [
-    // ── 낮밤 공통 ──
-    { id:"lake",    name:"호수",   time:"any",   attr:"물",     items:[
+    // ── 기본 탐색지 ──
+    { id:"lake",    name:"호수",   time:"any",   attr:"물",    dur:10, items:[
         {name:"물의돌",type:"stone",weight:30},{name:"태양조각",type:"shard",weight:20}]},
-    { id:"volcano", name:"화산",   time:"any",   attr:"불",     items:[
+    { id:"volcano", name:"화산",   time:"any",   attr:"불",    dur:10, items:[
         {name:"불꽃의돌",type:"stone",weight:30},{name:"태양조각",type:"shard",weight:20}]},
-    { id:"flower",  name:"꽃밭",   time:"day",   attr:"페어리", items:[
+    { id:"flower",  name:"꽃밭",   time:"day",   attr:"페어리",dur:10, items:[
         {name:"리본",type:"special",weight:30},{name:"태양조각",type:"shard",weight:20}]},
-    // ── 낮밤 공통 ──
-    { id:"forest",  name:"숲",     time:"any",   attr:"풀",     items:[
+    { id:"forest",  name:"숲",     time:"any",   attr:"풀",    dur:12, items:[
         {name:"이끼바위조각",type:"material",weight:30},{name:"태양조각",type:"shard",weight:10},{name:"달조각",type:"shard",weight:10}]},
-    { id:"plant",   name:"발전소", time:"any",   attr:"전기",   items:[
+    { id:"plant",   name:"발전소", time:"any",   attr:"전기",  dur:12, items:[
         {name:"천둥의돌",type:"stone",weight:30},{name:"태양조각",type:"shard",weight:10},{name:"달조각",type:"shard",weight:10}]},
-    { id:"snow",    name:"설산",   time:"any",   attr:"얼음",   items:[
+    { id:"snow",    name:"설산",   time:"any",   attr:"얼음",  dur:15, items:[
         {name:"얼음바위조각",type:"material",weight:30},{name:"태양조각",type:"shard",weight:10},{name:"달조각",type:"shard",weight:10}]},
-    // ── 낮 전용 ──
-    { id:"temple",  name:"신전",   time:"day",   attr:"에스퍼", items:[
+    { id:"temple",  name:"신전",   time:"day",   attr:"에스퍼",dur:15, items:[
         {name:"태양조각",type:"shard",weight:25},{name:"달조각",type:"shard",weight:15}]},
-    { id:"tower",   name:"폐탑",   time:"night", attr:"악",     items:[
+    { id:"tower",   name:"폐탑",   time:"night", attr:"악",    dur:15, items:[
         {name:"달조각",type:"shard",weight:30},{name:"태양조각",type:"shard",weight:20}]},
-    // ── 히든 (포스트게임) ──
-    { id:"den",     name:"거대소굴", time:"night", attr:"왕",   hidden:true, unlock:"base8", items:[
+    // ── 히든 (전투 스테이지 해금) ──
+    { id:"den",     name:"거대소굴", time:"night", attr:"왕",   dur:20, hidden:true, unlock:"battle", items:[
         {name:"다이버섯",type:"stone",weight:15},{name:"태양조각",type:"shard",weight:25},{name:"달조각",type:"shard",weight:25}]},
-    { id:"ruins",   name:"고대유적", time:"night",attr:"메가", hidden:true, unlock:"gmax", items:[
+    { id:"cave",    name:"깊은동굴", time:"night", attr:"땅",   dur:25, hidden:true, unlock:"battle", items:[
+        {name:"부드러운모래",type:"stone",weight:20},{name:"달조각",type:"shard",weight:30}]},
+    { id:"ruins",   name:"고대유적", time:"night", attr:"메가",  dur:30, hidden:true, unlock:"battle", items:[
         {name:"이브이나이트",type:"stone",weight:15},{name:"달조각",type:"shard",weight:30}]},
-    { id:"valley",  name:"용의계곡", time:"day",  attr:"드래곤",hidden:true, unlock:"gmax_mega", items:[
+    { id:"valley",  name:"용의계곡", time:"day",   attr:"드래곤",dur:35, hidden:true, unlock:"battle", items:[
         {name:"용의비늘",type:"stone",weight:15},{name:"태양조각",type:"shard",weight:30}]},
+    { id:"sky",     name:"하늘산등성이", time:"day", attr:"비행", dur:25, hidden:true, unlock:"battle", items:[
+        {name:"바람깃털",type:"special",weight:20},{name:"태양조각",type:"shard",weight:30}]},
 ];
 
 const FRUITS = ["오랭열매","치리열매","크라보열매","모모열매","나나열매","라즈열매"];
@@ -162,6 +182,7 @@ const ITEM_EMOJI = {
     "물의돌":"💧","불꽃의돌":"🔥","천둥의돌":"⚡","태양조각":"☀️","달조각":"🌙",
     "이끼바위조각":"🪨","얼음바위조각":"🧊","이끼바위":"🌿","얼음바위":"❄️",
     "리본":"🎀","다이버섯":"🍄","이브이나이트":"💎","용의비늘":"🐉",
+    "부드러운모래":"🏜️","바람깃털":"🪶",
 };
 function itemEmoji(name) { return ITEM_EMOJI[name] || "📦"; }
 
@@ -199,6 +220,24 @@ const state = {
     dexScroll: 0,             // 도감 스크롤 오프셋
     message: null,
     feedbackAnim: null,
+
+    // 전투
+    battleStage: 0,           // 현재 도전 스테이지 (0=미시작)
+    battleMaxStage: 0,        // 최고 클리어 스테이지
+    battleScene: null,        // null | "select" | "fighting" | "result"
+    battleEnemy: null,        // { type, power, name }
+    battleAlly: null,         // 선택한 이브이 (farm 인덱스 or "current")
+    battleTimer: 0,
+    battleResult: null,       // "win" | "lose"
+    battleReward: null,       // 해금 보상 텍스트
+    battleDamage: 0,          // 이번 전투 데미지
+    unlockedByBattle: new Set(), // 전투로 해금된 탐색지 id
+    endingShown: false,        // 엔딩 연출 표시 여부
+
+    // 탐색 출정
+    expeditions: [],          // [{ locId, eeveeRef, startTime, duration, drops }]
+    expeditionSlots: 1,       // 동시 파견 가능 수 (전투 보상으로 증가)
+    expeditionSelect: null,   // 장소 선택 후 이브이 선택 단계: { locId, locName }
 };
 
 function resetCurrentEevee() {
@@ -209,7 +248,7 @@ function resetCurrentEevee() {
         friendship: FRIENDSHIP.start,
         likedFruit: liked, dislikedFruit: disliked,
         knownLiked: false, knownDisliked: false,
-        stamina: STAMINA.max, // 스태미나 (0~3, 소수점)
+        stamina: 0, // 미사용 (하위호환)
         exploreCount: 0, lastLocation: null, repeatCount: 0,
         visitedLocations: new Set(),
         wx: 0.5, wy: 0.5, vx: 0, vy: 0,
@@ -255,6 +294,7 @@ function allComplete() { return EVOS.every(e => state.collected.has(e.id)); }
 function showMessage(text, dur=120) { state.message = { text, timer: dur }; }
 function clamp(v,lo,hi) { return Math.max(lo,Math.min(hi,v)); }
 function lerp(a,b,t) { return a + (b-a)*t; }
+function friendshipMax() { return allComplete() ? 9999 : FRIENDSHIP.max; }
 
 /* ═══════════════════════════════════════════
    5. FARM ENTITIES (쿼터뷰 2D 이동)
@@ -349,10 +389,14 @@ function updateEeveeAI(e, isNight) {
 function updateFarmEntities() {
     const isNight = state.timeOfDay === "night";
 
-    // 스태미나 자동 충전 (농장에 있을 때)
-    if (state.currentEevee && state.scene === "farm" && !state.panel && !state.popup) {
-        const rate = isNight ? STAMINA.rechargeNight : STAMINA.rechargeDay;
-        state.currentEevee.stamina = Math.min(STAMINA.max, state.currentEevee.stamina + rate);
+    // 스태미나 시스템 폐지됨 (출정 시스템으로 대체)
+
+    // 리피아 광합성: 농장 대기 시 활동성 서서히 회복
+    for (const e of state.farm) {
+        const evo = EVOS.find(ev => ev.id === e.evoId);
+        if (evo && evo.abilityTag === "leafeon" && !isOnExpedition(state.farm.indexOf(e))) {
+            e.activity = Math.min(ACTIVITY_MAX, (e.activity || 0) + 0.005);
+        }
     }
 
     // 현재 이브이 AI
@@ -515,15 +559,13 @@ function checkEvolution() {
             case "friendship_night": match = ee.friendship >= FRIENDSHIP.max && tod === "night"; break;
             case "craft": match = state._deliveredItem === evo.craft; break;
             case "friendship_item": match = ee.friendship >= FRIENDSHIP.max && state._deliveredItem === evo.item; break;
-            case "friendship_zero": match = ee.friendship <= 0; break;
+            case "friendship_zero_night": match = ee.friendship <= 0 && tod === "night"; break;
             case "explore_count": match = ee.exploreCount >= 20 && ee.friendship >= 10; break;
-            case "skip_count": match = state.skipCount >= 8 && state.totalRests >= 3; break;
-            case "repeat_explore": match = ee.repeatCount >= 5 && ee.friendship >= 8; break;
-            case "all_locations":
-                match = LOCATIONS.filter(l => !l.hidden || isLocationUnlocked(l)).every(l => ee.visitedLocations.has(l.id));
-                break;
-            case "three_stones":
-                match = ["물의돌","불꽃의돌","천둥의돌"].filter(s => hasItem(s)).length >= 3;
+            case "ground_stone": match = hasItem("부드러운모래") && state.skipCount >= 5; break;
+            case "rock_craft": match = ee.repeatCount >= 5 && hasItem("이끼바위") && hasItem("얼음바위"); break;
+            case "flying_feather": match = state._deliveredItem === "바람깃털"; break;
+            case "four_stones":
+                match = ["물의돌","불꽃의돌","천둥의돌","부드러운모래"].every(s => hasItem(s)) && ee.friendship >= FRIENDSHIP.max;
                 break;
             case "dragon":
                 match = state.collected.has("gmax") && state.collected.has("mega") && state._deliveredItem === "용의비늘" && ee.friendship >= 15;
@@ -539,9 +581,7 @@ function checkEvolution() {
 
 function isLocationUnlocked(loc) {
     if (!loc.hidden) return true;
-    if (loc.unlock === "base8") return base8Complete();
-    if (loc.unlock === "gmax") return state.collected.has("gmax");
-    if (loc.unlock === "gmax_mega") return state.collected.has("gmax") && state.collected.has("mega");
+    if (loc.unlock === "battle") return state.unlockedByBattle && state.unlockedByBattle.has(loc.id);
     return false;
 }
 
@@ -566,9 +606,7 @@ function rollTurnLocations() {
     state.turnLocations = all.slice(0, Math.min(LOCATIONS_PER_TURN, all.length));
 }
 
-function getAvailableLocations() {
-    return state.turnLocations || [];
-}
+
 
 /* ═══════════════════════════════════════════
    7. TURN LOGIC
@@ -584,8 +622,6 @@ function triggerEvolution(evo) {
     // 기본 8종 완성 시 알림 + 스태미나 확장
     if (!state.base8Notified && base8Complete()) {
         state.base8Notified = true;
-        STAMINA.max = 5;
-        if (state.currentEevee) state.currentEevee.stamina = STAMINA.max;
         state._base8Alert = true;
     }
 }
@@ -602,14 +638,14 @@ function doRest() {
         state._pendingDayNightFlip = true;
         return;
     }
-    // 밤낮 전환 + 스태미나 풀충전
+    // 밤낮 전환
     state.timeOfDay = state.timeOfDay === "day" ? "night" : "day";
-    if (state.currentEevee) state.currentEevee.stamina = STAMINA.max;
     state._deliveredItem = null;
     state.hintUsed = false;
     rollTurnLocations();
     invalidateBgCache();
     state.scene = "farm";
+    saveGame();
 }
 
 function finishPostEvolution() {
@@ -619,10 +655,45 @@ function finishPostEvolution() {
         state._pendingDayNightFlip = false;
         invalidateBgCache();
     }
-    resetCurrentEevee();
-    if (state.currentEevee) state.currentEevee.stamina = STAMINA.max;
+    // 이브이 자동 추가 제거 → 둥지에서 수동 소환
+    state.currentEevee = null;
     state._deliveredItem = null;
     rollTurnLocations();
+    saveGame();
+}
+
+// 둥지: 이브이 소환
+const NEST_COST = 5; // 열매 5개
+function canSummonEevee() {
+    return !state.currentEevee;
+}
+function summonEevee() {
+    if (!canSummonEevee()) return;
+    // 열매 비용 (아무 열매나 합산)
+    let totalFruit = 0;
+    for (const f of FRUITS) totalFruit += itemCount(f);
+    if (totalFruit < NEST_COST) {
+        showMessage(`열매가 부족합니다 (${totalFruit}/${NEST_COST})`, 90);
+        return;
+    }
+    // 열매 차감 (보유한 것부터 순서대로)
+    let remaining = NEST_COST;
+    for (const f of FRUITS) {
+        if (remaining <= 0) break;
+        const have = itemCount(f);
+        if (have > 0) {
+            const take = Math.min(have, remaining);
+            removeItem(f, take);
+            remaining -= take;
+        }
+    }
+    resetCurrentEevee();
+    state.scene = "new_eevee";
+    state.newEeveeTimer = 0;
+    state.currentEevee.wx = 0.4 + Math.random() * 0.2;
+    state.currentEevee.wy = 1.15;
+    showMessage("새 이브이가 왔다!", 90);
+    saveGame();
 }
 
 function startGame() {
@@ -633,67 +704,392 @@ function startGame() {
 }
 
 /* ═══════════════════════════════════════════
+   7-1. SAVE / LOAD
+   ═══════════════════════════════════════════ */
+const SAVE_KEY = "eevee_farm_save";
+
+function saveGame() {
+    try {
+        const data = {
+            timeOfDay: state.timeOfDay,
+            totalExplores: state.totalExplores,
+            totalRests: state.totalRests,
+            turnNumber: state.turnNumber,
+            skipCount: state.skipCount,
+            collected: [...state.collected],
+            inventory: { ...state.inventory },
+            currentEevee: state.currentEevee ? {
+                friendship: state.currentEevee.friendship,
+                likedFruit: state.currentEevee.likedFruit,
+                dislikedFruit: state.currentEevee.dislikedFruit,
+                knownLiked: state.currentEevee.knownLiked,
+                knownDisliked: state.currentEevee.knownDisliked,
+                stamina: state.currentEevee.stamina,
+                exploreCount: state.currentEevee.exploreCount,
+                lastLocation: state.currentEevee.lastLocation,
+                repeatCount: state.currentEevee.repeatCount,
+                visitedLocations: [...(state.currentEevee.visitedLocations || [])],
+            } : null,
+            farm: state.farm.map(e => ({
+                evoId: e.evoId,
+                activity: e.activity || 0,
+                likedFruit: e.likedFruit,
+                dislikedFruit: e.dislikedFruit,
+            })),
+            farmItems: state.farmItems.map(i => ({ name: i.name, wx: i.wx, wy: i.wy })),
+            hintBoosts: state.hintBoosts || [],
+            base8Notified: state.base8Notified,
+            battleMaxStage: state.battleMaxStage || 0,
+            battleStage: state.battleStage || 0,
+            battleEnemy: state.battleEnemy || null,
+            unlockedByBattle: [...(state.unlockedByBattle || [])],
+            expeditions: (state.expeditions || []).map(e => ({ ...e })),
+            expeditionSlots: state.expeditionSlots || 1,
+            endingShown: state.endingShown || false,
+        };
+        localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+    } catch (e) { console.warn("세이브 실패:", e); }
+}
+
+function loadGame() {
+    try {
+        const raw = localStorage.getItem(SAVE_KEY);
+        if (!raw) return false;
+        const data = JSON.parse(raw);
+
+        state.timeOfDay = data.timeOfDay || "day";
+        state.totalExplores = data.totalExplores || 0;
+        state.totalRests = data.totalRests || 0;
+        state.turnNumber = data.turnNumber || 0;
+        state.skipCount = data.skipCount || 0;
+        state.collected = new Set(data.collected || []);
+        state.inventory = data.inventory || {};
+        state.hintBoosts = data.hintBoosts || [];
+        state.base8Notified = data.base8Notified || false;
+        state.battleMaxStage = data.battleMaxStage || 0;
+        state.battleStage = data.battleStage || 0;
+        state.battleEnemy = data.battleEnemy || null;
+        state.unlockedByBattle = new Set(data.unlockedByBattle || []);
+        state.expeditions = data.expeditions || [];
+        state.expeditionSlots = data.expeditionSlots || 1;
+        state.endingShown = data.endingShown || false;
+
+        // 현재 이브이 복원
+        if (data.currentEevee) {
+            const ce = data.currentEevee;
+            state.currentEevee = {
+                friendship: ce.friendship,
+                likedFruit: ce.likedFruit,
+                dislikedFruit: ce.dislikedFruit,
+                knownLiked: ce.knownLiked,
+                knownDisliked: ce.knownDisliked,
+                stamina: ce.stamina,
+                exploreCount: ce.exploreCount || 0,
+                lastLocation: ce.lastLocation,
+                repeatCount: ce.repeatCount || 0,
+                visitedLocations: new Set(ce.visitedLocations || []),
+                wx: 0.5, wy: 0.5, vx: 0, vy: 0,
+                facing: 1, aiState: "idle", aiTimer: 80,
+            };
+        }
+
+        // 농장 이브이 복원
+        state.farm = (data.farm || []).map(e => {
+            const evo = EVOS.find(ev => ev.id === e.evoId);
+            const liked = e.likedFruit || FRUITS[Math.floor(Math.random() * FRUITS.length)];
+            let disliked = e.dislikedFruit;
+            if (!disliked) { do { disliked = FRUITS[Math.floor(Math.random() * FRUITS.length)]; } while (disliked === liked); }
+            return {
+                evoId: e.evoId,
+                sprite: evo ? evo.img : "이브이.png",
+                activity: e.activity || 0,
+                likedFruit: liked,
+                dislikedFruit: disliked,
+                wx: 0.15 + Math.random() * 0.7,
+                wy: 0.15 + Math.random() * 0.7,
+                vx: 0, vy: 0,
+                facing: Math.random() > 0.5 ? 1 : -1,
+                aiState: "idle", aiTimer: 30 + Math.random() * 60,
+            };
+        });
+
+        // 바닥 아이템 복원
+        state.farmItems = (data.farmItems || []).map(i => ({
+            name: i.name, wx: i.wx, wy: i.wy, vx: 0, vy: 0,
+        }));
+
+        // 탐색지 재배치
+        rollTurnLocations();
+        invalidateBgCache();
+        state.scene = "farm";
+        state.panel = null;
+        state.popup = null;
+        return true;
+    } catch (e) {
+        console.warn("로드 실패:", e);
+        return false;
+    }
+}
+
+function deleteSave() {
+    localStorage.removeItem(SAVE_KEY);
+}
+
+function hasSave() {
+    return !!localStorage.getItem(SAVE_KEY);
+}
+
+/* ═══════════════════════════════════════════
+   7-2. BATTLE SYSTEM
+   ═══════════════════════════════════════════ */
+
+// 상성표: TYPE_ADVANTAGE[공격타입] = [유리한 대상 타입들]
+const TYPE_ADVANTAGE = {
+    "물": ["불","땅","바위"], "불": ["풀","얼음","강철"], "풀": ["물","땅","바위"],
+    "전기": ["물","비행"], "에스퍼": ["격투","고스트"], "악": ["에스퍼","고스트"],
+    "얼음": ["드래곤","비행","풀"], "격투": ["바위","강철","왕"], "고스트": ["에스퍼","페어리"],
+    "드래곤": ["드래곤","왕","메가"], "땅": ["전기","불","강철"], "바위": ["불","비행","얼음"],
+    "비행": ["풀","격투"], "강철": ["페어리","얼음","바위"], "페어리": ["드래곤","악","격투"],
+    "왕": [], "메가": [],
+};
+
+// 적 타입 풀 (스테이지 적 타입 생성용)
+const ENEMY_TYPES = ["물","불","풀","전기","에스퍼","악","얼음","격투","고스트","드래곤","땅","바위","비행","강철","페어리"];
+const ENEMY_NAMES = {
+    "물":"물의정령","불":"화염수호자","풀":"숲의파수꾼","전기":"번개사냥꾼","에스퍼":"마음의눈",
+    "악":"어둠추적자","얼음":"서리감시자","격투":"강철주먹","고스트":"그림자유령","드래곤":"비늘군주",
+    "땅":"대지의분노","바위":"바위거인","비행":"하늘칼날","강철":"철벽수비대","페어리":"요정여왕",
+};
+
+// 스테이지별 보스 생성
+function generateEnemy(stage) {
+    const type = ENEMY_TYPES[(stage - 1) % ENEMY_TYPES.length];
+    const maxHp = Math.floor(50 + stage * 20 + Math.pow(stage, 1.3) * 5);
+    return { type, name: ENEMY_NAMES[type] || type, stage, maxHp, hp: maxHp };
+}
+
+// 이브이 전투력 (= 데미지) 계산
+function calcBattlePower(eevee) {
+    const evo = EVOS.find(e => e.id === eevee.evoId);
+    const type = evo ? evo.type : "무";
+    let basePower = 10;
+    if (type === "왕") basePower = 18;
+    else if (type === "메가") basePower = 22;
+    if (!evo) basePower = 6;
+    if (state.endingShown) basePower += 5;
+    const friendship = eevee.friendship || eevee.activity || 0;
+    const power = basePower + friendship * 2;
+    return { power, type };
+}
+
+// 상성 배율
+function typeMultiplier(attackType, defendType) {
+    const adv = TYPE_ADVANTAGE[attackType] || [];
+    if (adv.includes(defendType)) return 1.5;
+    const defAdv = TYPE_ADVANTAGE[defendType] || [];
+    if (defAdv.includes(attackType)) return 0.6;
+    return 1.0;
+}
+
+// 전투 실행 → 데미지 계산 (항상 데미지를 줌)
+function executeBattle(allyEevee, enemy) {
+    const ally = calcBattlePower(allyEevee);
+    const evo = EVOS.find(e => e.id === allyEevee.evoId);
+    const tag = evo ? evo.abilityTag : "";
+    let mult = typeMultiplier(ally.type, enemy.type);
+
+    // 고유 능력: 상성 보정
+    if (tag === "battle_noweakness" && mult < 1) mult = 1.0;   // 왕: 불리 무시
+    if (tag === "battle_alladvantage") mult = Math.max(mult, 1.5); // 메가: 항상 유리
+
+    let baseDmg = ally.power * mult;
+
+    // 고유 능력: 데미지 보정
+    if (tag === "battle_dmg") baseDmg *= 1.3;                   // 부스터: +30%
+    if (tag === "battle_guts") {                                 // 파이티아: 활동성 낮을수록 강함
+        const act = allyEevee.activity || 0;
+        baseDmg *= 1 + (1 - act / ACTIVITY_MAX) * 0.5;          // 활동성 0이면 +50%
+    }
+    if (tag === "battle_fixed") baseDmg += 20;                   // 드라키온: 고정 +20
+    if (tag === "battle_curse") baseDmg += enemy.maxHp * 0.05;  // 레이시아: 최대HP 5%
+    if (tag === "leafeon") baseDmg += enemy.maxHp * 0.03;       // 리피아: 최대HP 3%
+    if (tag === "sylveon") baseDmg *= 1.2;                      // 님피아: 데미지 +20%
+
+    // ±15% 랜덤
+    let roll = 0.85 + Math.random() * 0.30;
+    if (tag === "battle_minroll") roll = Math.max(roll, 0.95);   // 메탈리아: 하한 보장
+    if (tag === "battle_crit" && Math.random() < 0.10) roll = 3.0; // 글레이시아: 10% 크리티컬 3배
+
+    const damage = Math.max(1, Math.floor(baseDmg * roll));
+    enemy.hp = Math.max(0, enemy.hp - damage);
+    const killed = enemy.hp <= 0;
+    return { damage, killed, allyPower: ally.power, multiplier: mult, allyType: ally.type, remainHp: enemy.hp, abilityName: evo ? evo.ability : "", crit: roll >= 2.5 };
+}
+
+// 전투 시작 (현재 보스가 없거나 처치됐으면 새 보스)
+function startBattle() {
+    if (!state.battleEnemy || state.battleEnemy.hp <= 0) {
+        const stage = state.battleMaxStage + 1;
+        state.battleStage = stage;
+        state.battleEnemy = generateEnemy(stage);
+    }
+    state.battleScene = "select";
+    state.battleAlly = null;
+    state.battleResult = null;
+    state.battleReward = null;
+    state.panel = null; state.panelSlide = 0;
+}
+
+// 스테이지 클리어 보상 체크
+const STAGE_REWARDS = {
+    5: { type: "location", id: "den", text: "거대소굴 해금!" },
+    10: { type: "slot", text: "탐색 슬롯 +1!" },
+    15: { type: "location", id: "ruins", text: "고대유적 해금!" },
+    20: { type: "location", id: "cave", text: "깊은동굴 해금!" },
+    25: { type: "slot", text: "탐색 슬롯 +1!" },
+    30: { type: "location", id: "valley", text: "용의계곡 해금!" },
+    35: { type: "location", id: "sky", text: "하늘산등성이 해금!" },
+};
+
+function applyBattleReward(stage) {
+    const reward = STAGE_REWARDS[stage];
+    if (!reward) return null;
+    if (reward.type === "location") {
+        if (!state.unlockedByBattle) state.unlockedByBattle = new Set();
+        state.unlockedByBattle.add(reward.id);
+    } else if (reward.type === "slot") {
+        state.expeditionSlots = (state.expeditionSlots || 1) + 1;
+    }
+    return reward.text;
+}
+
+/* ═══════════════════════════════════════════
    8. ACTIONS
    ═══════════════════════════════════════════ */
-function doExplore(location) {
-    const ee = state.currentEevee;
-    if (ee.stamina < 1) { showMessage("이브이가 지쳐있다... 좀 쉬게 해주자.", 100); return; }
-    ee.stamina = Math.max(0, ee.stamina - 1);
-    state.totalExplores++;
-    if (base8Complete()) {
-        ee.exploreCount++;
-        ee.visitedLocations.add(location.id);
-        if (ee.lastLocation === location.id) ee.repeatCount++;
-        else ee.repeatCount = 1;
+// 출정 파견
+function sendExpedition(locId, eeveeRef) {
+    const loc = LOCATIONS.find(l => l.id === locId);
+    if (!loc) return;
+    if (state.expeditions.length >= state.expeditionSlots) {
+        showMessage("파견 슬롯이 가득 찼습니다!", 90); return;
     }
-    ee.lastLocation = location.id;
+    // 이브이 정보
+    const eevee = eeveeRef === "current" ? state.currentEevee : state.farm[eeveeRef];
+    const evo = eeveeRef === "current" ? null : EVOS.find(e => e.id === eevee.evoId);
+    const evoType = evo ? evo.type : "";
+    const tag = evo ? evo.abilityTag : "";
 
-    // 열매(공통 풀)와 아이템(장소별)을 독립 판정 (힌트 부스트 적용)
-    const fruitPool = FRUITS.map(f => ({name: f, type: "fruit", weight: 1}));
-    const boosted = state.hintBoosts ? state.hintBoosts.filter(b => b.locId === location.id) : [];
-    const itemPool = location.items.filter(i => i.type !== "fruit").map(i => {
-        if (boosted.some(b => b.itemName === i.name)) return { ...i, weight: i.weight * 2 };
-        return i;
+    // 시간 계산 (고유 능력 반영)
+    let duration = (loc.dur || 30) * 1000;
+    if (tag === "explore_fastest") duration *= 0.4;       // 에어리아: 60% 단축
+    else if (tag === "explore_speed") duration *= 0.5;    // 쥬피썬더: 50% 단축
+    const act = eevee.activity || 0;
+    duration *= (1 - act / 200);
+
+    state.expeditions.push({
+        locId, eeveeRef, evoType, abilityTag: tag,
+        startTime: Date.now(),
+        duration: Math.floor(duration),
+        eeveeImg: evo ? evo.img : "이브이.png",
+        eeveeName: evo ? evo.name : "이브이",
     });
+
+    // 탐색 카운터 업데이트
+    state.totalExplores++;
+    if (eevee.visitedLocations) eevee.visitedLocations.add(locId);
+    if (eevee.exploreCount !== undefined) eevee.exploreCount++;
+    if (eevee.lastLocation === locId && eevee.repeatCount !== undefined) eevee.repeatCount++;
+    else if (eevee.repeatCount !== undefined) eevee.repeatCount = 1;
+    if (eevee.lastLocation !== undefined) eevee.lastLocation = locId;
+
+    // 활동성 소모 (님피아: 소모 없음)
+    if (eevee.activity !== undefined && tag !== "sylveon") eevee.activity = Math.max(0, eevee.activity - 5);
+
+    state.panel = null; state.panelSlide = 0;
+    state.expeditionSelect = null;
+    showMessage(`${loc.name}으로 출동!`, 60);
+    saveGame();
+}
+
+// 출정 결과 계산
+function resolveExpedition(exp) {
+    const loc = LOCATIONS.find(l => l.id === exp.locId);
+    if (!loc) return [];
+    const tag = exp.abilityTag || "";
+
+    const fruitPool = FRUITS.map(f => ({name: f, type: "fruit", weight: 1}));
+    let itemPool = loc.items.filter(i => i.type !== "fruit");
+
+    // 에브이 예지: 희귀 아이템 가중치 2배
+    if (tag === "explore_rare") {
+        itemPool = itemPool.map(i => i.weight <= 20 ? { ...i, weight: i.weight * 2 } : i);
+    }
+
     const drops = [];
+    const typeMatch = loc.attr === exp.evoType;
 
-    // 아이템: 40% 확률 (힌트 부스트 있으면 65%)
-    const itemChance = boosted.length > 0 ? 0.65 : 0.40;
+    // 블래키 야행성: 밤 탐색지에서 아이템 드롭 100%
+    const isNightLoc = loc.time === "night";
+    const itemChance = (tag === "explore_night" && isNightLoc) ? 1.0 : (typeMatch ? 0.65 : 0.40);
+
     if (itemPool.length > 0 && Math.random() < itemChance) {
-        const d = weightedRandom(itemPool);
-        drops.push(d);
-    }
-    // 열매: 60% 확률로 등장 (모든 열매 균등)
-    if (Math.random() < 0.60) {
-        const d = weightedRandom(fruitPool);
-        drops.push(d);
-    }
-    // 둘 다 안 나오면 열매 1개 보장
-    if (drops.length === 0) {
-        drops.push(weightedRandom(fruitPool));
+        drops.push(weightedRandom(itemPool));
     }
 
-    // 농장 바닥에 랜덤 배치
-    for (const drop of drops) {
-        state.farmItems.push({
-            name: drop.name,
-            wx: Math.random() * 0.7 + 0.15,
-            wy: Math.random() * 0.7 + 0.15,
-            vx: 0, vy: 0,
-        });
+    // 샤미드 수의장막: 열매 2개, 리피아 광합성: 열매 확률 90%
+    const fruitCount = tag === "explore_fruit2" ? 2 : 1;
+    const fruitChance = tag === "leafeon" ? 0.90 : 0.60;
+    for (let fi = 0; fi < fruitCount; fi++) {
+        if (Math.random() < fruitChance || drops.length === 0) {
+            drops.push(weightedRandom(fruitPool));
+        }
     }
+    if (drops.length === 0) drops.push(weightedRandom(fruitPool));
 
-    // 바위조각 첫 획득 힌트
-    if (drops.some(d => d.name === "이끼바위조각") && state.farmItems.filter(i => i.name === "이끼바위조각").length === 1)
-        showMessage("이 이끼바위조각으로 커다란 이끼바위를 만들 수 있을 것 같다...", 180);
-    if (drops.some(d => d.name === "얼음바위조각") && state.farmItems.filter(i => i.name === "얼음바위조각").length === 1)
-        showMessage("이 얼음바위조각으로 커다란 얼음바위를 만들 수 있을 것 같다...", 180);
+    // 샌디온 발굴: 추가 아이템 1개
+    if (tag === "explore_extra" && itemPool.length > 0) {
+        drops.push(weightedRandom(itemPool));
+    }
+    return drops;
+}
 
-    // 탐색 진행 연출 → 결과 (첫 번째 아이템 우선 표시, 복수면 전부 표시)
-    const dropNames = drops.map(d => `${itemEmoji(d.name)} ${d.name}`).join(", ");
-    state.popup = { type: "exploring", locationId: location.id, locationName: location.name, attr: location.attr, itemName: dropNames, itemType: drops[0].type, phase: 0 };
-    state.popupTimer = 0;
-    state.panel = null; state.panelSlide = 0; // 패널 닫기
+// 귀환 체크 (메인 루프에서 호출)
+function checkExpeditionReturns() {
+    const now = Date.now();
+    const returned = [];
+    state.expeditions = state.expeditions.filter(exp => {
+        if (now >= exp.startTime + exp.duration) {
+            returned.push(exp);
+            return false;
+        }
+        return true;
+    });
+    for (const exp of returned) {
+        const drops = resolveExpedition(exp);
+        const loc = LOCATIONS.find(l => l.id === exp.locId);
+        for (const drop of drops) {
+            state.farmItems.push({
+                name: drop.name,
+                wx: Math.random() * 0.7 + 0.15,
+                wy: Math.random() * 0.7 + 0.15,
+                vx: 0, vy: 0,
+            });
+        }
+        const dropNames = drops.map(d => `${itemEmoji(d.name)} ${d.name}`).join(", ");
+        showMessage(`${exp.eeveeName} 귀환! ${dropNames}`, 180);
+        saveGame();
+    }
+}
+
+// 이브이가 파견 중인지 확인
+function isOnExpedition(eeveeRef) {
+    return state.expeditions.some(e => e.eeveeRef === eeveeRef);
+}
+
+// 구버전 호환: doExplore는 더 이상 직접 호출되지 않음
+function doExplore(location) {
+    // 출정 시스템으로 대체됨 - 이브이 선택 UI로 전환
+    state.expeditionSelect = { locId: location.id, locName: location.name };
 }
 
 function feedItem(itemName) {
@@ -707,24 +1103,27 @@ function feedItem(itemName) {
         let delta = 0;
         if (itemName === ee.likedFruit) {
             const before = ee.friendship;
-            ee.friendship = clamp(ee.friendship + FRIENDSHIP.liked, -5, FRIENDSHIP.max + 5);
+            ee.friendship = clamp(ee.friendship + FRIENDSHIP.liked, -5, friendshipMax() + 5);
             delta = ee.friendship - before;
             reaction = "liked"; ee.knownLiked = true;
         } else if (itemName === ee.dislikedFruit) {
             const before = ee.friendship;
-            ee.friendship = clamp(ee.friendship + FRIENDSHIP.disliked, -5, FRIENDSHIP.max + 5);
+            ee.friendship = clamp(ee.friendship + FRIENDSHIP.disliked, -5, friendshipMax() + 5);
             delta = ee.friendship - before;
             console.log(`[싫은열매] ${itemName}: 친밀도 ${before} → ${ee.friendship} (delta: ${delta})`);
             reaction = "disliked"; ee.knownDisliked = true;
         } else {
-            ee.stamina = Math.min(STAMINA.max, ee.stamina + 1);
-            reaction = "stamina";
+            // 보통 열매: 친밀도 +1
+            const before3 = ee.friendship;
+            ee.friendship = clamp(ee.friendship + 1, -5, friendshipMax() + 5);
+            delta = ee.friendship - before3;
+            reaction = "neutral";
         }
         const scr = worldToScreen(ee.wx, ee.wy);
         state.feedbackAnim = { type: reaction, timer: 70, x: scr.sx, y: scr.sy - 30, delta };
         state.panel = null; state.panelSlide = 0;
-        // 친밀도 0 이하 시 즉시 고스트 진화 체크
-        if (ee.friendship <= 0) {
+        // 친밀도 0 이하 + 밤 시 즉시 고스트 진화 체크
+        if (ee.friendship <= 0 && state.timeOfDay === "night") {
             const evo = checkEvolution();
             if (evo) { triggerEvolution(evo); return; }
         }
@@ -734,7 +1133,7 @@ function feedItem(itemName) {
                          (itemName === "달조각" && state.timeOfDay === "night");
         if (isMatch) {
             const before = ee.friendship;
-            ee.friendship = clamp(ee.friendship + FRIENDSHIP.sun_day, -5, FRIENDSHIP.max + 5);
+            ee.friendship = clamp(ee.friendship + FRIENDSHIP.sun_day, -5, friendshipMax() + 5);
             const d = ee.friendship - before;
             const scr = worldToScreen(ee.wx, ee.wy);
             state.feedbackAnim = { type: "liked", timer: 70, x: scr.sx, y: scr.sy - 30, delta: d };
@@ -749,6 +1148,16 @@ function feedItem(itemName) {
             if (evo) { triggerEvolution(evo); return; }
         }
     } else {
+        // 이미 진화 완료된 아이템 전달 거부
+        const EVO_ITEMS = {
+            "물의돌":"vaporeon","천둥의돌":"jolteon","불꽃의돌":"flareon",
+            "이끼바위":"leafeon","얼음바위":"glaceon","리본":"sylveon",
+            "다이버섯":"gmax","이브이나이트":"mega","용의비늘":"dragon","바람깃털":"flying",
+        };
+        if (EVO_ITEMS[itemName] && state.collected.has(EVO_ITEMS[itemName])) {
+            showMessage("이미 이 아이템으로 진화를 완료했다!", 100);
+            return;
+        }
         // 친밀도 부족 시 전달 거부
         const friendReq = {"리본": FRIENDSHIP.max, "다이버섯": 10, "이브이나이트": 10, "용의비늘": 15};
         if (friendReq[itemName] && ee.friendship < friendReq[itemName]) {
@@ -825,12 +1234,12 @@ function getHint() {
     if (!state.collected.has("sylveon")) hints.push("이브이와 충분히 친해진 뒤, 꽃밭에서 찾을 수 있는 리본을 주면...");
     if (base8Complete()) {
         if (!state.collected.has("gmax")) hints.push("새로운 탐색지가 열린 것 같다... 거대한 무언가의 기운이...");
-        if (!state.collected.has("ghost")) hints.push("이브이가 싫어하는 열매를 계속 먹여서 친밀도를 0 이하로 떨어뜨리면... 어둠의 진화가 일어날지도...");
+        if (!state.collected.has("ghost")) hints.push("밤에 이브이의 친밀도가 0 이하로 떨어지면... 어둠의 진화가 일어날지도...");
         if (!state.collected.has("fighting") && ee.exploreCount >= 10) hints.push("이브이와 친해진 상태로 탐색을 많이 하면 강해질 것 같다...");
-        if (!state.collected.has("ground") && state.skipCount >= 4) hints.push("충분히 쉬다 보면 땅의 기운이 느껴진다...");
-        if (!state.collected.has("rock") && ee.repeatCount >= 3) hints.push("이브이와 친해진 상태로 같은 장소를 계속 가면 변할지도...");
-        if (!state.collected.has("flying") && ee.visitedLocations.size >= 5) hints.push("더 많은 곳을 돌아다니면 이브이에게 날개가 생길지도...");
-        if (!state.collected.has("steel")) hints.push("진화석 여러 종류를 동시에 갖고 있으면 무슨 일이 생길지도...");
+        if (!state.collected.has("ground")) hints.push("깊은동굴에서 찾을 수 있는 부드러운모래를 지닌 채로 휴식을 반복하면...");
+        if (!state.collected.has("rock")) hints.push("같은 장소를 계속 탐색하면서 이끼바위와 얼음바위를 모두 갖고 있으면...");
+        if (!state.collected.has("flying")) hints.push("하늘산등성이에서 찾을 수 있는 바람깃털을 이브이에게 전달하면...");
+        if (!state.collected.has("steel")) hints.push("물의돌, 불꽃의돌, 천둥의돌, 부드러운모래를 모두 모으고 친밀도가 최대라면...");
     }
     const text = hints.length > 0 ? hints[Math.floor(Math.random() * hints.length)] : "이브이가 평화로워 보인다...";
 
@@ -977,7 +1386,7 @@ let cheatBuf = "";
 document.addEventListener("keydown", e => {
     cheatBuf += e.key.toLowerCase();
     if (cheatBuf.length > 10) cheatBuf = cheatBuf.slice(-10);
-    if (cheatBuf.endsWith("eevee")) {
+    if (cheatBuf.endsWith("eevee") || cheatBuf.endsWith("ㄷㄷㅍㄷㄷ")) {
         cheatBuf = "";
         state.popup = { type: "cheat" };
         state.popupTimer = 0;
@@ -990,7 +1399,7 @@ function applyCheat(type) {
         // 모든 열매 100개
         for (const f of FRUITS) addItem(f, 100);
         // 진화용 아이템
-        for (const name of ["물의돌","불꽃의돌","천둥의돌","리본","이끼바위조각","얼음바위조각","태양조각","달조각","다이버섯","이브이나이트","용의비늘"]) addItem(name, 10);
+        for (const name of ["물의돌","불꽃의돌","천둥의돌","리본","이끼바위조각","얼음바위조각","태양조각","달조각","다이버섯","이브이나이트","용의비늘","부드러운모래","바람깃털"]) addItem(name, 10);
         showMessage("🔧 모든 아이템 추가!", 90);
     } else if (type === "friendship_max") {
         if (ee) ee.friendship = FRIENDSHIP.max;
@@ -999,8 +1408,9 @@ function applyCheat(type) {
         if (ee) ee.friendship = -1;
         showMessage("🔧 친밀도 → -1!", 90);
     } else if (type === "stamina") {
-        if (ee) ee.stamina = STAMINA.max;
-        showMessage("🔧 스태미나 MAX!", 90);
+        // 전 이브이 활동성 MAX
+        for (const e of state.farm) e.activity = ACTIVITY_MAX;
+        showMessage("🔧 전체 활동성 MAX!", 90);
     } else if (type === "explore") {
         if (ee) { ee.exploreCount = 25; ee.repeatCount = 6; }
         state.skipCount = 15; state.totalRests = 10;
@@ -1326,14 +1736,16 @@ function drawFarmEntities() {
     // 모든 엔티티 수집 + wy 정렬
     const entities = [];
 
-    // 현재 이브이
-    if (state.currentEevee) {
+    // 현재 이브이 (파견 중이면 숨김)
+    if (state.currentEevee && !isOnExpedition("current")) {
         const ce = state.currentEevee;
         entities.push({ type: "current", wx: ce.wx, wy: ce.wy, facing: ce.facing, sprite: "이브이.png", aiState: ce.aiState });
     }
 
-    // 수집된 이브이
-    for (const e of state.farm) {
+    // 수집된 이브이 (파견 중이면 숨김)
+    for (let fi = 0; fi < state.farm.length; fi++) {
+        if (isOnExpedition(fi)) continue;
+        const e = state.farm[fi];
         entities.push({ type: "farm", wx: e.wx, wy: e.wy, facing: e.facing, sprite: e.sprite, aiState: e.aiState, activity: e.activity || 0 });
     }
 
@@ -1448,7 +1860,10 @@ function drawFarmEntities() {
             ctx.fillStyle = "#FF4444"; ctx.fillText("💢", fb.x, fb.y - yOff);
             if (fb.delta) { ctx.font = "bold 14px system-ui"; ctx.fillText(`${fb.delta}`, fb.x, fb.y - yOff + 20); }
         }
-        else if (fb.type === "stamina") { ctx.fillStyle = "#4FC3F7"; ctx.fillText("⚡", fb.x, fb.y - yOff); }
+        else if (fb.type === "neutral") {
+            ctx.fillStyle = "#4FC3F7"; ctx.fillText("~", fb.x, fb.y - yOff);
+            if (fb.delta) { ctx.font = "bold 14px system-ui"; ctx.fillText(`+${fb.delta}`, fb.x, fb.y - yOff + 20); }
+        }
         else { ctx.fillStyle = "#aaa"; ctx.fillText("...", fb.x, fb.y - yOff); }
         ctx.globalAlpha = 1;
         if (fb.timer <= 0) state.feedbackAnim = null;
@@ -1472,26 +1887,14 @@ function drawHUD() {
     ctx.font = "12px system-ui";
     ctx.fillStyle = "#ddd"; ctx.font = "12px system-ui";
 
-    // 스태미나 바
-    if (state.currentEevee) {
-        const st = state.currentEevee.stamina;
-        ctx.fillStyle = "#999"; ctx.font = "11px system-ui"; ctx.textAlign = "left";
-        ctx.fillText("⚡", 10, 36);
-        for (let i = 0; i < STAMINA.max; i++) {
-            const sx = 28 + i * 22, sy = 30, sw = 18, sh = 10;
-            ctx.fillStyle = "#333";
-            roundRect(sx, sy, sw, sh, 3); ctx.fill();
-            if (st >= i + 1) {
-                ctx.fillStyle = "#4FC3F7";
-                roundRect(sx, sy, sw, sh, 3); ctx.fill();
-            } else if (st > i) {
-                const partial = st - i;
-                ctx.fillStyle = "#4FC3F7";
-                roundRect(sx, sy, sw * partial, sh, 3); ctx.fill();
-            }
-            ctx.strokeStyle = "#555"; ctx.lineWidth = 0.5;
-            roundRect(sx, sy, sw, sh, 3); ctx.stroke();
-        }
+    // 전투 진행 표시
+    ctx.fillStyle = "#aaa"; ctx.font = "11px system-ui"; ctx.textAlign = "left";
+    if (state.battleMaxStage > 0) {
+        ctx.fillText(`⚔ ${state.battleMaxStage}`, 10, 36);
+    }
+    // 파견 슬롯 표시
+    if (state.expeditions && state.expeditions.length > 0) {
+        ctx.fillText(`🏃 ${state.expeditions.length}/${state.expeditionSlots}`, 70, 36);
     }
 
     ctx.textAlign = "center";
@@ -1500,17 +1903,46 @@ function drawHUD() {
     ctx.textAlign = "right";
     ctx.fillStyle = "#aaa";
     ctx.fillText(`턴 ${state.turnNumber}`, CW - 10, 14);
+
+    // 탐색 출정 중 표시
+    if (state.expeditions && state.expeditions.length > 0) {
+        const now = Date.now();
+        for (let i = 0; i < state.expeditions.length; i++) {
+            const exp = state.expeditions[i];
+            const loc = LOCATIONS.find(l => l.id === exp.locId);
+            const elapsed = now - exp.startTime;
+            const ratio = clamp(elapsed / exp.duration, 0, 1);
+            const remaining = Math.max(0, Math.ceil((exp.duration - elapsed) / 1000));
+
+            const ey = 56 + i * 28;
+            ctx.fillStyle = "rgba(0,0,0,0.4)";
+            roundRect(8, ey, CW - 16, 24, 5); ctx.fill();
+
+            // 이브이 이름 + 장소
+            ctx.textAlign = "left"; ctx.fillStyle = "#ccc"; ctx.font = "10px system-ui";
+            ctx.fillText(`🏃 ${exp.eeveeName} → ${loc ? loc.name : "?"}`, 14, ey + 9);
+
+            // 남은 시간
+            ctx.textAlign = "right"; ctx.fillStyle = "#aaa"; ctx.font = "10px system-ui";
+            ctx.fillText(`${remaining}초`, CW - 14, ey + 9);
+
+            // 프로그레스 바
+            ctx.fillStyle = "#333"; ctx.fillRect(14, ey + 17, CW - 28, 3);
+            ctx.fillStyle = "#4CAF50"; ctx.fillRect(14, ey + 17, (CW - 28) * ratio, 3);
+        }
+    }
 }
 
 /* ── 하단 버튼 ── */
 const BTN_Y = CH - 62;
 const BTN_H = 42;
 const BUTTONS = [
-    { id:"explore", label:"탐색",  x:10,  w:82 },
-    { id:"bag",     label:"가방",  x:100, w:82 },
-    { id:"hint",    label:"힌트",  x:190, w:68 },
-    { id:"dex",     label:"도감",  x:266, w:68 },
-    { id:"rest",    label:"💤 휴식",x:342, w:128 },
+    { id:"battle",  label:"⚔전투", x:10,  w:72 },
+    { id:"explore", label:"탐색",  x:88,  w:72 },
+    { id:"bag",     label:"가방",  x:166, w:66 },
+    { id:"hint",    label:"힌트",  x:238, w:58 },
+    { id:"dex",     label:"도감",  x:302, w:58 },
+    { id:"rest",    label:"💤휴식", x:366, w:104 },
 ];
 
 function drawFarmButtons() {
@@ -1520,8 +1952,7 @@ function drawFarmButtons() {
 
     ctx.textBaseline = "middle";
     for (const btn of BUTTONS) {
-        const noStamina = state.currentEevee && state.currentEevee.stamina < 1;
-        const disabled = (btn.id === "explore" && noStamina) || (btn.id === "hint" && state.hintUsed);
+        const disabled = (btn.id === "hint" && state.hintUsed);
         const hide = btn.id === "hint" && allComplete();
         if (hide) continue;
 
@@ -1586,49 +2017,109 @@ const LOC_STYLE = {
 function drawExplorePanel() {
     const startY = drawPanelBg();
     const py = startY;
-
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
+
+    // 이브이 선택 단계
+    if (state.expeditionSelect) {
+        ctx.fillStyle = "#FFD54F"; ctx.font = "bold 16px system-ui";
+        ctx.fillText(`${state.expeditionSelect.locName} 탐색`, CW / 2, py);
+        ctx.fillStyle = "#aaa"; ctx.font = "12px system-ui";
+        ctx.fillText("파견할 이브이를 선택하세요", CW / 2, py + 20);
+
+        const allEe = [];
+        if (state.currentEevee && !isOnExpedition("current")) allEe.push({ ref: "current", name: "이브이", img: "이브이.png", type: "무" });
+        state.farm.forEach((e, i) => {
+            if (isOnExpedition(i)) return;
+            const evo = EVOS.find(ev => ev.id === e.evoId);
+            if (evo) allEe.push({ ref: i, name: evo.name, img: evo.img, type: evo.type });
+        });
+
+        const loc = LOCATIONS.find(l => l.id === state.expeditionSelect.locId);
+        for (let i = 0; i < allEe.length; i++) {
+            const ee = allEe[i];
+            const by = py + 38 + i * 46;
+            if (by > CH - 50) break;
+            const typeMatch = loc && loc.attr === ee.type;
+            ctx.fillStyle = typeMatch ? "rgba(46,125,50,0.2)" : "rgba(50,50,80,0.6)";
+            ctx.strokeStyle = typeMatch ? "#4CAF50" : "#444"; ctx.lineWidth = 1;
+            roundRect(20, by, CW - 40, 40, 6); ctx.fill(); ctx.stroke();
+            drawSprite(ee.img, 50, by + 24, 1, 26);
+            ctx.textAlign = "left"; ctx.fillStyle = "#fff"; ctx.font = "bold 13px system-ui";
+            ctx.fillText(ee.name, 72, by + 14);
+            ctx.fillStyle = "#aaa"; ctx.font = "11px system-ui";
+            ctx.fillText(`${ee.type}타입`, 72, by + 30);
+            if (typeMatch) {
+                ctx.textAlign = "right"; ctx.fillStyle = "#4CAF50"; ctx.font = "bold 10px system-ui";
+                ctx.fillText("보너스!", CW - 30, by + 20);
+            }
+            ctx.textAlign = "center";
+        }
+        // 뒤로가기
+        ctx.fillStyle = "#555"; roundRect(CW / 2 - 40, CH - 50, 80, 30, 6); ctx.fill();
+        ctx.fillStyle = "#ccc"; ctx.font = "12px system-ui";
+        ctx.fillText("뒤로", CW / 2, CH - 35);
+        return;
+    }
+
+    // 장소 선택 단계
     ctx.fillStyle = "#FFD54F"; ctx.font = "bold 18px system-ui";
-    ctx.fillText("탐색지 선택", CW / 2, py);
+    ctx.fillText("탐색 출동", CW / 2, py);
 
+    // 파견 상태
     ctx.fillStyle = "#aaa"; ctx.font = "12px system-ui";
-    ctx.fillText(`⚡ 스태미나: ${Math.floor(state.currentEevee?.stamina || 0)} / ${STAMINA.max}`, CW / 2, py + 22);
+    ctx.fillText(`파견 ${state.expeditions.length} / ${state.expeditionSlots}`, CW / 2, py + 20);
 
-    const locs = getAvailableLocations();
+    // 진행 중인 파견 표시
+    let curY = py + 35;
+    for (const exp of state.expeditions) {
+        const loc = LOCATIONS.find(l => l.id === exp.locId);
+        const elapsed = Date.now() - exp.startTime;
+        const ratio = Math.min(elapsed / exp.duration, 1);
+        const remaining = Math.max(0, Math.ceil((exp.duration - elapsed) / 1000));
+
+        ctx.fillStyle = "rgba(50,80,50,0.4)"; roundRect(20, curY, CW - 40, 32, 5); ctx.fill();
+        ctx.textAlign = "left"; ctx.fillStyle = "#4CAF50"; ctx.font = "11px system-ui";
+        ctx.fillText(`🏃 ${exp.eeveeName} → ${loc ? loc.name : "?"}`, 30, curY + 12);
+        // 진행 바
+        ctx.fillStyle = "#333"; ctx.fillRect(30, curY + 22, CW - 70, 4);
+        ctx.fillStyle = "#4CAF50"; ctx.fillRect(30, curY + 22, (CW - 70) * ratio, 4);
+        ctx.textAlign = "right"; ctx.fillStyle = "#aaa"; ctx.font = "10px system-ui";
+        ctx.fillText(`${remaining}초`, CW - 30, curY + 14);
+        curY += 38;
+    }
+
+    // 슬롯 꽉 찼으면 안내
+    if (state.expeditions.length >= state.expeditionSlots) {
+        ctx.textAlign = "center"; ctx.fillStyle = "#FF5722"; ctx.font = "13px system-ui";
+        ctx.fillText("파견 슬롯이 가득 찼습니다", CW / 2, curY + 20);
+        return;
+    }
+
+    // 탐색지 목록 (턴당 3곳)
+    const locs = state.turnLocations || [];
     for (let i = 0; i < locs.length; i++) {
         const loc = locs[i];
         const style = LOC_STYLE[loc.id] || { emoji:"📍", color:"#888", bg:"rgba(80,80,80,0.15)" };
-        const bx = 20, by = py + 40 + i * 52, bw = CW - 40, bh = 46;
+        const bx = 20, by = curY + 10 + i * 48, bw = CW - 40, bh = 42;
+        if (by > CH - 30) break;
 
-        // 배경 (속성 색상 틴트)
-        ctx.fillStyle = style.bg;
-        roundRect(bx, by, bw, bh, 8); ctx.fill();
-        ctx.strokeStyle = style.color; ctx.lineWidth = 1.5;
+        ctx.fillStyle = style.bg; roundRect(bx, by, bw, bh, 8); ctx.fill();
+        ctx.strokeStyle = style.color; ctx.lineWidth = 1;
         roundRect(bx, by, bw, bh, 8); ctx.stroke();
 
-        // 왼쪽 아이콘 원
         ctx.fillStyle = style.color + "33";
-        ctx.beginPath(); ctx.arc(bx + 24, by + bh / 2, 16, 0, Math.PI * 2); ctx.fill();
-        ctx.font = "18px system-ui"; ctx.textAlign = "center";
-        ctx.fillText(style.emoji, bx + 24, by + bh / 2 + 1);
+        ctx.beginPath(); ctx.arc(bx + 22, by + bh / 2, 14, 0, Math.PI * 2); ctx.fill();
+        ctx.font = "16px system-ui"; ctx.textAlign = "center";
+        ctx.fillText(style.emoji, bx + 22, by + bh / 2 + 1);
 
-        // 지역명
-        ctx.fillStyle = "#fff"; ctx.font = "bold 14px system-ui"; ctx.textAlign = "left";
-        ctx.fillText(loc.name, bx + 48, by + 15);
+        ctx.fillStyle = "#fff"; ctx.font = "bold 13px system-ui"; ctx.textAlign = "left";
+        ctx.fillText(loc.name, bx + 44, by + 14);
+        ctx.fillStyle = style.color; ctx.font = "10px system-ui";
+        ctx.fillText(loc.attr, bx + 44, by + 29);
 
-        // 속성 라벨 (색상 칩)
-        ctx.fillStyle = style.color; ctx.font = "bold 10px system-ui";
-        const attrW = ctx.measureText(loc.attr).width + 10;
-        ctx.globalAlpha = 0.25;
-        roundRect(bx + 48, by + 25, attrW, 14, 3); ctx.fill();
-        ctx.globalAlpha = 1;
-        ctx.fillStyle = style.color; ctx.font = "bold 10px system-ui";
-        ctx.fillText(loc.attr, bx + 53, by + 32);
-
-        // 시간대
-        const tl = loc.time === "day" ? "☀️ 낮" : loc.time === "night" ? "🌙 밤" : "🕐 상시";
         ctx.textAlign = "right"; ctx.fillStyle = "#999"; ctx.font = "11px system-ui";
-        ctx.fillText(tl, bx + bw - 12, by + bh / 2);
+        ctx.fillText(`${loc.dur || 30}초`, bx + bw - 10, by + bh / 2);
+        ctx.textAlign = "center";
     }
 }
 
@@ -2129,6 +2620,8 @@ function drawPopup() {
         ph = af.length > 0 ? 90 + fruitRows * 36 : 130;
     } else if (p.type === "cheat") {
         pw = 280; ph = 260;
+    } else if (p.type === "confirm_reset") {
+        pw = 300; ph = 130;
     }
     const px = (CW - pw) / 2, py = (CH - ph) / 2 - 30;
 
@@ -2226,7 +2719,7 @@ function drawPopup() {
         ctx.fillStyle = "#FFD54F"; ctx.font = "bold 15px system-ui";
         ctx.fillText("이브이에게 아이템 주기", px + pw / 2, py + 22);
         ctx.fillStyle = "#4FC3F7"; ctx.font = "11px system-ui";
-        ctx.fillText(`친밀도: ${Math.round(ee.friendship)} / ${FRIENDSHIP.max}  ⚡스태미나: ${Math.floor(ee.stamina)} / ${STAMINA.max}`, px + pw / 2, py + 40);
+        ctx.fillText(`친밀도: ${Math.round(ee.friendship)} / ${friendshipMax()}`, px + pw / 2, py + 40);
         // 열매와 아이템 분리
         const invFruits = Object.entries(state.inventory).filter(([n]) => FRUITS.includes(n));
         const invOthers = Object.entries(state.inventory).filter(([n]) => !FRUITS.includes(n));
@@ -2237,7 +2730,7 @@ function drawPopup() {
             ctx.fillStyle = "#8BC34A"; ctx.font = "bold 11px system-ui";
             ctx.fillText("── 열매 ──", px + pw / 2, curY + 10);
             curY += 20;
-            for (let i = 0; i < invFruits.length; i++; i++) {
+            for (let i = 0; i < invFruits.length; i++) {
                 const [name, count] = invFruits[i];
                 const col = i % cols, row = Math.floor(i / cols);
                 const fbx = px + 10 + col * 100, fby = curY + row * 36, fbw = 92, fbh = 30;
@@ -2256,7 +2749,7 @@ function drawPopup() {
             ctx.fillStyle = "#FFD54F"; ctx.font = "bold 11px system-ui";
             ctx.fillText("── 아이템 ──", px + pw / 2, curY + 10);
             curY += 20;
-            for (let i = 0; i < invOthers.length; i++; i++) {
+            for (let i = 0; i < invOthers.length; i++) {
                 const [name, count] = invOthers[i];
                 const col = i % cols, row = Math.floor(i / cols);
                 const fbx = px + 10 + col * 100, fby = curY + row * 36, fbw = 92, fbh = 30;
@@ -2306,7 +2799,7 @@ function drawPopup() {
         ctx.fillStyle = "#FFD54F"; ctx.font = "bold 16px system-ui";
         ctx.fillText(`휴식하고 ${nextTime}으로 넘길까요?`, px + pw / 2, py + 35);
         ctx.fillStyle = "#aaa"; ctx.font = "13px system-ui";
-        ctx.fillText(`스태미나가 회복됩니다`, px + pw / 2, py + 60);
+        ctx.fillText(`탐색지가 변경됩니다`, px + pw / 2, py + 60);
         // 확인 버튼 (간격 축소)
         const ybw = (pw - 50) / 2, yby = py + 85, ybh = 34;
         const ybx = px + 20;
@@ -2325,7 +2818,7 @@ function drawPopup() {
             { label: "모든 아이템 추가", type: "items" },
             { label: "친밀도 MAX", type: "friendship_max" },
             { label: "친밀도 → -1", type: "friendship_zero" },
-            { label: "스태미나 MAX", type: "stamina" },
+            { label: "전체 활동성 MAX", type: "stamina" },
             { label: "탐색/휴식 카운트 충전", type: "explore" },
             { label: "기본 8종 해금", type: "unlock_base8" },
         ];
@@ -2335,6 +2828,192 @@ function drawPopup() {
             roundRect(bx, by, bw, bh, 5); ctx.fill(); ctx.stroke();
             ctx.fillStyle = "#fff"; ctx.font = "13px system-ui";
             ctx.fillText(btns[i].label, bx + bw / 2, by + bh / 2);
+        }
+    } else if (p.type === "confirm_reset") {
+        ctx.fillStyle = "#FF5722"; ctx.font = "bold 16px system-ui";
+        ctx.fillText("처음부터 시작할까요?", px + pw / 2, py + 30);
+        ctx.fillStyle = "#aaa"; ctx.font = "13px system-ui";
+        ctx.fillText("모든 진행 상황이 삭제됩니다", px + pw / 2, py + 55);
+        // 확인
+        const ybw = (pw - 50) / 2, yby = py + 80, ybh = 34;
+        const ybx = px + 20;
+        ctx.fillStyle = "#c0392b"; roundRect(ybx, yby, ybw, ybh, 6); ctx.fill();
+        ctx.fillStyle = "#fff"; ctx.font = "bold 14px system-ui";
+        ctx.fillText("삭제하고 시작", ybx + ybw / 2, yby + ybh / 2);
+        // 취소
+        const nbx = px + pw - 20 - ybw;
+        ctx.fillStyle = "#555"; roundRect(nbx, yby, ybw, ybh, 6); ctx.fill();
+        ctx.fillStyle = "#ddd";
+        ctx.fillText("취소", nbx + ybw / 2, yby + ybh / 2);
+    }
+}
+
+/* ── 전투 팝업 ── */
+function drawBattle() {
+    ctx.fillStyle = "rgba(0,0,0,0.7)"; ctx.fillRect(0, 0, CW, CH);
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+
+    const bs = state.battleScene;
+    const enemy = state.battleEnemy;
+    const pw = 420, ph = bs === "select" ? 585 : 380;
+    const px = (CW - pw) / 2, py = (CH - ph) / 2;
+    ctx.fillStyle = "rgba(15,15,35,0.95)";
+    ctx.strokeStyle = "#FF5722"; ctx.lineWidth = 2;
+    roundRect(px, py, pw, ph, 14); ctx.fill(); ctx.stroke();
+
+    if (bs === "select") {
+        // 보스 이미지
+        ctx.font = "50px system-ui";
+        ctx.fillText("👹", CW / 2, py + 45);
+
+        // 스테이지 + 이름
+        ctx.fillStyle = "#FF5722"; ctx.font = "bold 14px system-ui";
+        ctx.fillText(`⚔ 스테이지 ${state.battleStage}`, CW / 2, py + 78);
+        ctx.fillStyle = "#fff"; ctx.font = "bold 15px system-ui";
+        ctx.fillText(enemy.name, CW / 2, py + 98);
+        ctx.fillStyle = "#aaa"; ctx.font = "11px system-ui";
+        ctx.fillText(`${enemy.type}타입`, CW / 2, py + 115);
+
+        // HP 바
+        const hpRatio = enemy.hp / enemy.maxHp;
+        const barX = px + 30, barY = py + 125, barW = pw - 60, barH = 14;
+        ctx.fillStyle = "#222"; roundRect(barX, barY, barW, barH, 4); ctx.fill();
+        ctx.fillStyle = hpRatio > 0.5 ? "#4CAF50" : hpRatio > 0.2 ? "#FF9800" : "#F44336";
+        roundRect(barX, barY, barW * hpRatio, barH, 4); ctx.fill();
+        ctx.strokeStyle = "#555"; ctx.lineWidth = 0.5;
+        roundRect(barX, barY, barW, barH, 4); ctx.stroke();
+        ctx.fillStyle = "#fff"; ctx.font = "bold 10px system-ui";
+        ctx.fillText(`${enemy.hp} / ${enemy.maxHp}`, CW / 2, barY + barH / 2);
+
+        // 안내
+        ctx.fillStyle = "#FFD54F"; ctx.font = "bold 12px system-ui";
+        ctx.fillText("출전할 이브이를 선택하세요", CW / 2, py + 158);
+
+        // 이브이 목록 (데미지 예상 표시)
+        const allEevees = [];
+        if (state.currentEevee && !isOnExpedition("current")) allEevees.push({ ref: "current", name: "이브이", img: "이브이.png", ...calcBattlePower({ friendship: state.currentEevee.friendship }) });
+        state.farm.forEach((e, i) => {
+            if (isOnExpedition(i)) return;
+            const evo = EVOS.find(ev => ev.id === e.evoId);
+            if (evo) allEevees.push({ ref: i, name: evo.name, img: evo.img, ...calcBattlePower(e) });
+        });
+
+        const startY = py + 175;
+        for (let i = 0; i < allEevees.length && i < 7; i++) {
+            const ee = allEevees[i];
+            const by = startY + i * 48;
+            const mult = typeMultiplier(ee.type, enemy.type);
+            const estDmg = Math.floor(ee.power * mult);
+
+            ctx.fillStyle = mult > 1 ? "rgba(46,125,50,0.2)" : mult < 1 ? "rgba(198,40,40,0.15)" : "rgba(50,50,80,0.4)";
+            ctx.strokeStyle = mult > 1 ? "#4CAF50" : "#444"; ctx.lineWidth = 1;
+            roundRect(px + 12, by, pw - 24, 42, 6); ctx.fill(); ctx.stroke();
+
+            drawSprite(ee.img, px + 38, by + 24, 1, 28);
+            ctx.textAlign = "left";
+            ctx.fillStyle = "#fff"; ctx.font = "bold 12px system-ui";
+            ctx.fillText(ee.name, px + 58, by + 13);
+            ctx.fillStyle = "#aaa"; ctx.font = "10px system-ui";
+            ctx.fillText(`${ee.type}`, px + 58, by + 29);
+            ctx.textAlign = "right";
+            ctx.fillStyle = mult > 1 ? "#4CAF50" : mult < 1 ? "#FF5722" : "#ddd";
+            ctx.font = "bold 13px system-ui";
+            ctx.fillText(`DMG ~${estDmg}`, px + pw - 20, by + 16);
+            if (mult !== 1) { ctx.font = "9px system-ui"; ctx.fillText(mult > 1 ? "유리" : "불리", px + pw - 20, by + 30); }
+            ctx.textAlign = "center";
+        }
+
+        // 돌아가기
+        ctx.fillStyle = "#444"; roundRect(CW / 2 - 45, py + ph - 42, 90, 30, 6); ctx.fill();
+        ctx.fillStyle = "#ccc"; ctx.font = "13px system-ui";
+        ctx.fillText("돌아가기", CW / 2, py + ph - 27);
+
+    } else if (bs === "fighting") {
+        state.battleTimer++;
+        const t = state.battleTimer;
+        const allyEevee = state.battleAlly === "current" ? state.currentEevee : state.farm[state.battleAlly];
+        const allyEvo = state.battleAlly === "current" ? null : EVOS.find(e => e.id === allyEevee.evoId);
+        const allyImg = allyEvo ? allyEvo.img : "이브이.png";
+        const cx = CW / 2, cy = py + ph / 2 - 30;
+
+        ctx.fillStyle = "#FFD54F"; ctx.font = "bold 14px system-ui";
+        ctx.fillText(`스테이지 ${state.battleStage} - ${enemy.name}`, cx, py + 22);
+
+        // HP 바 (상단)
+        const hpRatio = enemy.hp / enemy.maxHp;
+        const barX = px + 30, barY = py + 35, barW = pw - 60, barH = 12;
+        ctx.fillStyle = "#222"; roundRect(barX, barY, barW, barH, 3); ctx.fill();
+        ctx.fillStyle = hpRatio > 0.5 ? "#4CAF50" : hpRatio > 0.2 ? "#FF9800" : "#F44336";
+        roundRect(barX, barY, barW * hpRatio, barH, 3); ctx.fill();
+        ctx.fillStyle = "#fff"; ctx.font = "9px system-ui";
+        ctx.fillText(`${enemy.hp} / ${enemy.maxHp}`, cx, barY + barH / 2);
+
+        // 3라운드 공방 연출
+        const round = Math.floor(t / 30);
+        const rt = (t % 30) / 30;
+        const allyHome = cx - 80, enemyHome = cx + 80;
+
+        if (round < 3) {
+            const isAllyAttack = round === 0 || round === 2;
+            const shake = Math.sin(rt * Math.PI * 4) * (1 - rt) * 3;
+            let ax, ex;
+            if (isAllyAttack) {
+                ax = rt < 0.5 ? lerp(allyHome, cx, rt * 2) : lerp(cx, allyHome, (rt - 0.5) * 2);
+                ex = enemyHome + (rt > 0.4 && rt < 0.6 ? shake : 0);
+            } else {
+                ex = rt < 0.5 ? lerp(enemyHome, cx, rt * 2) : lerp(cx, enemyHome, (rt - 0.5) * 2);
+                ax = allyHome + (rt > 0.4 && rt < 0.6 ? shake : 0);
+            }
+            const bounce = Math.sin(rt * Math.PI) * -8;
+            drawSprite(allyImg, ax, cy + bounce, 1, 50);
+            ctx.font = "36px system-ui";
+            ctx.fillText("👹", ex, cy + bounce);
+
+            if (rt > 0.4 && rt < 0.55) {
+                ctx.globalAlpha = (0.55 - rt) * 6;
+                ctx.font = "bold 28px system-ui"; ctx.fillStyle = "#FFD54F";
+                ctx.fillText("💥", isAllyAttack ? enemyHome : allyHome, cy - 15);
+                ctx.globalAlpha = 1;
+            }
+            ctx.fillStyle = "#888"; ctx.font = "11px system-ui";
+            ctx.fillText(`${round + 1} / 3`, cx, py + ph - 20);
+        } else {
+            const resultT = t - 90;
+            drawSprite(allyImg, allyHome, cy, 1, 50);
+            ctx.font = "36px system-ui";
+
+            if (state.battleResult === "clear") {
+                ctx.globalAlpha = Math.max(0, 1 - resultT / 20);
+                ctx.fillText("👹", enemyHome, cy + resultT * 0.5);
+                ctx.globalAlpha = 1;
+                ctx.fillStyle = "#4CAF50"; ctx.font = "bold 24px system-ui";
+                ctx.globalAlpha = clamp(resultT / 15, 0, 1);
+                ctx.fillText("처치!", cx, cy + 60);
+                ctx.font = "bold 16px system-ui";
+                ctx.fillText(`-${state.battleDamage} DMG`, cx, cy + 85);
+                ctx.globalAlpha = 1;
+            } else {
+                ctx.fillText("👹", enemyHome, cy);
+                ctx.fillStyle = state.battleCrit ? "#FF1744" : "#FF9800";
+                ctx.font = `bold ${state.battleCrit ? 24 : 20}px system-ui`;
+                ctx.globalAlpha = clamp(resultT / 15, 0, 1);
+                ctx.fillText(`${state.battleCrit ? "💥CRIT " : ""}-${state.battleDamage} DMG`, cx, cy + 60);
+                ctx.font = "14px system-ui"; ctx.fillStyle = "#aaa";
+                ctx.fillText(`남은 HP: ${enemy.hp}`, cx, cy + 85);
+                ctx.globalAlpha = 1;
+            }
+
+            if (state.battleReward && resultT > 15) {
+                ctx.fillStyle = "#FFD54F"; ctx.font = "bold 14px system-ui";
+                ctx.fillText(`🎉 ${state.battleReward}`, cx, cy + 110);
+            }
+            if (resultT > 30) {
+                const pa = Math.sin(frame * 0.05) * 0.3 + 0.7;
+                ctx.globalAlpha = pa;
+                ctx.fillStyle = "#aaa"; ctx.font = "13px system-ui";
+                ctx.fillText("터치하여 계속", cx, py + ph - 20);
+                ctx.globalAlpha = 1;
+            }
         }
     }
 }
@@ -2476,10 +3155,23 @@ function drawTitle() {
     ctx.fillStyle = "#aaa"; ctx.font = "15px system-ui";
     ctx.fillText("모든 이브이 진화형을 모아보세요!", CW / 2, CH / 2 - 95);
 
-    ctx.globalAlpha = Math.sin(frame * 0.04) * 0.3 + 0.7;
-    ctx.fillStyle = "#fff"; ctx.font = "18px system-ui";
-    ctx.fillText("터치하여 시작", CW / 2, CH / 2 + 90);
-    ctx.globalAlpha = 1;
+    if (hasSave()) {
+        // 이어하기 버튼
+        const by1 = CH / 2 + 70;
+        ctx.fillStyle = "#3a7d44"; roundRect(CW / 2 - 90, by1, 180, 40, 8); ctx.fill();
+        ctx.fillStyle = "#fff"; ctx.font = "bold 16px system-ui";
+        ctx.fillText("이어하기", CW / 2, by1 + 20);
+        // 처음부터 버튼
+        const by2 = CH / 2 + 120;
+        ctx.fillStyle = "#555"; roundRect(CW / 2 - 90, by2, 180, 36, 8); ctx.fill();
+        ctx.fillStyle = "#ccc"; ctx.font = "14px system-ui";
+        ctx.fillText("처음부터", CW / 2, by2 + 18);
+    } else {
+        ctx.globalAlpha = Math.sin(frame * 0.04) * 0.3 + 0.7;
+        ctx.fillStyle = "#fff"; ctx.font = "18px system-ui";
+        ctx.fillText("터치하여 시작", CW / 2, CH / 2 + 90);
+        ctx.globalAlpha = 1;
+    }
 }
 
 /* ── roundRect helper ── */
@@ -2495,6 +3187,70 @@ function handleInput() {
     const click = consumeClick();
     if (!click) return;
     const { x, y } = click;
+
+    // 전투 화면 입력
+    if (state.battleScene) {
+        if (state.battleScene === "select") {
+            // 이브이 선택 (파견 중 제외)
+            const allEevees = [];
+            if (state.currentEevee && !isOnExpedition("current")) allEevees.push("current");
+            state.farm.forEach((e, i) => { if (!isOnExpedition(i) && EVOS.find(ev => ev.id === e.evoId)) allEevees.push(i); });
+
+            const bpw2 = 420, bph2 = 585;
+            const bpy2 = (CH - bph2) / 2;
+            const bpx2 = (CW - bpw2) / 2;
+            const startY = bpy2 + 175;
+            for (let i = 0; i < allEevees.length && i < 7; i++) {
+                const by = startY + i * 48;
+                if (hitBox(x, y, bpx2 + 12, by, bpw2 - 24, 42)) {
+                    // 전투 실행 (데미지)
+                    state.battleAlly = allEevees[i];
+                    const allyEevee = allEevees[i] === "current" ? state.currentEevee : state.farm[allEevees[i]];
+                    const result = executeBattle(allyEevee, state.battleEnemy);
+                    state.battleDamage = result.damage;
+                    state.battleCrit = result.crit || false;
+                    state.battleScene = "fighting";
+                    state.battleTimer = 0;
+                    if (result.killed) {
+                        state.battleResult = "clear";
+                        state.battleMaxStage = state.battleStage;
+                        state.battleReward = applyBattleReward(state.battleStage);
+                    } else {
+                        state.battleResult = "hit";
+                    }
+                    // 활동성 소모 (록키온: 없음, 님피아: 절반)
+                    const allyEvo = EVOS.find(e => e.id === allyEevee.evoId);
+                    const aTag = allyEvo ? allyEvo.abilityTag : "";
+                    if (allyEevee.activity !== undefined && aTag !== "battle_noact") {
+                        const cost = aTag === "sylveon" ? 2 : 5;
+                        allyEevee.activity = Math.max(0, (allyEevee.activity || 0) - cost);
+                    }
+                    return;
+                }
+            }
+            // 돌아가기 버튼 (팝업 내부 좌표)
+            if (hitBox(x, y, CW / 2 - 45, bpy2 + bph2 - 42, 90, 30)) {
+                state.battleScene = null;
+                return;
+            }
+            // 팝업 바깥 클릭으로도 닫기
+            if (!hitBox(x, y, bpx2, bpy2, bpw2, bph2)) {
+                state.battleScene = null;
+                return;
+            }
+        } else if (state.battleScene === "fighting" && state.battleTimer >= 120) {
+            if (state.battleResult === "clear") {
+                // 클리어 → 다음 보스
+                saveGame();
+                startBattle();
+            } else {
+                // 데미지만 줌 → 선택 화면으로 돌아가서 계속 공격 가능
+                state.battleScene = "select";
+                saveGame();
+            }
+        }
+        return;
+    }
 
     // 팝업 우선
     if (state.popup) {
@@ -2514,7 +3270,7 @@ function handleInput() {
             // 열매 클릭 → 팝업 유지
             if (invFruits.length > 0) {
                 curY += 20;
-                for (let i = 0; i < invFruits.length; i++; i++) {
+                for (let i = 0; i < invFruits.length; i++) {
                     const [name] = invFruits[i];
                     const col = i % cols, row = Math.floor(i / cols);
                     const fbx = px + 10 + col * 100, fby = curY + row * 36, fbw = 92, fbh = 30;
@@ -2528,7 +3284,7 @@ function handleInput() {
             // 아이템 클릭 → 팝업 닫기
             if (invOthers.length > 0) {
                 curY += 20;
-                for (let i = 0; i < invOthers.length; i++; i++) {
+                for (let i = 0; i < invOthers.length; i++) {
                     const [name] = invOthers[i];
                     const col = i % cols, row = Math.floor(i / cols);
                     const fbx = px + 10 + col * 100, fby = curY + row * 36, fbw = 92, fbh = 30;
@@ -2554,7 +3310,6 @@ function handleInput() {
                     const fbx = px + 15 + col * 92, fby = py + 82 + row * 36, fbw = 85, fbh = 30;
                     if (hitBox(x, y, fbx, fby, fbw, fbh)) {
                         feedFarmEevee(state.popup.farmIdx, availFruits[i]);
-                        state.popup = null;
                         return;
                     }
                 }
@@ -2574,6 +3329,23 @@ function handleInput() {
                 }
             }
             if (!hitBox(x, y, px, py, pw, ph)) { state.popup = null; }
+            return;
+        }
+        if (state.popup.type === "confirm_reset") {
+            const pw = 300, ph = 130;
+            const px = (CW - pw) / 2, py = (CH - ph) / 2 - 30;
+            const ybw = (pw - 50) / 2, yby = py + 80, ybh = 34;
+            const ybx = px + 20;
+            const nbx = px + pw - 20 - ybw;
+            if (hitBox(x, y, ybx, yby, ybw, ybh)) {
+                // 삭제하고 시작
+                deleteSave();
+                state.popup = null;
+                resetCurrentEevee();
+                startGame();
+            } else if (hitBox(x, y, nbx, yby, ybw, ybh)) {
+                state.popup = null;
+            }
             return;
         }
         if (state.popup.type === "confirm_rest") {
@@ -2614,21 +3386,25 @@ function handleInput() {
     // 진화 연출
     if (state.scene === "evolving") {
         if (state.evolvingTimer >= 120) {
-            if (allComplete()) {
+            if (allComplete() && !state.endingShown) {
+                state.endingShown = true;
                 addFarmEevee("eevee_extra");
                 state.farm[state.farm.length - 1].sprite = "이브이.png";
+                // 전 이브이 기본 스탯 보정
+                for (const e of state.farm) {
+                    e.activity = Math.min(ACTIVITY_MAX, (e.activity || 0) + 10);
+                }
                 state.scene = "ending";
                 state.endingTimer = 0;
             } else {
                 finishPostEvolution();
                 if (state._base8Alert) {
                     state._base8Alert = false;
-                    showMessage("도감에 새로운 페이지가 추가되었다! 스태미나가 증가했다!", 250);
+                    showMessage("도감에 새로운 페이지가 추가되었다!", 250);
                 }
-                state.currentEevee.wx = 0.4 + Math.random() * 0.2;
-                state.currentEevee.wy = 1.15; // 아래 밖에서 시작
-                state.scene = "new_eevee";
-                state.newEeveeTimer = 0;
+                // 이브이 자동 등장 없음 → 농장으로 복귀, 둥지에서 소환 유도
+                state.scene = "farm";
+                showMessage("둥지에서 새 이브이를 불러오세요!", 180);
             }
         }
         return;
@@ -2644,8 +3420,24 @@ function handleInput() {
 
     // 타이틀
     if (state.scene === "title") {
-        resetCurrentEevee();
-        startGame();
+        if (hasSave()) {
+            const by1 = CH / 2 + 70;
+            const by2 = CH / 2 + 120;
+            if (hitBox(x, y, CW / 2 - 90, by1, 180, 40)) {
+                // 이어하기
+                loadGame();
+                return;
+            }
+            if (hitBox(x, y, CW / 2 - 90, by2, 180, 36)) {
+                // 처음부터 확인 팝업
+                state.popup = { type: "confirm_reset" };
+                state.popupTimer = 0;
+                return;
+            }
+        } else {
+            resetCurrentEevee();
+            startGame();
+        }
         return;
     }
 
@@ -2663,12 +3455,43 @@ function handleInput() {
         const contentY = panelTop + 30;
 
         if (state.panel === "explore") {
-            const locs = getAvailableLocations();
+            // 이브이 선택 단계
+            if (state.expeditionSelect) {
+                const allEe = [];
+                if (state.currentEevee && !isOnExpedition("current")) allEe.push("current");
+                state.farm.forEach((e, i) => { if (!isOnExpedition(i) && EVOS.find(ev => ev.id === e.evoId)) allEe.push(i); });
+
+                const startY = lerp(CH, panelTopTarget(), state.panelSlide) + 30; // drawPanelBg 리턴값
+                for (let i = 0; i < allEe.length; i++) {
+                    const by = startY + 38 + i * 46;
+                    if (by > CH - 50) break;
+                    if (hitBox(x, y, 20, by, CW - 40, 40)) {
+                        sendExpedition(state.expeditionSelect.locId, allEe[i]);
+                        return;
+                    }
+                }
+                // 뒤로가기
+                if (hitBox(x, y, CW / 2 - 40, CH - 50, 80, 30)) {
+                    state.expeditionSelect = null;
+                    return;
+                }
+                return;
+            }
+
+            // 장소 선택 단계
+            if (state.expeditions.length >= state.expeditionSlots) return; // 슬롯 꽉 참
+
+            const py2 = lerp(CH, panelTopTarget(), state.panelSlide) + 30; // drawPanelBg 리턴값
+            let curY = py2 + 35;
+            // 진행 중 파견 영역 스킵
+            curY += state.expeditions.length * 38;
+
+            const locs = state.turnLocations || [];
             for (let i = 0; i < locs.length; i++) {
-                const by = contentY + 40 + i * 52;
-                if (hitBox(x, y, 20, by, CW - 40, 46)) {
-                    doExplore(locs[i]);
-                    // 탐색 후 패널은 닫힘 (doExplore에서 처리)
+                const by = curY + 10 + i * 48;
+                if (by > CH - 30) break;
+                if (hitBox(x, y, 20, by, CW - 40, 42)) {
+                    doExplore(locs[i]); // expeditionSelect 설정
                     return;
                 }
             }
@@ -2713,6 +3536,12 @@ function handleInput() {
         return;
     }
 
+    // 둥지 클릭
+    if (canSummonEevee() && hitBox(x, y, CW / 2 - 70, 310, 140, 60)) {
+        summonEevee();
+        return;
+    }
+
     // 바닥 아이템 터치 → 회수
     for (let i = state.farmItems.length - 1; i >= 0; i--) {
         const item = state.farmItems[i];
@@ -2725,17 +3554,14 @@ function handleInput() {
         }
     }
 
-    // 현재 이브이 터치 → 아이템 선택 팝업
-    if (state.currentEevee) {
+    // 현재 이브이 터치 → 아이템 선택 팝업 (파견 중이면 무시)
+    if (state.currentEevee && !isOnExpedition("current")) {
         const ce = state.currentEevee;
         const scr = worldToScreen(ce.wx, ce.wy);
         const sz = spriteSize(ce.wy);
         if (Math.abs(x - scr.sx) < sz * 0.5 && y > scr.sy - sz && y < scr.sy + 5) {
-            const hasItems = Object.keys(state.inventory).length > 0;
-            if (hasItems) {
-                state.popup = { type: "feed_current" };
-                state.popupTimer = 0;
-            }
+            state.popup = { type: "feed_current" };
+            state.popupTimer = 0;
             return;
         }
     }
@@ -2757,7 +3583,9 @@ function handleInput() {
     for (const btn of BUTTONS) {
         if (btn.id === "hint" && allComplete()) continue;
         if (hitBox(x, y, btn.x, BTN_Y, btn.w, BTN_H)) {
-            if (btn.id === "explore") {
+            if (btn.id === "battle") {
+                startBattle();
+            } else if (btn.id === "explore") {
                 state.panel = "explore"; state.panelSlide = 0;
             } else if (btn.id === "bag") {
                 state.panel = "inventory"; state.panelSlide = 0; state.invScroll = 0;
@@ -2790,6 +3618,7 @@ function loop() {
     }
 
     handleInput();
+    checkExpeditionReturns();
 
     // 패널 슬라이드 애니메이션
     if (state.panel) {
@@ -2800,6 +3629,7 @@ function loop() {
 
     if (state.scene === "title") {
         drawTitle();
+        if (state.popup) drawPopup();
     } else if (state.scene === "evolving") {
         drawEvolving();
     } else if (state.scene === "ending") {
@@ -2858,6 +3688,19 @@ function loop() {
         updateFarmEntities();
         ctx.drawImage(getBgCache(), 0, 0);
         drawFarmEntities();
+        // 둥지 버튼 (이브이 없을 때)
+        if (canSummonEevee()) {
+            const nx = CW / 2, ny = 340;
+            ctx.fillStyle = "rgba(0,0,0,0.5)";
+            roundRect(nx - 70, ny - 30, 140, 60, 12); ctx.fill();
+            ctx.strokeStyle = "#FFD54F"; ctx.lineWidth = 2;
+            roundRect(nx - 70, ny - 30, 140, 60, 12); ctx.stroke();
+            ctx.textAlign = "center"; ctx.textBaseline = "middle";
+            ctx.font = "24px system-ui"; ctx.fillStyle = "#FFD54F";
+            ctx.fillText("🥚", nx, ny - 5);
+            ctx.font = "bold 12px system-ui"; ctx.fillStyle = "#fff";
+            ctx.fillText(`이브이 소환 (열매x${NEST_COST})`, nx, ny + 22);
+        }
         drawHUD();
         drawFarmButtons();
         drawMessage();
@@ -2871,6 +3714,9 @@ function loop() {
 
         // 팝업
         drawPopup();
+
+        // 전투 팝업 (최상단)
+        if (state.battleScene) drawBattle();
     }
 
     requestAnimationFrame(loop);
