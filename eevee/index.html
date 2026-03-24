@@ -966,9 +966,11 @@ function saveGame() {
                 visitedLocations: [...(e.visitedLocations || [])],
             })),
             farmItems: state.farmItems.map(i => ({ name: i.name, wx: i.wx, wy: i.wy })),
+            hintUsed: state.hintUsed || false,
             hintBoosts: state.hintBoosts || [],
             base8Notified: state.base8Notified,
             monsterMaxStage: state.monsterMaxStage || 0,
+            monsterStage: state.monsterStage || 0,
             monster: state.monster || null,
             unlockedByBattle: [...(state.unlockedByBattle || [])],
             expeditions: (state.expeditions || []).map(e => ({ ...e })),
@@ -991,9 +993,11 @@ function loadGame() {
         state.totalExplores = data.totalExplores || 0;
         state.collected = new Set(data.collected || []);
         state.inventory = data.inventory || {};
+        state.hintUsed = data.hintUsed || false;
         state.hintBoosts = data.hintBoosts || [];
         state.base8Notified = data.base8Notified || false;
         state.monsterMaxStage = data.monsterMaxStage || 0;
+        state.monsterStage = data.monsterStage || data.monsterMaxStage || 0;
         state.monster = data.monster || null;
         // 몬스터 타이머 리셋 (로드 시 제한시간 새로 부여)
         if (state.monster) {
@@ -3125,7 +3129,11 @@ function drawDexPanel() {
     ctx.fillText("진화 도감", CW / 2, py);
 
     const showPost = base8Complete();
-    const list = showPost ? EVOS : EVOS.slice(0, 8);
+    // 해금 순서대로 정렬
+    const DEX_ORDER = ["vaporeon","jolteon","flareon","espeon","umbreon","leafeon","glaceon","sylveon",
+        "gmax","mega","fighting","ghost","ground","rock","flying","poison","bug","dragon","steel"];
+    const sorted = DEX_ORDER.map(id => EVOS.find(e => e.id === id)).filter(Boolean);
+    const list = showPost ? sorted : sorted.slice(0, 8);
     const ITEM_H = 70;
     const listTop = py + 20;
     const listBot = CH - 25;
@@ -3939,16 +3947,16 @@ function drawMonster() {
                 const dots = ".".repeat(Math.floor((elapsed - 40) / 30) % 4);
                 ctx.strokeText(`다음 몬스터 대기 중${dots}`, mx, my + 10);
                 ctx.fillText(`다음 몬스터 대기 중${dots}`, mx, my + 10);
-                // 스킵 버튼
-                const skipW = 120, skipH = 32;
-                const skipX = mx - skipW / 2, skipY = my + 30;
+                // 스킵 버튼 (하단 고정)
+                const skipW = 140, skipH = 34;
+                const skipX = CW / 2 - skipW / 2, skipY = BTN_Y - 10;
                 const pulse = 0.8 + Math.sin(frame * 0.1) * 0.2;
                 ctx.globalAlpha = pulse;
                 ctx.fillStyle = "rgba(50,50,90,0.9)";
                 ctx.strokeStyle = "#7B73FF"; ctx.lineWidth = 2;
                 roundRect(skipX, skipY, skipW, skipH, 8); ctx.fill(); ctx.stroke();
                 ctx.fillStyle = "#fff"; ctx.font = "bold 13px system-ui";
-                ctx.fillText("▶ 바로 소환", mx, skipY + skipH / 2);
+                ctx.fillText("▶ 바로 소환", CW / 2, skipY + skipH / 2);
                 ctx.globalAlpha = 1;
             }
             ctx.globalAlpha = 1;
@@ -4227,17 +4235,15 @@ function handleInput() {
     if (!click) return;
     const { x, y } = click;
 
-    // 처치 대기 중 스킵 버튼
+    // 처치 대기 중 스킵 버튼 (하단 고정)
     if (state.monsterKillAnim > 0 && state.monster) {
-        const mScr = worldToScreen(state.monster.wx, state.monster.wy);
-        const smx = mScr.sx, smy = mScr.sy;
         const totalKill = state.monster.isBoss ? 600 : 420;
         const elapsed = totalKill - state.monsterKillAnim;
         if (elapsed > 40) {
-            const skipW = 120, skipH = 32;
-            const skipX = smx - skipW / 2, skipY = smy + 30;
+            const skipW = 140, skipH = 34;
+            const skipX = CW / 2 - skipW / 2, skipY = BTN_Y - 10;
             if (hitBox(x, y, skipX, skipY, skipW, skipH)) {
-                state.monsterKillAnim = 1; // 다음 프레임에 소환
+                state.monsterKillAnim = 1;
                 return;
             }
         }
