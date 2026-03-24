@@ -247,9 +247,9 @@ const LOCATIONS = [
         {name:"독바늘",type:"special",weight:12},{name:"달조각",type:"shard",weight:25}]},
     { id:"nest",    name:"벌레숲",       time:"day",   attr:"벌레", dur:30, dexReq:8, items:[
         {name:"벌레껍질",type:"special",weight:12},{name:"태양조각",type:"shard",weight:25}]},
-    { id:"den",     name:"거대소굴",     time:"night", attr:"왕",   dur:20, dexReq:10, items:[
+    { id:"den",     name:"거대소굴",     time:"night", attr:"노멀",  dur:20, dexReq:10, items:[
         {name:"다이버섯",type:"stone",weight:8},{name:"태양조각",type:"shard",weight:20},{name:"달조각",type:"shard",weight:20}]},
-    { id:"ruins",   name:"고대유적",     time:"night", attr:"메가",  dur:20, dexReq:10, items:[
+    { id:"ruins",   name:"고대유적",     time:"night", attr:"노멀",  dur:20, dexReq:10, items:[
         {name:"이브이나이트",type:"stone",weight:8},{name:"달조각",type:"shard",weight:25}]},
     { id:"cave",    name:"깊은동굴",     time:"night", attr:"땅",   dur:25, dexReq:12, items:[
         {name:"부드러운모래",type:"stone",weight:12},{name:"달조각",type:"shard",weight:25}]},
@@ -467,6 +467,7 @@ function addFarmEevee(evoId) {
         activity: 15,         // 초기 활동성
         likedFruit: liked,
         dislikedFruit: disliked,
+        visitedLocations: new Set(),
     });
 }
 
@@ -888,16 +889,14 @@ function summonEevee() {
         showMessage(`열매가 부족합니다 (${totalFruit}/${getNestCost()})`, 90);
         return;
     }
-    // 열매 차감 (보유한 것부터 순서대로)
+    // 열매 차감 (랜덤 선택)
     let remaining = getNestCost();
-    for (const f of FRUITS) {
-        if (remaining <= 0) break;
-        const have = itemCount(f);
-        if (have > 0) {
-            const take = Math.min(have, remaining);
-            removeItem(f, take);
-            remaining -= take;
-        }
+    while (remaining > 0) {
+        const available = FRUITS.filter(f => itemCount(f) > 0);
+        if (available.length === 0) break;
+        const pick = available[Math.floor(Math.random() * available.length)];
+        removeItem(pick);
+        remaining--;
     }
     resetCurrentEevee();
     state.scene = "new_eevee";
@@ -943,6 +942,7 @@ function saveGame() {
                 activity: e.activity || 0,
                 likedFruit: e.likedFruit,
                 dislikedFruit: e.dislikedFruit,
+                visitedLocations: [...(e.visitedLocations || [])],
             })),
             farmItems: state.farmItems.map(i => ({ name: i.name, wx: i.wx, wy: i.wy })),
             hintBoosts: state.hintBoosts || [],
@@ -1019,6 +1019,7 @@ function loadGame() {
                 activity: e.activity || 0,
                 likedFruit: liked,
                 dislikedFruit: disliked,
+                visitedLocations: new Set(e.visitedLocations || []),
                 wx: 0.15 + Math.random() * 0.7,
                 wy: 0.15 + Math.random() * 0.7,
                 vx: 0, vy: 0,
@@ -1188,6 +1189,7 @@ function spawnMonster(stage) {
         wx: 0.2 + Math.random() * 0.6,
         wy: 0.15 + Math.random() * 0.5,
         targetItem: null, // 목표 열매 인덱스
+        _slowTimer: 0, _pushCooldown: 0,
     };
     state.monsterStage = stage;
     state.monsterSpawnAnim = 90;
@@ -1541,8 +1543,9 @@ function sendExpedition(locId, eeveeRef) {
     const evoType = evo ? evo.type : "";
     const tag = evo ? evo.abilityTag : "";
 
-    // 시간 계산 (고유 능력 반영)
-    let duration = (loc.dur || 30) * 1000;
+    // 시간 계산 (기본 + 라운드 보정 + 고유 능력)
+    const stageMult = 1 + (state.monsterMaxStage || 0) * 0.02; // 라운드당 +2%
+    let duration = (loc.dur || 30) * 1000 * stageMult;
     if (tag === "explore_fastest") duration *= 0.4;       // 에어리아: 60% 단축
     else if (tag === "explore_speed") duration *= 0.5;    // 쥬피썬더: 50% 단축
     const act = eevee.activity || 0;
@@ -1625,10 +1628,15 @@ function checkExpeditionReturns() {
         return true;
     });
     for (const exp of returned) {
-        // 탐색 완료 시 활동성 소폭 상승 (님피아: 2배)
+        // 탐색 완료 시 활동성 소폭 상승 (님피아: 2배) + 친밀도 상승
         const retEevee = exp.eeveeRef === "current" ? state.currentEevee : state.farm[exp.eeveeRef];
         const actGain = (exp.abilityTag === "sylveon") ? 6 : 3;
-        if (retEevee) retEevee.activity = clamp((retEevee.activity || 0) + actGain, 0, getActivityMax());
+        if (retEevee) {
+            retEevee.activity = clamp((retEevee.activity || 0) + actGain, 0, getActivityMax());
+            if (retEevee.friendship !== undefined) {
+                retEevee.friendship = clamp(retEevee.friendship + 1, -5, friendshipMax() + 5);
+            }
+        }
         const drops = resolveExpedition(exp);
         for (const drop of drops) {
             if (FRUITS.includes(drop.name)) {
@@ -1644,10 +1652,9 @@ function checkExpeditionReturns() {
                 addItem(drop.name);
             }
         }
-        const dropNames = drops.map(d => `${itemEmoji(d.name)} ${d.name}`).join(", ");
-        // 귀환 결과 팝업
-        state.popup = { type: "expedition_result", eeveeName: exp.eeveeName, eeveeImg: exp.eeveeImg, drops };
-        state.popupTimer = 0;
+        const dropNames = drops.map(d => `${itemEmoji(d.name)}`).join(" ");
+        // 귀환 결과 토스트
+        showMessage(`${exp.eeveeName} 귀환! ${dropNames}`, 150);
         saveGame();
     }
 }
@@ -1874,7 +1881,7 @@ function getHint() {
         "리피아(풀)는 농장에서 대기만 해도 활동성이 서서히 회복된다.",
         "하이버(벌레)은 농장에 이브이가 많을수록 전투 데미지가 올라간다!",
         "에어리아(비행)는 낮에, 레이시아(고스트)는 밤에 활동성 부스트를 받는다.",
-        "가속장치를 사용하면 진행 중인 탐색의 남은 시간을 50% 줄일 수 있다!",
+        "가속장치를 사용하면 탐색 진행속도가 1.5배 빨라진다! 중첩 가능!",
     ];
     // 진화 힌트가 있으면 70% 확률로 진화 힌트, 30%로 팁 / 없으면 팁만
     let text;
@@ -3453,8 +3460,6 @@ function drawPopup() {
         pw = 280; ph = 296;
     } else if (p.type === "confirm_reset") {
         pw = 300; ph = 130;
-    } else if (p.type === "expedition_result") {
-        pw = 320; ph = 60 + (p.drops ? p.drops.length : 0) * 28 + 50;
     } else if (p.type === "nickname_input") {
         pw = 300; ph = 150;
     } else if (p.type === "leaderboard" || p.type === "leaderboard_loading") {
@@ -3690,33 +3695,6 @@ function drawPopup() {
         ctx.fillStyle = "#555"; roundRect(nbx, yby, ybw, ybh, 6); ctx.fill();
         ctx.fillStyle = "#ddd";
         ctx.fillText("취소", nbx + ybw / 2, yby + ybh / 2);
-    } else if (p.type === "expedition_result") {
-        // 귀환 결과
-        drawSprite(p.eeveeImg || "이브이.png", px + 35, py + 35, 1, 36);
-        ctx.fillStyle = "#FFD54F"; ctx.font = "bold 15px system-ui";
-        ctx.fillText(`${p.eeveeName} 귀환!`, px + pw / 2 + 10, py + 25);
-        ctx.fillStyle = "#aaa"; ctx.font = "12px system-ui";
-        ctx.fillText("획득 아이템", px + pw / 2, py + 50);
-
-        const drops = p.drops || [];
-        for (let i = 0; i < drops.length; i++) {
-            const dy = py + 68 + i * 28;
-            const isFruit = FRUITS.includes(drops[i].name);
-            ctx.fillStyle = isFruit ? "rgba(76,175,80,0.15)" : "rgba(255,215,0,0.15)";
-            roundRect(px + 15, dy, pw - 30, 24, 4); ctx.fill();
-            ctx.fillStyle = "#fff"; ctx.font = "13px system-ui"; ctx.textAlign = "left";
-            ctx.fillText(`${itemEmoji(drops[i].name)} ${drops[i].name}`, px + 25, dy + 12);
-            ctx.fillStyle = "#888"; ctx.font = "10px system-ui"; ctx.textAlign = "right";
-            ctx.fillText(isFruit ? "농장" : "가방", px + pw - 25, dy + 12);
-            ctx.textAlign = "center";
-        }
-
-        // 터치하여 계속
-        const pa = Math.sin(frame * 0.05) * 0.3 + 0.7;
-        ctx.globalAlpha = pa;
-        ctx.fillStyle = "#aaa"; ctx.font = "12px system-ui";
-        ctx.fillText("터치하여 계속", px + pw / 2, py + ph - 15);
-        ctx.globalAlpha = 1;
     } else if (p.type === "nickname_input") {
         ctx.fillStyle = "#FFD54F"; ctx.font = "bold 16px system-ui";
         ctx.fillText("닉네임 입력", px + pw / 2, py + 25);
@@ -4452,8 +4430,8 @@ function handleInput() {
                     const exp = state.expeditions[ei];
                     const elapsed = Date.now() - exp.startTime;
                     const remain = exp.duration - elapsed;
-                    if (remain > 0) exp.duration -= Math.floor(remain * 0.5);
-                    showMessage("⏩ 탐색 가속!", 60);
+                    if (remain > 0) exp.duration -= Math.floor(remain * (1 - 1/1.5));
+                    showMessage("⏩ 탐색 가속! (x1.5)", 60);
                     return;
                 }
                 curY2 += 32;
