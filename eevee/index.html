@@ -362,6 +362,7 @@ const state = {
     // 탐색 출정
     expeditions: [],          // [{ locId, eeveeRef, startTime, duration, drops }]
     expeditionSlots: 1,       // 동시 파견 가능 수 (전투 보상으로 증가)
+    // 유효 슬롯 수는 getExpSlots()로 접근
     expeditionSelect: null,   // 장소 선택 후 이브이 선택 단계: { locId, locName }
 };
 
@@ -501,6 +502,23 @@ function updateEeveeAI(e, isNight, isFighting) {
         e._knockback--;
         e.wx += e._kbVx || 0;
         e.wy += e._kbVy || 0;
+        // 넉백 중 다른 이브이도 밀어냄
+        const kbAll = [];
+        if (state.currentEevee && !isOnExpedition("current")) kbAll.push(state.currentEevee);
+        state.farm.forEach((f, i) => { if (!isOnExpedition(i)) kbAll.push(f); });
+        for (const other of kbAll) {
+            if (other === e) continue;
+            const odx = e.wx - other.wx, ody = e.wy - other.wy;
+            const od = Math.sqrt(odx * odx + ody * ody);
+            if (od < 0.08 && od > 0.001) {
+                const kbSpd = Math.sqrt((e._kbVx||0)**2 + (e._kbVy||0)**2);
+                const spread = kbSpd * 0.6;
+                other.wx += (odx / od) * spread;
+                other.wy += (ody / od) * spread;
+                other.wx = clamp(other.wx, 0.05, 0.95);
+                other.wy = clamp(other.wy, 0.05, 0.95);
+            }
+        }
         // 감속
         e._kbVx *= 0.88;
         e._kbVy *= 0.88;
@@ -535,7 +553,7 @@ function updateEeveeAI(e, isNight, isFighting) {
             e.facing = dx > 0 ? 1 : -1;
         }
 
-        // 이브이끼리 충돌 밀어내기
+        // 이브이끼리 충돌 밀어내기 (강화)
         const allFighters = [];
         if (state.currentEevee && !isOnExpedition("current")) allFighters.push(state.currentEevee);
         state.farm.forEach((f, i) => { if (!isOnExpedition(i)) allFighters.push(f); });
@@ -545,9 +563,11 @@ function updateEeveeAI(e, isNight, isFighting) {
             const ody = e.wy - other.wy;
             const oDist = Math.sqrt(odx * odx + ody * ody);
             if (oDist < 0.09 && oDist > 0.001) {
-                const push = 0.001;
+                const push = 0.005;
                 e.wx += (odx / oDist) * push;
                 e.wy += (ody / oDist) * push;
+                other.wx -= (odx / oDist) * push * 0.5;
+                other.wy -= (ody / oDist) * push * 0.5;
             }
         }
 
@@ -844,7 +864,7 @@ function triggerEvolution(evo) {
 }
 
 // 실시간 밤낮 전환 (3분 주기)
-const DAY_NIGHT_INTERVAL = 2 * 60 * 1000; // 2분(밀리초)
+const DAY_NIGHT_INTERVAL = 80 * 1000; // 80초(밀리초)
 let lastDayNightCheck = Date.now();
 function updateDayNight() {
     const now = Date.now();
@@ -877,6 +897,7 @@ function finishPostEvolution() {
 
 // 둥지: 이브이 소환
 function getNestCost() { return 3 + state.collected.size * 3; } // 기본 3 + 도감당 3개씩 증가
+function getExpSlots() { return Math.max(1, Math.floor(state.collected.size / 2)); }
 function canSummonEevee() {
     return !state.currentEevee;
 }
@@ -1344,7 +1365,7 @@ function updateFarmBattle() {
             // 쿨다운 지나면 데미지 (항상 1 고정)
             if (item._hitCooldown <= 0) {
                 item.hp -= 1;
-                item._hitCooldown = 90; // 1.5초 쿨다운
+                item._hitCooldown = 45; // 0.75초 쿨다운
                 item.damaged = true; // 반짝이 이펙트 제거용
                 if (item.hp <= 0) {
                     // 삭제 이펙트 추가
@@ -1352,6 +1373,8 @@ function updateFarmBattle() {
                     if (!state.fruitDestroyFx) state.fruitDestroyFx = [];
                     state.fruitDestroyFx.push({ x: scr.sx, y: scr.sy, timer: 45, emoji: itemEmoji(item.name) });
                     state.farmItems.splice(fi, 1);
+                    // 열매 파괴 시 몬스터 최대체력 10% 회복
+                    mon.hp = Math.min(mon.hp + mon.maxHp * 0.1, mon.maxHp);
                 }
             }
         }
@@ -1366,7 +1389,7 @@ function updateFarmBattle() {
     if (mon._pushCooldown > 0) {
         mon._pushCooldown--;
     } else {
-        const pushRadius = mon.isBoss ? 0.14 : 0.08;
+        const pushRadius = 0.14;
         let pushed = false;
         for (const ee of allEe) {
             if (ee._knockback > 0) continue;
@@ -1377,12 +1400,12 @@ function updateFarmBattle() {
             const edx = ee.wx - mon.wx, edy = ee.wy - mon.wy;
             const eDist = Math.sqrt(edx * edx + edy * edy);
             if (eDist < pushRadius && eDist > 0.001) {
-                let kbPower = mon.isBoss ? 0.07 : 0.04;
+                let kbPower = 0.07;
                 // 거다이브: 넉백 50% 감소
                 if (eeTag === "battle_noweakness") kbPower *= 0.5;
                 ee._kbVx = (edx / eDist) * kbPower;
                 ee._kbVy = (edy / eDist) * kbPower * 0.7;
-                ee._knockback = mon.isBoss ? 30 : 18;
+                ee._knockback = 30;
                 pushed = true;
             }
         }
@@ -1480,7 +1503,8 @@ function applyMonsterReward(stage) {
         if (!state.unlockedByBattle) state.unlockedByBattle = new Set();
         state.unlockedByBattle.add(reward.id);
     } else if (reward.type === "slot") {
-        state.expeditionSlots = (state.expeditionSlots || 1) + 1;
+        const maxSlots = Math.max(2, Math.floor(state.collected.size / 2));
+        state.expeditionSlots = Math.min((state.expeditionSlots || 1) + 1, maxSlots);
     }
     return `${reward.text}${accelMsg}`;
 }
@@ -1534,7 +1558,7 @@ function getExplorerCount() {
 function sendExpedition(locId, eeveeRef) {
     const loc = LOCATIONS.find(l => l.id === locId);
     if (!loc) return;
-    if (state.expeditions.length >= state.expeditionSlots) {
+    if (state.expeditions.length >= getExpSlots()) {
         showMessage("파견 슬롯이 가득 찼습니다!", 90); return;
     }
     // 이브이 정보
@@ -1544,7 +1568,7 @@ function sendExpedition(locId, eeveeRef) {
     const tag = evo ? evo.abilityTag : "";
 
     // 시간 계산 (기본 + 라운드 보정 + 고유 능력)
-    const stageMult = 1 + (state.monsterMaxStage || 0) * 0.02; // 라운드당 +2%
+    const stageMult = 1 + (state.monsterStage || 0) * 0.06; // 현재 라운드당 +6%
     let duration = (loc.dur || 30) * 1000 * stageMult;
     if (tag === "explore_fastest") duration *= 0.4;       // 에어리아: 60% 단축
     else if (tag === "explore_speed") duration *= 0.5;    // 쥬피썬더: 50% 단축
@@ -1630,7 +1654,7 @@ function checkExpeditionReturns() {
     for (const exp of returned) {
         // 탐색 완료 시 활동성 소폭 상승 (님피아: 2배) + 친밀도 상승
         const retEevee = exp.eeveeRef === "current" ? state.currentEevee : state.farm[exp.eeveeRef];
-        const actGain = (exp.abilityTag === "sylveon") ? 6 : 3;
+        const actGain = (exp.abilityTag === "sylveon") ? 3 : 1;
         if (retEevee) {
             retEevee.activity = clamp((retEevee.activity || 0) + actGain, 0, getActivityMax());
             if (retEevee.friendship !== undefined) {
@@ -2616,7 +2640,7 @@ function drawHUD() {
     const nextIcon = isNight ? "☀️" : "🌙";
     ctx.fillStyle = dnColor; roundRect(barX, barYpos, barW * dnRatio, barH, 3); ctx.fill();
     ctx.fillStyle = "#aaa"; ctx.font = "9px system-ui";
-    ctx.fillText(`${nextIcon}${dnRemain}s`, barX + barW + 5, 14);
+    ctx.fillText(nextIcon, barX + barW + 5, 14);
 
     ctx.fillStyle = "#ddd"; ctx.font = "12px system-ui";
 
@@ -2829,7 +2853,7 @@ function drawExplorePanel() {
 
     // 파견 상태
     ctx.fillStyle = "#aaa"; ctx.font = "12px system-ui";
-    ctx.fillText(`파견 ${state.expeditions.length} / ${state.expeditionSlots}`, CW / 2, py + 20);
+    ctx.fillText(`파견 ${state.expeditions.length} / ${getExpSlots()}`, CW / 2, py + 20);
 
     // 통합 스크롤 영역 시작
     const scrollTop = py + 35;
@@ -2837,12 +2861,12 @@ function drawExplorePanel() {
 
     // 컨텐츠 총 높이 계산
     const expH = state.expeditions.length > 0 ? state.expeditions.length * 32 + 8 : 0;
-    const slotFullH = (state.expeditions.length >= state.expeditionSlots) ? 30 : 0;
+    const slotFullH = (state.expeditions.length >= getExpSlots()) ? 30 : 0;
     const locs = state.turnLocations || [];
     const LOC_COLS = 3;
     const LOC_CELL_W = 140, LOC_CELL_H = 80;
     const locRows = Math.ceil(locs.length / LOC_COLS);
-    const locH = (state.expeditions.length < state.expeditionSlots) ? locRows * LOC_CELL_H + 10 : 0;
+    const locH = (state.expeditions.length < getExpSlots()) ? locRows * LOC_CELL_H + 10 : 0;
     const totalContentH = expH + slotFullH + locH;
     const maxExpScroll = Math.max(0, totalContentH - (scrollBot - scrollTop));
     state.expScroll = clamp(state.expScroll, 0, maxExpScroll);
@@ -2881,14 +2905,14 @@ function drawExplorePanel() {
     if (state.expeditions.length > 0) curY += 8;
 
     // 슬롯 꽉 찼으면 안내
-    if (state.expeditions.length >= state.expeditionSlots) {
+    if (state.expeditions.length >= getExpSlots()) {
         ctx.textAlign = "center"; ctx.fillStyle = "#FF5722"; ctx.font = "13px system-ui";
         ctx.fillText("파견 슬롯이 가득 찼습니다", CW / 2, curY + 12);
         curY += 30;
     }
 
     // 탐색지 목록 (원형 버튼, 가로 3개 그리드)
-    if (state.expeditions.length < state.expeditionSlots) {
+    if (state.expeditions.length < getExpSlots()) {
         const locGridLeft = (CW - LOC_COLS * LOC_CELL_W) / 2;
         const locStartY = curY + 5;
         for (let i = 0; i < locs.length; i++) {
@@ -2908,7 +2932,8 @@ function drawExplorePanel() {
             ctx.fillStyle = "#fff"; ctx.font = "bold 11px system-ui";
             ctx.fillText(loc.name, cx, cy + 26);
             ctx.fillStyle = style.color; ctx.font = "9px system-ui";
-            ctx.fillText(`${loc.attr} · ${loc.dur || 30}초`, cx, cy + 38);
+            const dispDur = Math.ceil((loc.dur || 30) * (1 + (state.monsterStage || 0) * 0.06));
+            ctx.fillText(`${loc.attr} · ${dispDur}초`, cx, cy + 38);
         }
     }
 
@@ -3456,6 +3481,15 @@ function drawPopup() {
         const af = [...FRUITS, "태양조각", "달조각"].filter(f => hasItem(f));
         const fruitRows = Math.ceil(af.length / 3);
         ph = af.length > 0 ? 90 + fruitRows * 36 : 130;
+    } else if (p.type === "hint") {
+        ctx.font = "14px system-ui";
+        const hintMaxW = 270;
+        let hintLines = 1, testLine = "";
+        for (const ch of p.text) {
+            testLine += ch;
+            if (ctx.measureText(testLine).width > hintMaxW) { hintLines++; testLine = ch; }
+        }
+        ph = 110 + Math.max(0, hintLines - 1) * 18;
     } else if (p.type === "cheat") {
         pw = 280; ph = 296;
     } else if (p.type === "confirm_reset") {
@@ -3554,9 +3588,22 @@ function drawPopup() {
     if (p.type === "hint") {
         drawSprite("이브이.png", px + pw / 2, py + 45, 1, 40);
         ctx.fillStyle = "#E0E0E0"; ctx.font = "14px system-ui";
-        ctx.fillText(p.text, px + pw / 2, py + 85);
+        // 텍스트 줄바꿈 처리
+        const maxW = pw - 30;
+        const words = p.text.split("");
+        let lines = [""];
+        for (const ch of words) {
+            const test = lines[lines.length - 1] + ch;
+            if (ctx.measureText(test).width > maxW) lines.push(ch);
+            else lines[lines.length - 1] = test;
+        }
+        const lineH = 18;
+        const startY = py + 80 - (lines.length - 1) * lineH / 2;
+        for (let i = 0; i < lines.length; i++) {
+            ctx.fillText(lines[i], px + pw / 2, startY + i * lineH);
+        }
         ctx.fillStyle = "#777"; ctx.font = "12px system-ui";
-        ctx.fillText("터치하여 계속", px + pw / 2, py + 118);
+        ctx.fillText("터치하여 계속", px + pw / 2, startY + lines.length * lineH + 10);
     } else if (p.type === "feed_current") {
         const ee = state.currentEevee;
         ctx.fillStyle = "#FFD54F"; ctx.font = "bold 15px system-ui";
@@ -4439,7 +4486,7 @@ function handleInput() {
             if (state.expeditions.length > 0) curY2 += 8;
 
             // 장소 선택 단계
-            if (state.expeditions.length >= state.expeditionSlots) return;
+            if (state.expeditions.length >= getExpSlots()) return;
 
             const locs = state.turnLocations || [];
             const LOC_COLS = 3;
@@ -4502,7 +4549,19 @@ function handleInput() {
         return;
     }
 
-    // 이브이 터치 우선 (몬스터에 가려져도 클릭 가능)
+    // 바닥 아이템 터치 → 회수 (최우선)
+    for (let i = state.farmItems.length - 1; i >= 0; i--) {
+        const item = state.farmItems[i];
+        const scr = worldToScreen(item.wx, item.wy);
+        if (Math.abs(x - scr.sx) < 18 && Math.abs(y - scr.sy) < 18) {
+            addItem(item.name);
+            state.farmItems.splice(i, 1);
+            showMessage(`${itemEmoji(item.name)} ${item.name} 회수!`, 60);
+            saveGame();
+            return;
+        }
+    }
+
     // 현재 이브이 터치 → 아이템 선택 팝업 (파견 중이면 무시)
     if (state.currentEevee && !isOnExpedition("current")) {
         const ce = state.currentEevee;
@@ -4525,19 +4584,6 @@ function handleInput() {
             state.selectedFarmEevee = i;
             state.popup = { type: "feed_farm", farmIdx: i };
             state.popupTimer = 0;
-            return;
-        }
-    }
-
-    // 바닥 아이템 터치 → 회수 (이브이보다 후순위)
-    for (let i = state.farmItems.length - 1; i >= 0; i--) {
-        const item = state.farmItems[i];
-        const scr = worldToScreen(item.wx, item.wy);
-        if (Math.abs(x - scr.sx) < 18 && Math.abs(y - scr.sy) < 18) {
-            addItem(item.name);
-            state.farmItems.splice(i, 1);
-            showMessage(`${itemEmoji(item.name)} ${item.name} 회수!`, 60);
-            saveGame();
             return;
         }
     }
