@@ -26,7 +26,7 @@
 </head>
 <body>
 <canvas id="c"></canvas>
-<input id="nickInput" type="text" maxlength="10" pattern="[a-zA-Z0-9]*" autocomplete="off" style="position:fixed;left:-9999px;top:0;opacity:0;font-size:16px;" />
+<input id="nickInput" type="text" maxlength="10" pattern="[a-zA-Z0-9]*" autocomplete="off" inputmode="latin" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:1px;height:1px;border:none;outline:none;background:transparent;color:transparent;caret-color:transparent;font-size:16px;z-index:-1;" />
 <script>
 "use strict";
 
@@ -62,7 +62,10 @@ function openNicknameInput() {
     state.popupTimer = 0;
     state._nicknameBuffer = "";
     nickInput.value = "";
-    setTimeout(() => nickInput.focus(), 100);
+    // 모바일 키보드를 올리려면 유저 제스처 직후에 focus 필요
+    nickInput.focus();
+    setTimeout(() => { nickInput.focus(); nickInput.click(); }, 50);
+    setTimeout(() => nickInput.focus(), 200);
 }
 
 /* ── roundRect 폴리필 ── */
