@@ -26,6 +26,7 @@
 </head>
 <body>
 <canvas id="c"></canvas>
+<input id="nickInput" type="text" maxlength="10" pattern="[a-zA-Z0-9]*" autocomplete="off" style="position:fixed;left:-9999px;top:0;opacity:0;font-size:16px;" />
 <script>
 "use strict";
 
@@ -35,6 +36,34 @@
 const CW = 480, CH = 720;
 const canvas = document.getElementById("c");
 let ctx = canvas.getContext("2d");
+const nickInput = document.getElementById("nickInput");
+nickInput.addEventListener("input", () => {
+    nickInput.value = nickInput.value.replace(/[^a-zA-Z0-9]/g, "").slice(0, 10);
+    if (state && state.popup && state.popup.type === "nickname_input") {
+        state._nicknameBuffer = nickInput.value;
+    }
+});
+nickInput.addEventListener("keydown", e => {
+    if (e.key === "Enter" && state._nicknameBuffer && state._nicknameBuffer.length >= 2) {
+        state.playerName = state._nicknameBuffer;
+        if (!state.playerId) state.playerId = generatePlayerId();
+        state.popup = null;
+        nickInput.blur();
+        if (state.scene === "title") {
+            resetCurrentEevee();
+            state.scene = "farm";
+            if (!state.monster) spawnMonster(1);
+            saveGame();
+        }
+    }
+});
+function openNicknameInput() {
+    state.popup = { type: "nickname_input" };
+    state.popupTimer = 0;
+    state._nicknameBuffer = "";
+    nickInput.value = "";
+    setTimeout(() => nickInput.focus(), 100);
+}
 
 /* ── roundRect 폴리필 ── */
 if (!CanvasRenderingContext2D.prototype.roundRect) {
@@ -3973,9 +4002,7 @@ function handleInput() {
             if (hitBox(x, y, ybx, yby, ybw, ybh)) {
                 // 삭제하고 시작
                 deleteSave();
-                state.popup = { type: "nickname_input" };
-                state.popupTimer = 0;
-                state._nicknameBuffer = "";
+                openNicknameInput();
             } else if (hitBox(x, y, nbx, yby, ybw, ybh)) {
                 state.popup = null;
             }
@@ -3996,6 +4023,7 @@ function handleInput() {
                 state.playerName = buf;
                 if (!state.playerId) state.playerId = generatePlayerId();
                 state.popup = null;
+                nickInput.blur();
                 if (state.scene === "title") {
                     resetCurrentEevee();
                     startGame();
@@ -4073,9 +4101,7 @@ function handleInput() {
                 loadGame();
                 // 닉네임 없으면 입력 요청
                 if (!state.playerName) {
-                    state.popup = { type: "nickname_input" };
-                    state.popupTimer = 0;
-                    state._nicknameBuffer = "";
+                    openNicknameInput();
                 }
                 return;
             }
@@ -4088,10 +4114,7 @@ function handleInput() {
         } else {
             const by1 = CH / 2 + 110;
             if (hitBox(x, y, CW / 2 - 90, by1, 180, 40)) {
-                // 닉네임 입력
-                state.popup = { type: "nickname_input" };
-                state.popupTimer = 0;
-                state._nicknameBuffer = "";
+                openNicknameInput();
             }
         }
         return;
