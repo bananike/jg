@@ -193,15 +193,15 @@ const EVOS = [
     { id:"leafeon",   name:"리피아",     type:"풀",     img:"리피아.png",      condition:"craft", craft:"이끼바위", spd:95,
       ability:"광합성",   abilityDesc:"농장:활동성 자동회복 / 탐색:열매 드롭 확률↑ / 전투:매턴 HP 3% 추가딜", abilityTag:"leafeon" },
     { id:"glaceon",   name:"글레이시아", type:"얼음",   img:"글레이시아.png",  condition:"craft", craft:"얼음바위", spd:65,
-      ability:"절대영도",  abilityDesc:"전투 시 10% 확률로 데미지 3배", abilityTag:"battle_crit" },
+      ability:"절대영도",  abilityDesc:"전투 시 15% 확률로 보스 이동속도 감소", abilityTag:"battle_slow" },
     { id:"sylveon",   name:"님피아",     type:"페어리", img:"님피아.png",      condition:"friendship_item", item:"리본", spd:60,
       ability:"매력",     abilityDesc:"탐색:귀환 시 활동성 2배 회복 / 전투:데미지 +20%", abilityTag:"sylveon" },
     { id:"gmax",      name:"거다이브",   type:"노멀",   img:"왕이브이.png",    condition:"stone", stone:"다이버섯", postGame:true, spd:55,
-      ability:"왕의위엄",  abilityDesc:"전투 시 상성 불리 무시 (x1.0)", abilityTag:"battle_noweakness" },
+      ability:"왕의위엄",  abilityDesc:"전투 시 상성 불리 무시 + 보스 넉백 50% 감소", abilityTag:"battle_noweakness" },
     { id:"mega",      name:"메가브이",   type:"노멀",   img:"이브이메가.png",  condition:"stone", stone:"이브이나이트", postGame:true, spd:120,
       ability:"초월",     abilityDesc:"전투 시 모든 상성 유리 적용 (x1.5)", abilityTag:"battle_alladvantage" },
     { id:"fighting",  name:"파이티아",   type:"격투",   img:"이브이격투.png",  condition:"explore_count", postGame:true, spd:85,
-      ability:"근성",     abilityDesc:"활동성 낮을수록 전투 데미지 증가", abilityTag:"battle_guts" },
+      ability:"연속타격",  abilityDesc:"전투 시 공격 적중마다 DPS 2%씩 누적 증가 (최대 +50%)", abilityTag:"battle_combo" },
     { id:"ghost",     name:"레이시아",   type:"고스트", img:"이브이고스트.png", condition:"friendship_zero_night", postGame:true, spd:100,
       ability:"저주",     abilityDesc:"전투 시 보스 최대HP의 5% 추가 데미지", abilityTag:"battle_curse" },
     { id:"dragon",    name:"드라키온",   type:"드래곤", img:"이브이드래곤.png", condition:"dragon", postGame:true, spd:90,
@@ -209,9 +209,9 @@ const EVOS = [
     { id:"ground",    name:"샌디온",     type:"땅",     img:"이브이땅.png",    condition:"ground_stone", postGame:true, spd:50,
       ability:"발굴",     abilityDesc:"탐색 시 아이템 추가 1개 드롭", abilityTag:"explore_extra" },
     { id:"rock",      name:"록키온",     type:"바위",   img:"이브이바위.png",  condition:"rock_craft", postGame:true, spd:40,
-      ability:"견고",     abilityDesc:"전투 후 활동성 소모 없음", abilityTag:"battle_noact" },
+      ability:"견고",     abilityDesc:"전투 시 받는 넉백 무효 + DPS +15%", abilityTag:"battle_sturdy" },
     { id:"flying",    name:"에어리아",   type:"비행",   img:"이브이비행.png",  condition:"flying_feather", postGame:true, spd:115,
-      ability:"질풍",     abilityDesc:"탐색 시간 60% 단축 (최고)", abilityTag:"explore_fastest" },
+      ability:"질풍",     abilityDesc:"탐색 시간 60% 단축 (최고) / 진화: 친밀도MAX+바람깃털+모든 지역 방문", abilityTag:"explore_fastest" },
     { id:"steel",     name:"메탈리아",   type:"강철",   img:"이브이강철.png",  condition:"four_stones", postGame:true, spd:45,
       ability:"강철방어",  abilityDesc:"전투 시 데미지 하한 보장 (최소 기본의 80%)", abilityTag:"battle_minroll" },
     { id:"poison",    name:"바이퍼스",     type:"독",     img:"이브이독.png",   condition:"poison_evo", postGame:true, spd:75,
@@ -229,18 +229,18 @@ const LOCATIONS = [
         {name:"불꽃의돌",type:"stone",weight:30}]},
     { id:"plant",   name:"발전소", time:"any",   attr:"전기",  dur:5, items:[
         {name:"천둥의돌",type:"stone",weight:30}]},
-    // ── Tier 2: 중반 (2세대 친밀도 진화) - 도감 1종 이상 ──
-    { id:"temple",  name:"신전",   time:"day",   attr:"에스퍼",dur:8, dexReq:1, items:[
+    // ── Tier 2: 중반 (2세대 친밀도 진화) - 도감 2종 이상 ──
+    { id:"temple",  name:"신전",   time:"day",   attr:"에스퍼",dur:8, dexReq:2, items:[
         {name:"태양조각",type:"shard",weight:20},{name:"달조각",type:"shard",weight:8}]},
-    { id:"tower",   name:"폐탑",   time:"night", attr:"악",    dur:8, dexReq:1, items:[
+    { id:"tower",   name:"폐탑",   time:"night", attr:"악",    dur:8, dexReq:2, items:[
         {name:"달조각",type:"shard",weight:20},{name:"태양조각",type:"shard",weight:8}]},
-    // ── Tier 3: 중후반 (4세대 제작 진화) - 도감 3종 이상 ──
-    { id:"forest",  name:"숲",     time:"any",   attr:"풀",    dur:12, dexReq:3, items:[
+    // ── Tier 3: 중후반 (4세대 제작 진화) - 도감 4종 이상 ──
+    { id:"forest",  name:"숲",     time:"any",   attr:"풀",    dur:12, dexReq:4, items:[
         {name:"이끼바위조각",type:"material",weight:18},{name:"태양조각",type:"shard",weight:8},{name:"달조각",type:"shard",weight:8}]},
-    { id:"snow",    name:"설산",   time:"any",   attr:"얼음",  dur:12, dexReq:3, items:[
+    { id:"snow",    name:"설산",   time:"any",   attr:"얼음",  dur:12, dexReq:4, items:[
         {name:"얼음바위조각",type:"material",weight:18},{name:"태양조각",type:"shard",weight:8},{name:"달조각",type:"shard",weight:8}]},
-    // ── Tier 4: 후반 (6세대 님피아) - 도감 5종 이상 ──
-    { id:"flower",  name:"꽃밭",   time:"day",   attr:"페어리",dur:15, dexReq:5, items:[
+    // ── Tier 4: 후반 (6세대 님피아) - 도감 6종 이상 ──
+    { id:"flower",  name:"꽃밭",   time:"day",   attr:"페어리",dur:15, dexReq:6, items:[
         {name:"리본",type:"special",weight:15},{name:"태양조각",type:"shard",weight:20}]},
     // ── 히든: 도감 해금 (팬메이드) ──
     { id:"swamp",   name:"독안개늪",     time:"night", attr:"독",  dur:30, dexReq:8, items:[
@@ -260,7 +260,7 @@ const LOCATIONS = [
 ];
 
 const FRUITS = ["오랭열매","치리열매","크라보열매","모모열매","나나열매","라즈열매"];
-const FRIENDSHIP = { start:1, max:20, liked:3, neutral:1, disliked:-3, sun_day:4, moon_night:4 };
+const FRIENDSHIP = { start:1, max:15, liked:3, neutral:1, disliked:-2, sun_day:4, moon_night:4 };
 const RECIPES = { "이끼바위":{material:"이끼바위조각",count:3}, "얼음바위":{material:"얼음바위조각",count:3} };
 
 /* ── 아이템 이모지 ── */
@@ -759,17 +759,22 @@ function checkEvolution() {
         switch (evo.condition) {
             case "stone":
                 match = state._deliveredItem === evo.stone;
-                if (evo.postGame) match = match && ee.friendship >= 15;
+                if (evo.postGame) match = match && ee.friendship >= FRIENDSHIP.max;
                 break;
             case "friendship_day": match = ee.friendship >= FRIENDSHIP.max && tod === "day"; break;
             case "friendship_night": match = ee.friendship >= FRIENDSHIP.max && tod === "night"; break;
             case "craft": match = state._deliveredItem === evo.craft; break;
             case "friendship_item": match = ee.friendship >= FRIENDSHIP.max && state._deliveredItem === evo.item; break;
             case "friendship_zero_night": match = ee.friendship <= 0 && tod === "night"; break;
-            case "explore_count": match = ee.exploreCount >= 30 && ee.friendship >= 15; break;
-            case "ground_stone": match = hasItem("부드러운모래") && state.totalExplores >= 10; break;
-            case "rock_craft": match = ee.repeatCount >= 8 && hasItem("이끼바위") && hasItem("얼음바위"); break;
-            case "flying_feather": match = state._deliveredItem === "바람깃털"; break;
+            case "explore_count": match = ee.exploreCount >= 30 && ee.friendship >= FRIENDSHIP.max; break;
+            case "ground_stone": match = hasItem("부드러운모래") && ee.friendship >= FRIENDSHIP.max && state.totalExplores >= 10; break;
+            case "rock_craft": match = ee.repeatCount >= 8 && ee.friendship >= FRIENDSHIP.max && hasItem("이끼바위") && hasItem("얼음바위"); break;
+            case "flying_feather":
+                // 에어리아: 친밀도 MAX + 바람깃털 전달 + 모든 지역 1회 이상 방문
+                const allLocs = LOCATIONS.filter(l => isLocationUnlocked(l));
+                const allVisited = allLocs.length > 0 && allLocs.every(l => ee.visitedLocations && ee.visitedLocations.has(l.id));
+                match = state._deliveredItem === "바람깃털" && ee.friendship >= FRIENDSHIP.max && allVisited;
+                break;
             case "four_stones":
                 match = ["물의돌","불꽃의돌","천둥의돌","부드러운모래"].every(s => hasItem(s)) && ee.friendship >= FRIENDSHIP.max;
                 break;
@@ -777,10 +782,10 @@ function checkEvolution() {
                 match = state.collected.has("gmax") && state.collected.has("mega") && state._deliveredItem === "용의비늘" && ee.friendship >= FRIENDSHIP.max;
                 break;
             case "poison_evo":
-                match = state._deliveredItem === "독바늘" && ee.friendship >= 15;
+                match = state._deliveredItem === "독바늘" && ee.friendship >= FRIENDSHIP.max;
                 break;
             case "bug_evo":
-                match = state._deliveredItem === "벌레껍질" && ee.friendship >= 15;
+                match = state._deliveredItem === "벌레껍질" && ee.friendship >= FRIENDSHIP.max;
                 break;
         }
         if (match) {
@@ -1231,7 +1236,8 @@ function calcEeveeDPS(eevee) {
 
     // 고유 능력
     if (tag === "battle_dmg") dps *= 1.3;
-    if (tag === "battle_guts") dps *= 1 + (1 - (eevee.activity || 0) / getActivityMax()) * 0.5;
+    if (tag === "battle_combo") dps *= 1 + Math.min((eevee._comboStacks || 0) * 0.02, 0.5); // 파이티아: 콤보 누적
+    if (tag === "battle_sturdy") dps *= 1.15; // 록키온: DPS +15%
     if (tag === "battle_fixed") dps += 2;
     if (tag === "battle_curse" && state.monster) dps += state.monster.maxHp * 0.005;
     if (tag === "leafeon" && state.monster) dps += state.monster.maxHp * 0.003;
@@ -1290,7 +1296,8 @@ function updateFarmBattle() {
 
     // ── 몬스터 AI: 가장 가까운 열매를 향해 이동 ──
     const stageBonus = 1 + Math.min(mon.stage * 0.01, 0.5); // 스테이지당 +1%, 최대 +50%
-    const monSpeed = (mon.spd / 80000) * 1.2 * stageBonus * (mon.isBoss ? 0.7 : 1.0);
+    const slowMult = (mon._slowTimer > 0) ? 0.4 : 1.0; // 글레이시아 슬로우
+    const monSpeed = (mon.spd / 80000) * 1.2 * stageBonus * (mon.isBoss ? 0.7 : 1.0) * slowMult;
     let targetX = 0.5, targetY = 0.5;
     let foundFruit = false;
     if (state.farmItems.length > 0) {
@@ -1361,10 +1368,16 @@ function updateFarmBattle() {
         let pushed = false;
         for (const ee of allEe) {
             if (ee._knockback > 0) continue;
+            const evo = _getEvo(ee.evoId);
+            const eeTag = evo ? evo.abilityTag : "";
+            // 록키온: 넉백 무효
+            if (eeTag === "battle_sturdy") continue;
             const edx = ee.wx - mon.wx, edy = ee.wy - mon.wy;
             const eDist = Math.sqrt(edx * edx + edy * edy);
             if (eDist < pushRadius && eDist > 0.001) {
-                const kbPower = mon.isBoss ? 0.07 : 0.04;
+                let kbPower = mon.isBoss ? 0.07 : 0.04;
+                // 거다이브: 넉백 50% 감소
+                if (eeTag === "battle_noweakness") kbPower *= 0.5;
                 ee._kbVx = (edx / eDist) * kbPower;
                 ee._kbVy = (edy / eDist) * kbPower * 0.7;
                 ee._knockback = mon.isBoss ? 30 : 18;
@@ -1377,10 +1390,29 @@ function updateFarmBattle() {
     // ── 근접 이브이만 DPS 계산 ──
     const atkRange = 0.15;
     let totalDPS = 0;
+    let hasGlaceon = false;
     for (const ee of allEe) {
         const edx = ee.wx - mon.wx, edy = ee.wy - mon.wy;
-        if (edx * edx + edy * edy < atkRange * atkRange) totalDPS += calcEeveeDPS(ee);
+        const inRange = edx * edx + edy * edy < atkRange * atkRange;
+        if (inRange) {
+            totalDPS += calcEeveeDPS(ee);
+            const evo = _getEvo(ee.evoId);
+            const eeTag = evo ? evo.abilityTag : "";
+            // 파이티아: 콤보 누적 (공격 범위 내 매 프레임 +1)
+            if (eeTag === "battle_combo") ee._comboStacks = Math.min((ee._comboStacks || 0) + 0.05, 25);
+            // 글레이시아: 슬로우 체크
+            if (eeTag === "battle_slow") hasGlaceon = true;
+        } else {
+            // 범위 밖이면 콤보 리셋
+            const evo = _getEvo(ee.evoId);
+            if (evo && evo.abilityTag === "battle_combo") ee._comboStacks = 0;
+        }
     }
+    // 글레이시아 절대영도: 15% 확률로 보스 이동속도 감소 (매 초)
+    if (hasGlaceon && frame % 60 === 0 && Math.random() < 0.15) {
+        mon._slowTimer = 120; // 2초간 감속
+    }
+    if (mon._slowTimer > 0) mon._slowTimer--;
 
     // 몬스터 생존 타이머
     state.monsterTimer++;
@@ -1711,7 +1743,7 @@ function feedItem(itemName) {
             return;
         }
         // 친밀도 부족 시 전달 거부
-        const friendReq = {"리본": FRIENDSHIP.max, "다이버섯": 15, "이브이나이트": 15, "용의비늘": FRIENDSHIP.max, "독바늘": 15, "벌레껍질": 15};
+        const friendReq = {"리본": FRIENDSHIP.max, "다이버섯": FRIENDSHIP.max, "이브이나이트": FRIENDSHIP.max, "용의비늘": FRIENDSHIP.max, "독바늘": FRIENDSHIP.max, "벌레껍질": FRIENDSHIP.max, "바람깃털": FRIENDSHIP.max};
         if (friendReq[itemName] && ee.friendship < friendReq[itemName]) {
             showMessage("이브이가 아직 이 아이템을 받아들일 준비가 안 된 것 같다...", 120);
             state.panel = null; state.panelSlide = 0;
@@ -1816,7 +1848,7 @@ function getHint() {
         if (!state.collected.has("fighting") && ee.exploreCount >= 10) hints.push("이브이와 친해진 상태로 탐색을 많이 하면 강해질 것 같다...");
         if (!state.collected.has("ground")) hints.push("깊은동굴에서 찾을 수 있는 부드러운모래를 지닌 채로 탐색을 반복하면...");
         if (!state.collected.has("rock")) hints.push("같은 장소를 계속 탐색하면서 이끼바위와 얼음바위를 모두 갖고 있으면...");
-        if (!state.collected.has("flying")) hints.push("하늘산등성이에서 찾을 수 있는 바람깃털을 이브이에게 전달하면...");
+        if (!state.collected.has("flying")) hints.push("모든 탐색지를 방문하고, 친밀도가 최대인 상태에서 바람깃털을 전달하면...");
         if (!state.collected.has("steel")) hints.push("물의돌, 불꽃의돌, 천둥의돌, 부드러운모래를 모두 모으고 친밀도가 최대라면...");
         if (!state.collected.has("poison")) hints.push("독안개늪에서 찾을 수 있는 독바늘을 이브이에게 전달하면...");
         if (!state.collected.has("bug")) hints.push("벌레숲에서 찾을 수 있는 벌레껍질을 이브이에게 전달하면...");
