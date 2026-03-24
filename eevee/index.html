@@ -184,7 +184,6 @@ const LOCATIONS = [
 
 const FRUITS = ["오랭열매","치리열매","크라보열매","모모열매","나나열매","라즈열매"];
 const FRIENDSHIP = { start:3, max:10, liked:5, neutral:2, disliked:-2, sun_day:6, moon_night:6 };
-const STAMINA = { max:3, rechargeDay:0.0003, rechargeNight:0.0005 }; // 프레임당 충전량 (낮~100초, 밤~60초 per 1칸)
 const RECIPES = { "이끼바위":{material:"이끼바위조각",count:3}, "얼음바위":{material:"얼음바위조각",count:3} };
 
 /* ── 아이템 이모지 ── */
@@ -209,14 +208,10 @@ const state = {
     popupTimer: 0,
 
     timeOfDay: "day",
-    _pendingDayNightFlip: false,
     hintUsed: false,        // 턴당 힌트 1회
     hintBoosts: [],          // 힌트로 활성화된 드롭률 부스트 [{locId, itemName}]
     base8Notified: false,    // 8종 완성 알림 표시 여부
     totalExplores: 0,       // 총 탐색 횟수
-    totalRests: 0,          // 총 휴식 횟수
-    turnNumber: 0,
-    skipCount: 0,
     _deliveredItem: null,
 
     currentEevee: null,
@@ -785,7 +780,6 @@ function summonEevee() {
 }
 
 function startGame() {
-    state.turnNumber = 1;
     state._deliveredItem = null;
     rollTurnLocations();
     state.scene = "farm";
@@ -801,9 +795,6 @@ function saveGame() {
         const data = {
             timeOfDay: state.timeOfDay,
             totalExplores: state.totalExplores,
-            totalRests: state.totalRests,
-            turnNumber: state.turnNumber,
-            skipCount: state.skipCount,
             collected: [...state.collected],
             inventory: { ...state.inventory },
             currentEevee: state.currentEevee ? {
@@ -848,9 +839,6 @@ function loadGame() {
 
         state.timeOfDay = data.timeOfDay || "day";
         state.totalExplores = data.totalExplores || 0;
-        state.totalRests = data.totalRests || 0;
-        state.turnNumber = data.turnNumber || 0;
-        state.skipCount = data.skipCount || 0;
         state.collected = new Set(data.collected || []);
         state.inventory = data.inventory || {};
         state.hintBoosts = data.hintBoosts || [];
@@ -1639,12 +1627,12 @@ function dropItem(itemName) {
 // 힌트 → 드롭 부스트 매핑 (아이템 드롭 관련 힌트만)
 const HINT_BOOST_MAP = {
     "호수에서 반짝이는 돌을 본 적 있는 것 같다...": { locId: "lake", itemName: "물의돌" },
-    "발전소 근처에 특별한 돌이 있다는 소문이...": { locId: "powerplant", itemName: "천둥의돌" },
+    "발전소 근처에 특별한 돌이 있다는 소문이...": { locId: "plant", itemName: "천둥의돌" },
     "화산 깊은 곳에 뜨거운 돌이 잠들어 있다던데...": { locId: "volcano", itemName: "불꽃의돌" },
     "숲에서 이끼 낀 바위조각을 모으면 뭔가 만들 수 있을 것 같다...": { locId: "forest", itemName: "이끼바위조각" },
-    "설산에서 얼음바위조각을 모으면 뭔가 만들 수 있을 것 같다...": { locId: "snowmtn", itemName: "얼음바위조각" },
-    "이브이와 충분히 친해진 뒤, 꽃밭에서 찾을 수 있는 리본을 주면...": { locId: "flowerfield", itemName: "리본" },
-    "새로운 탐색지가 열린 것 같다... 거대한 무언가의 기운이...": { locId: "giantlair", itemName: "다이버섯" },
+    "설산에서 얼음바위조각을 모으면 뭔가 만들 수 있을 것 같다...": { locId: "snow", itemName: "얼음바위조각" },
+    "이브이와 충분히 친해진 뒤, 꽃밭에서 찾을 수 있는 리본을 주면...": { locId: "flower", itemName: "리본" },
+    "새로운 탐색지가 열린 것 같다... 거대한 무언가의 기운이...": { locId: "den", itemName: "다이버섯" },
 };
 
 function getHint() {
@@ -1664,7 +1652,7 @@ function getHint() {
         if (!state.collected.has("gmax")) hints.push("새로운 탐색지가 열린 것 같다... 거대한 무언가의 기운이...");
         if (!state.collected.has("ghost")) hints.push("밤에 이브이의 친밀도가 0 이하로 떨어지면... 어둠의 진화가 일어날지도...");
         if (!state.collected.has("fighting") && ee.exploreCount >= 10) hints.push("이브이와 친해진 상태로 탐색을 많이 하면 강해질 것 같다...");
-        if (!state.collected.has("ground")) hints.push("깊은동굴에서 찾을 수 있는 부드러운모래를 지닌 채로 휴식을 반복하면...");
+        if (!state.collected.has("ground")) hints.push("깊은동굴에서 찾을 수 있는 부드러운모래를 지닌 채로 탐색을 반복하면...");
         if (!state.collected.has("rock")) hints.push("같은 장소를 계속 탐색하면서 이끼바위와 얼음바위를 모두 갖고 있으면...");
         if (!state.collected.has("flying")) hints.push("하늘산등성이에서 찾을 수 있는 바람깃털을 이브이에게 전달하면...");
         if (!state.collected.has("steel")) hints.push("물의돌, 불꽃의돌, 천둥의돌, 부드러운모래를 모두 모으고 친밀도가 최대라면...");
