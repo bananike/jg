@@ -444,7 +444,7 @@ function friendshipMax() { return FRIENDSHIP.max; }
    5. FARM ENTITIES (쿼터뷰 2D 이동)
    ═══════════════════════════════════════════ */
 const ACTIVITY_BASE_MAX = 50;
-function getActivityMax() { return ACTIVITY_BASE_MAX; }
+function getActivityMax() { return allComplete() ? 99999 : ACTIVITY_BASE_MAX; }
 const ACTIVITY_FRUIT_LIKED = 5;
 const ACTIVITY_FRUIT_NEUTRAL = 2;
 const ACTIVITY_FRUIT_DISLIKED = -3;
@@ -1082,7 +1082,7 @@ function loadGame() {
             const ce = data.currentEevee;
             state.currentEevee = {
                 friendship: clamp(ce.friendship, -5, FRIENDSHIP.max + 5),
-                activity: Math.min(ce.activity || 5, ACTIVITY_BASE_MAX),
+                activity: ce.activity || 5,
                 likedFruit: ce.likedFruit,
                 dislikedFruit: ce.dislikedFruit,
                 knownLiked: ce.knownLiked,
@@ -1105,7 +1105,7 @@ function loadGame() {
             return {
                 evoId: e.evoId,
                 sprite: evo ? evo.img : "이브이.png",
-                activity: Math.min(e.activity || 0, ACTIVITY_BASE_MAX),
+                activity: e.activity || 0,
                 likedFruit: liked,
                 dislikedFruit: disliked,
                 visitedLocations: new Set(e.visitedLocations || []),
@@ -1327,7 +1327,10 @@ function calcEeveeDPS(eevee) {
     if (!evo) basePower = 0.5; // 기본 이브이
     if (state.endingShown) basePower += 0.5;
 
-    const act = Math.min(eevee.activity || 0, ACTIVITY_BASE_MAX);
+    const rawAct = eevee.activity || 0;
+    // 활동성 50까지는 선형, 이후는 완만한 루트 스케일링
+    const act = rawAct <= ACTIVITY_BASE_MAX ? rawAct
+        : ACTIVITY_BASE_MAX + Math.sqrt(rawAct - ACTIVITY_BASE_MAX) * 2;
     let dps = basePower + act * 0.3;
 
     // 상성 보정 (다중 타입)
