@@ -366,6 +366,7 @@ const state = {
     // 유효 슬롯 수는 getExpSlots()로 접근
     expeditionSelect: null,   // 장소 선택 후 이브이 선택 단계: { locId, locName }
     expeditionPicked: [],     // 협동 선택된 이브이 ref 배열
+    exploreRefresh: 3,        // 탐색지 새로고침 남은 횟수 (최대 3)
 };
 
 function resetCurrentEevee() {
@@ -922,6 +923,7 @@ function updateDayNight() {
     invalidateBgCache();
     rollTurnLocations();
     state.hintUsed = false;
+    state.exploreRefresh = Math.min(getRefreshMax(), (state.exploreRefresh || 0) + 1); // 밤낮 전환 +1
     state._deliveredItem = null;
     showMessage(state.timeOfDay === "day" ? "☀️ 낮이 되었다!" : "🌙 밤이 되었다!", 90);
     // 전환 후 시간대로도 진화 체크 (낮 조건 등)
@@ -1511,6 +1513,7 @@ function updateFarmBattle() {
     if (state.monster.hp <= 0) {
         state.monster.hp = 0;
         state.monsterMaxStage = state.monsterStage;
+        state.exploreRefresh = Math.min(getRefreshMax(), (state.exploreRefresh || 0) + 1); // 처치 시 +1
         state.monsterReward = applyMonsterReward(state.monsterStage);
         state.monsterKillAnim = state.monster.isBoss ? 600 : 420;
         // 스테이지 갱신 시 리더보드 업로드
@@ -1775,12 +1778,20 @@ function checkExpeditionReturns() {
         const dropNames = drops.map(d => `${itemEmoji(d.name)}`).join(" ");
         // 귀환 결과 토스트
         showMessage(`${exp.eeveeName} 귀환! ${dropNames}`, 150);
+        state.exploreRefresh = Math.min(getRefreshMax(), (state.exploreRefresh || 0) + 1); // 귀환 시 +1
         saveGame();
     }
 }
 
 // 이브이가 파견 중인지 확인
 // 협동 파견 최대 인원
+function getRefreshMax() {
+    const c = state.collected.size;
+    if (c >= 12) return 5;
+    if (c >= 8) return 4;
+    return 3;
+}
+
 function getCoopMax() {
     const c = state.collected.size;
     if (c >= 14) return 3;
@@ -2282,6 +2293,7 @@ function applyCheat(type) {
         showMessage("🔧 전체 해금!", 90);
     }
     state.popup = null;
+    saveGame();
 }
 
 function hitBox(cx, cy, bx, by, bw, bh) {
@@ -3006,6 +3018,19 @@ function drawExplorePanel() {
         ctx.fillStyle = "#555"; roundRect(CW / 2 + 30, CH - 50, 60, 30, 6); ctx.fill();
         ctx.fillStyle = "#ccc"; ctx.font = "12px system-ui"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
         ctx.fillText("뒤로", CW / 2 + 60, CH - 35);
+
+        // 탐색 능력 토스트
+        if (state._expAbilityToast && state._expAbilityToast.timer > 0) {
+            state._expAbilityToast.timer--;
+            const t = state._expAbilityToast;
+            ctx.globalAlpha = clamp(t.timer / 30, 0, 1);
+            ctx.fillStyle = "rgba(76,175,80,0.9)";
+            roundRect(CW / 2 - 130, py + 30, 260, 24, 6); ctx.fill();
+            ctx.fillStyle = "#fff"; ctx.font = "bold 11px system-ui";
+            ctx.textAlign = "center"; ctx.textBaseline = "middle";
+            ctx.fillText(t.text, CW / 2, py + 42);
+            ctx.globalAlpha = 1;
+        }
         return;
     }
 
@@ -3025,10 +3050,8 @@ function drawExplorePanel() {
     const expH = state.expeditions.length > 0 ? state.expeditions.length * 32 + 8 : 0;
     const slotFullH = (state.expeditions.length >= getExpSlots()) ? 30 : 0;
     const locs = state.turnLocations || [];
-    const LOC_COLS = 3;
-    const LOC_CELL_W = 140, LOC_CELL_H = 80;
-    const locRows = Math.ceil(locs.length / LOC_COLS);
-    const locH = (state.expeditions.length < getExpSlots()) ? locRows * LOC_CELL_H + 10 : 0;
+    const LOC_CELL_H = 80;
+    const locH = (state.expeditions.length < getExpSlots()) ? LOC_CELL_H + 10 : 0; // 4칸 1줄
     const totalContentH = expH + slotFullH + locH;
     const maxExpScroll = Math.max(0, totalContentH - (scrollBot - scrollTop));
     state.expScroll = clamp(state.expScroll, 0, maxExpScroll);
@@ -3073,16 +3096,16 @@ function drawExplorePanel() {
         curY += 30;
     }
 
-    // 탐색지 목록 (원형 버튼, 가로 3개 그리드)
+    // 탐색지 목록 (4칸: 탐색지 3개 + 새로고침 1개)
     if (state.expeditions.length < getExpSlots()) {
-        const locGridLeft = (CW - LOC_COLS * LOC_CELL_W) / 2;
+        const GRID_COLS = 4, CELL_W = CW / GRID_COLS;
         const locStartY = curY + 5;
+        // 탐색지 3개
         for (let i = 0; i < locs.length; i++) {
             const loc = locs[i];
             const style = LOC_STYLE[loc.id] || { emoji:"📍", color:"#888", bg:"rgba(80,80,80,0.15)" };
-            const col = i % LOC_COLS, row = Math.floor(i / LOC_COLS);
-            const cx = locGridLeft + col * LOC_CELL_W + LOC_CELL_W / 2;
-            const cy = locStartY + row * LOC_CELL_H + LOC_CELL_H / 2;
+            const cx = CELL_W * i + CELL_W / 2;
+            const cy = locStartY + LOC_CELL_H / 2;
 
             const R = 28;
             ctx.fillStyle = style.bg;
@@ -3091,12 +3114,27 @@ function drawExplorePanel() {
             ctx.beginPath(); ctx.arc(cx, cy - 8, R, 0, Math.PI * 2); ctx.stroke();
             ctx.font = "20px system-ui"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
             ctx.fillText(style.emoji, cx, cy - 7);
-            ctx.fillStyle = "#fff"; ctx.font = "bold 11px system-ui";
+            ctx.fillStyle = "#fff"; ctx.font = "bold 10px system-ui";
             ctx.fillText(loc.name, cx, cy + 26);
-            ctx.fillStyle = style.color; ctx.font = "9px system-ui";
+            ctx.fillStyle = style.color; ctx.font = "8px system-ui";
             const dispDur = Math.ceil((loc.dur || 30) * (1 + (state.monsterStage || 0) * 0.06));
-            ctx.fillText(`${loc.attr} · ${dispDur}초`, cx, cy + 38);
+            ctx.fillText(`${loc.attr}·${dispDur}초`, cx, cy + 37);
         }
+        // 새로고침 버튼 (4번째 칸)
+        const rcx = CELL_W * 3 + CELL_W / 2;
+        const rcy = locStartY + LOC_CELL_H / 2;
+        const refreshLeft = (state.exploreRefresh || 0);
+        const canRefresh = refreshLeft > 0;
+        ctx.fillStyle = canRefresh ? "rgba(100,100,200,0.2)" : "rgba(50,50,50,0.3)";
+        ctx.beginPath(); ctx.arc(rcx, rcy - 8, 28, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = canRefresh ? "#7B73FF" : "#444"; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(rcx, rcy - 8, 28, 0, Math.PI * 2); ctx.stroke();
+        ctx.font = "20px system-ui"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText("🔄", rcx, rcy - 7);
+        ctx.fillStyle = canRefresh ? "#fff" : "#666"; ctx.font = "bold 10px system-ui";
+        ctx.fillText("새로고침", rcx, rcy + 26);
+        ctx.fillStyle = canRefresh ? "#7B73FF" : "#555"; ctx.font = "9px system-ui";
+        ctx.fillText(`${refreshLeft}/${getRefreshMax()}`, rcx, rcy + 37);
     }
 
     ctx.restore();
@@ -4649,6 +4687,24 @@ function handleInput() {
                             picked.push(allEe[i]); // 선택
                         }
                         state.expeditionPicked = picked;
+                        // 탐색 능력 토스트 표시
+                        const selRef = allEe[i];
+                        const selEe = selRef === "current" ? null : state.farm[selRef];
+                        const selEvo = selEe ? EVOS.find(ev => ev.id === selEe.evoId) : null;
+                        if (selEvo && selEvo.abilityTag && idx < 0) {
+                            const exploreAbilities = {
+                                "explore_fruit2": "열매 드롭 2개 확정!",
+                                "explore_speed": "탐색 시간 50% 단축!",
+                                "explore_fastest": "탐색 시간 60% 단축!",
+                                "explore_rare": "희귀 아이템 확률 2배!",
+                                "explore_night": "밤 탐색지 아이템 100%!",
+                                "explore_extra": "아이템 추가 1개!",
+                                "leafeon": "열매 드롭 확률 UP!",
+                                "sylveon": "활동성 소모 없음!",
+                            };
+                            const msg = exploreAbilities[selEvo.abilityTag];
+                            if (msg) state._expAbilityToast = { text: `⚡${selEvo.name}: ${msg}`, timer: 90 };
+                        }
                         return;
                     }
                 }
@@ -4679,18 +4735,29 @@ function handleInput() {
             if (state.expeditions.length >= getExpSlots()) return;
 
             const locs = state.turnLocations || [];
-            const LOC_COLS = 3;
-            const LOC_CELL_W = 140, LOC_CELL_H = 80;
-            const locGridLeft = (CW - LOC_COLS * LOC_CELL_W) / 2;
-            const locStartY = curY2 + 5;
+            const CELL_W2 = CW / 4, LOC_CELL_H2 = 80;
+            const locStartY2 = curY2 + 5;
+            // 탐색지 3개
             for (let i = 0; i < locs.length; i++) {
-                const col = i % LOC_COLS, row = Math.floor(i / LOC_COLS);
-                const cx = locGridLeft + col * LOC_CELL_W + LOC_CELL_W / 2;
-                const cy = locStartY + row * LOC_CELL_H + LOC_CELL_H / 2;
-                if (hitBox(x, y, cx - LOC_CELL_W / 2, cy - LOC_CELL_H / 2, LOC_CELL_W, LOC_CELL_H)) {
+                const cx = CELL_W2 * i + CELL_W2 / 2;
+                const cy = locStartY2 + LOC_CELL_H2 / 2;
+                if (hitBox(x, y, cx - CELL_W2 / 2, cy - LOC_CELL_H2 / 2, CELL_W2, LOC_CELL_H2)) {
                     doExplore(locs[i]);
                     return;
                 }
+            }
+            // 새로고침 버튼 (4번째 칸)
+            const rcx2 = CELL_W2 * 3 + CELL_W2 / 2;
+            const rcy2 = locStartY2 + LOC_CELL_H2 / 2;
+            if (hitBox(x, y, rcx2 - CELL_W2 / 2, rcy2 - LOC_CELL_H2 / 2, CELL_W2, LOC_CELL_H2)) {
+                if ((state.exploreRefresh || 0) > 0) {
+                    state.exploreRefresh--;
+                    rollTurnLocations();
+                    showMessage(`탐색지 새로고침! (${state.exploreRefresh}/${getRefreshMax()})`, 60);
+                } else {
+                    showMessage("새로고침 횟수가 부족합니다!", 60);
+                }
+                return;
             }
         } else if (state.panel === "inventory") {
             const listTop = contentY + 20;
@@ -4784,7 +4851,6 @@ function handleInput() {
         if (hitBox(x, y, btn.x, BTN_Y, btn.w, BTN_H)) {
             if (btn.id === "explore") {
                 state.panel = "explore"; state.panelSlide = 0; state.expScroll = 0;
-                rollTurnLocations(); // 탐색 시작 시 리스트 새로고침
             } else if (btn.id === "bag") {
                 state.panel = "inventory"; state.panelSlide = 0; state.invScroll = 0;
                 state.bagHighlight = false;
