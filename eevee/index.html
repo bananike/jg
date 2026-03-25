@@ -942,7 +942,7 @@ function finishPostEvolution() {
 }
 
 // 둥지: 이브이 소환
-function getNestCost() { return 3 + state.collected.size * 3; } // 기본 3 + 도감당 3개씩 증가
+function getNestCost() { return 2 + state.collected.size * 2; } // 기본 2 + 도감당 2개
 function getExpSlots() {
     const c = state.collected.size;
     if (c >= 12) return 4;
