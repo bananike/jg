@@ -833,7 +833,7 @@ function checkEvolution() {
             case "friendship_zero_night": match = ee.friendship <= 0 && tod === "night"; break;
             case "explore_count": match = ee.exploreCount >= 30 && ee.friendship >= FRIENDSHIP.max; break;
             case "ground_stone": match = hasItem("부드러운모래") && ee.friendship >= FRIENDSHIP.max && state.totalExplores >= 10; break;
-            case "rock_craft": match = ee.repeatCount >= 8 && ee.friendship >= FRIENDSHIP.max && hasItem("이끼바위") && hasItem("얼음바위"); break;
+            case "rock_craft": match = (state._globalRepeat || 0) >= 3 && ee.friendship >= FRIENDSHIP.max && hasItem("이끼바위") && hasItem("얼음바위"); break;
             case "flying_feather":
                 // 에어리아: 친밀도 MAX + 바람깃털 전달 + 모든 지역 1회 이상 방문
                 const allLocs = LOCATIONS.filter(l => isLocationUnlocked(l));
@@ -941,7 +941,13 @@ function finishPostEvolution() {
 
 // 둥지: 이브이 소환
 function getNestCost() { return 3 + state.collected.size * 3; } // 기본 3 + 도감당 3개씩 증가
-function getExpSlots() { return Math.max(1, Math.floor(state.collected.size / 2)); }
+function getExpSlots() {
+    const c = state.collected.size;
+    if (c >= 12) return 4;
+    if (c >= 8) return 3;
+    if (c >= 5) return 2;
+    return 1;
+}
 function canSummonEevee() {
     return !state.currentEevee;
 }
@@ -1664,6 +1670,16 @@ function sendExpedition(locId, eeveeRefs) {
         if (m.eevee.lastLocation === locId && m.eevee.repeatCount !== undefined) m.eevee.repeatCount++;
         else if (m.eevee.repeatCount !== undefined) m.eevee.repeatCount = 1;
         if (m.eevee.lastLocation !== undefined) m.eevee.lastLocation = locId;
+    }
+    // 글로벌 연속탐색 (록키온 조건용)
+    if (state._lastExpLocation === locId) {
+        state._globalRepeat = (state._globalRepeat || 0) + 1;
+    } else {
+        state._globalRepeat = 1;
+    }
+    state._lastExpLocation = locId;
+
+    for (const m of members) { // 활동성 소모 루프 재시작을 위해 아래 코드 유지
         // 활동성 소모 (님피아: 소모 없음)
         if (m.eevee.activity !== undefined && m.tag !== "sylveon") {
             m.eevee.activity = Math.max(0, m.eevee.activity - 3);
@@ -1977,7 +1993,7 @@ function getHint() {
         if (!state.collected.has("ghost")) hints.push("밤에 이브이의 친밀도가 0 이하로 떨어지면... 어둠의 진화가 일어날지도...");
         if (!state.collected.has("fighting") && ec >= 10) hints.push("이브이와 친해진 상태로 탐색을 많이 하면 강해질 것 같다...");
         if (!state.collected.has("ground")) hints.push("깊은동굴에서 찾을 수 있는 부드러운모래를 지닌 채로 휴식을 반복하면...");
-        if (!state.collected.has("rock")) hints.push("같은 장소를 계속 탐색하면서 이끼바위와 얼음바위를 모두 갖고 있으면...");
+        if (!state.collected.has("rock")) hints.push("같은 탐색지에 3번 연속 파견하고, 이끼바위와 얼음바위를 갖고 있으면...");
         if (!state.collected.has("flying")) hints.push("하늘산등성이에서 찾을 수 있는 바람깃털을 이브이에게 전달하면...");
         if (!state.collected.has("steel")) hints.push("물의돌, 불꽃의돌, 천둥의돌, 부드러운모래를 모두 모으고 친밀도가 최대라면...");
         if (!state.collected.has("poison")) hints.push("독안개늪에서 찾을 수 있는 독바늘을 이브이에게 전달하면...");
@@ -3972,7 +3988,8 @@ function drawMonster() {
         if (t > 80) {
             ctx.fillStyle = "#FF9800"; ctx.font = "14px system-ui";
             ctx.fillText("농장의 열매가 모두 사라졌습니다", CW / 2, CH / 2 + 20);
-            ctx.fillText("몬스터 Lv.1부터 다시 시작합니다", CW / 2, CH / 2 + 42);
+            const restartLv = Math.floor((state.monsterMaxStage || 0) / 10) * 10 + 1;
+            ctx.fillText(`몬스터 Lv.${restartLv}부터 다시 시작합니다`, CW / 2, CH / 2 + 42);
         }
         if (t > 150) {
             ctx.fillStyle = "#aaa"; ctx.font = "bold 14px system-ui";
