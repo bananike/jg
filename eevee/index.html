@@ -1024,7 +1024,7 @@ function saveGame() {
             monster: state.monster || null,
             unlockedByBattle: [...(state.unlockedByBattle || [])],
             expeditions: (state.expeditions || []).map(e => ({ ...e })),
-            expeditionSlots: state.expeditionSlots || 1,
+            // expeditionSlots는 getExpSlots()로 동적 계산
             endingShown: state.endingShown || false,
             playerName: state.playerName || "",
             playerId: state.playerId || "",
@@ -1057,7 +1057,7 @@ function loadGame() {
         }
         state.unlockedByBattle = new Set(data.unlockedByBattle || []);
         state.expeditions = data.expeditions || [];
-        state.expeditionSlots = data.expeditionSlots || 1;
+        // expeditionSlots는 getExpSlots()로 동적 계산
         state.endingShown = data.endingShown || false;
         state.playerName = data.playerName || "";
         state.playerId = data.playerId || "";
@@ -1146,7 +1146,7 @@ function deleteSave() {
     state.gameOverAnim = 0;
     state.unlockedByBattle = new Set();
     state.endingShown = false;
-    state.expeditions = []; state.expeditionSlots = 1;
+    state.expeditions = [];
     state.expeditionSelect = null;
     closeNicknameInput();
 }
@@ -1524,9 +1524,6 @@ function updateFarmBattle() {
 
 // 스테이지 보상
 const STAGE_REWARDS = {
-    10: { type: "slot", text: "탐색 슬롯 +1!" },
-    30: { type: "slot", text: "탐색 슬롯 +1!" },
-    50: { type: "slot", text: "탐색 슬롯 +1!" },
 };
 
 function applyMonsterReward(stage) {
@@ -1555,8 +1552,7 @@ function applyMonsterReward(stage) {
         if (!state.unlockedByBattle) state.unlockedByBattle = new Set();
         state.unlockedByBattle.add(reward.id);
     } else if (reward.type === "slot") {
-        const maxSlots = Math.max(2, Math.floor(state.collected.size / 2));
-        state.expeditionSlots = Math.min((state.expeditionSlots || 1) + 1, maxSlots);
+        // 슬롯은 getExpSlots()로 도감 기준 자동 계산 — 보상은 메시지만
     }
     return `${reward.text}${accelMsg}`;
 }
