@@ -438,13 +438,13 @@ function allComplete() { return EVOS.every(e => state.collected.has(e.id)); }
 function showMessage(text, dur=120) { state.message = { text, timer: dur }; }
 function clamp(v,lo,hi) { return Math.max(lo,Math.min(hi,v)); }
 function lerp(a,b,t) { return a + (b-a)*t; }
-function friendshipMax() { return allComplete() ? 9999 : FRIENDSHIP.max; }
+function friendshipMax() { return FRIENDSHIP.max; }
 
 /* ═══════════════════════════════════════════
    5. FARM ENTITIES (쿼터뷰 2D 이동)
    ═══════════════════════════════════════════ */
 const ACTIVITY_BASE_MAX = 50;
-function getActivityMax() { return allComplete() ? 99999 : ACTIVITY_BASE_MAX; }
+function getActivityMax() { return ACTIVITY_BASE_MAX; }
 const ACTIVITY_FRUIT_LIKED = 5;
 const ACTIVITY_FRUIT_NEUTRAL = 2;
 const ACTIVITY_FRUIT_DISLIKED = -3;
@@ -624,17 +624,19 @@ function updateFarmEntities() {
     // 스태미나 시스템 폐지됨 (출정 시스템으로 대체)
 
     // 리피아 광합성: 농장 대기 시 활동성 서서히 회복
-    for (const e of state.farm) {
-        const evo = EVOS.find(ev => ev.id === e.evoId);
-        if (evo && evo.abilityTag === "leafeon" && !isOnExpedition(state.farm.indexOf(e))) {
+    for (let fi = 0; fi < state.farm.length; fi++) {
+        const e = state.farm[fi];
+        const evo = _getEvo(e.evoId);
+        if (evo && evo.abilityTag === "leafeon" && !isOnExpedition(fi)) {
             e.activity = Math.min(getActivityMax(), (e.activity || 0) + 0.005);
         }
     }
 
     // 기본 이브이: 주변 이브이 활동성 미약 회복
     if (state.currentEevee && !isOnExpedition("current")) {
-        for (const other of state.farm) {
-            if (isOnExpedition(state.farm.indexOf(other))) continue;
+        for (let fi = 0; fi < state.farm.length; fi++) {
+            if (isOnExpedition(fi)) continue;
+            const other = state.farm[fi];
             const dx = state.currentEevee.wx - other.wx, dy = state.currentEevee.wy - other.wy;
             if (dx * dx + dy * dy < 0.04) {
                 other.activity = Math.min(getActivityMax(), (other.activity || 0) + 0.001);
@@ -643,9 +645,10 @@ function updateFarmEntities() {
     }
 
     // 님피아 매력: 주변 이브이 활동성 소량 회복
-    for (const e of state.farm) {
-        const evo = EVOS.find(ev => ev.id === e.evoId);
-        if (evo && evo.abilityTag === "sylveon" && !isOnExpedition(state.farm.indexOf(e))) {
+    for (let fi = 0; fi < state.farm.length; fi++) {
+        const e = state.farm[fi];
+        const evo = _getEvo(e.evoId);
+        if (evo && evo.abilityTag === "sylveon" && !isOnExpedition(fi)) {
             // 근처 이브이들 활동성 회복
             for (const other of state.farm) {
                 if (other === e) continue;
@@ -778,7 +781,7 @@ function updateFarmEntities() {
                     state.feedbackAnim = { type: reaction, timer: 50, x: scr.sx, y: scr.sy - 20 };
                     state.farmItems.splice(fi, 1);
                     eaten = true;
-                    saveGame();
+                    queueSave();
                     break;
                 } else if (!isFruit && isFarmEevee && e.aiState === "walk" && (e.activity || 0) < getActivityMax()) {
                     // 진화 이브이가 관련 아이템 섭취 → 활동성 증가
@@ -795,7 +798,7 @@ function updateFarmEntities() {
                         state.feedbackAnim = { type: "liked", timer: 50, x: scr.sx, y: scr.sy - 20 };
                         state.farmItems.splice(fi, 1);
                         eaten = true;
-                        saveGame();
+                        queueSave();
                         break;
                     }
                 }
@@ -995,6 +998,12 @@ function startGame() {
    ═══════════════════════════════════════════ */
 const SAVE_KEY = "eevee_farm_save";
 
+let _saveQueued = false;
+function queueSave() {
+    if (_saveQueued) return;
+    _saveQueued = true;
+    setTimeout(() => { _saveQueued = false; saveGame(); }, 500);
+}
 function saveGame() {
     try {
         const data = {
@@ -1072,8 +1081,8 @@ function loadGame() {
         if (data.currentEevee) {
             const ce = data.currentEevee;
             state.currentEevee = {
-                friendship: ce.friendship,
-                activity: ce.activity || 5,
+                friendship: clamp(ce.friendship, -5, FRIENDSHIP.max + 5),
+                activity: Math.min(ce.activity || 5, ACTIVITY_BASE_MAX),
                 likedFruit: ce.likedFruit,
                 dislikedFruit: ce.dislikedFruit,
                 knownLiked: ce.knownLiked,
@@ -1096,7 +1105,7 @@ function loadGame() {
             return {
                 evoId: e.evoId,
                 sprite: evo ? evo.img : "이브이.png",
-                activity: e.activity || 0,
+                activity: Math.min(e.activity || 0, ACTIVITY_BASE_MAX),
                 likedFruit: liked,
                 dislikedFruit: disliked,
                 visitedLocations: new Set(e.visitedLocations || []),
@@ -1107,6 +1116,15 @@ function loadGame() {
                 aiState: "idle", aiTimer: 30 + Math.random() * 60,
             };
         });
+
+        // 중복 기본이브이 보정: farm에 evoId=null이 있으면서 currentEevee도 있으면 farm쪽 제거
+        if (state.currentEevee) {
+            const nullCount = state.farm.filter(e => !e.evoId).length;
+            if (nullCount > 0) {
+                const idx = state.farm.findIndex(e => !e.evoId);
+                if (idx !== -1) state.farm.splice(idx, 1);
+            }
+        }
 
         // 바닥 아이템 복원
         state.farmItems = (data.farmItems || []).map(i => ({
@@ -1805,11 +1823,17 @@ function getCoopMax() {
     return 1;
 }
 
+let _expCache = null; let _expCacheFrame = -1;
 function isOnExpedition(eeveeRef) {
-    return state.expeditions.some(e => {
-        if (e.eeveeRefs) return e.eeveeRefs.includes(eeveeRef);
-        return e.eeveeRef === eeveeRef; // 하위호환
-    });
+    if (_expCacheFrame !== frame) {
+        _expCache = new Set();
+        for (const e of state.expeditions) {
+            if (e.eeveeRefs) e.eeveeRefs.forEach(r => _expCache.add(r));
+            else if (e.eeveeRef !== undefined) _expCache.add(e.eeveeRef);
+        }
+        _expCacheFrame = frame;
+    }
+    return _expCache.has(eeveeRef);
 }
 
 // 구버전 호환: doExplore는 더 이상 직접 호출되지 않음
@@ -3819,7 +3843,7 @@ function drawPopup() {
         ctx.fillStyle = "#FFD54F"; ctx.font = "bold 15px system-ui";
         ctx.fillText("이브이에게 아이템 주기", px + pw / 2, py + 22);
         ctx.fillStyle = "#4FC3F7"; ctx.font = "11px system-ui";
-        ctx.fillText(`친밀도: ${Math.round(ee.friendship)} / ${allComplete() ? "∞" : FRIENDSHIP.max}`, px + pw / 2, py + 40);
+        ctx.fillText(`친밀도: ${Math.round(ee.friendship)} / ${FRIENDSHIP.max}`, px + pw / 2, py + 40);
         // 열매와 아이템 분리
         const invFruits = Object.entries(state.inventory).filter(([n]) => FRUITS.includes(n));
         const invOthers = Object.entries(state.inventory).filter(([n]) => !FRUITS.includes(n));
@@ -4574,12 +4598,16 @@ function handleInput() {
         if (state.evolvingTimer >= 120) {
             if (allComplete() && !state.endingShown) {
                 state.endingShown = true;
-                // 보너스 이브이 (높은 활동성)
-                addFarmEevee(null);
-                const bonus = state.farm[state.farm.length - 1];
-                bonus.sprite = "이브이.png";
-                bonus.evoId = null;
-                bonus.activity = getActivityMax();
+                // 보너스 이브이: 현재 이브이를 농장으로 이동
+                if (state.currentEevee) {
+                    state.farm.push({
+                        ...state.currentEevee,
+                        evoId: null,
+                        sprite: "이브이.png",
+                        activity: ACTIVITY_BASE_MAX,
+                    });
+                    state.currentEevee = null;
+                }
                 // 전 이브이 기본 스탯 보정
                 for (const e of state.farm) {
                     e.activity = Math.min(getActivityMax(), (e.activity || 0) + 10);
