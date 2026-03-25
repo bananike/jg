@@ -211,7 +211,7 @@ const EVOS = [
     { id:"rock",      name:"록키온",     type:"바위",   img:"이브이바위.png",  condition:"rock_craft", postGame:true, spd:40,
       ability:"견고",     abilityDesc:"전투 시 받는 넉백 무효 + DPS +15%", abilityTag:"battle_sturdy" },
     { id:"flying",    name:"에어리아",   type:"비행",   img:"이브이비행.png",  condition:"flying_feather", postGame:true, spd:115,
-      ability:"질풍",     abilityDesc:"탐색 시간 60% 단축 (최고) / 진화: 친밀도MAX+바람깃털+모든 지역 방문", abilityTag:"explore_fastest" },
+      ability:"질풍",     abilityDesc:"탐색 시간 60% 단축 (최고) / 진화: 친밀도MAX+바람깃털+모든 지역 방문(전체)", abilityTag:"explore_fastest" },
     { id:"steel",     name:"메탈리아",   type:"강철",   img:"이브이강철.png",  condition:"four_stones", postGame:true, spd:45,
       ability:"강철방어",  abilityDesc:"전투 시 데미지 하한 보장 (최소 기본의 80%)", abilityTag:"battle_minroll" },
     { id:"poison",    name:"바이퍼스",     type:"독",     img:"이브이독.png",   condition:"poison_evo", postGame:true, spd:75,
@@ -1989,7 +1989,7 @@ function getHint() {
     state.hintUsed = true;
     const ee = state.currentEevee;
     const fr = ee ? ee.friendship : 0;
-    const ec = ee ? ee.exploreCount : 0;
+    const ec = state.totalExplores || 0;
     const hints = [];
     if (!state.collected.has("vaporeon")) hints.push("호수에서 반짝이는 돌을 본 적 있는 것 같다...");
     if (!state.collected.has("jolteon")) hints.push("발전소 근처에 특별한 돌이 있다는 소문이...");
@@ -2002,10 +2002,10 @@ function getHint() {
     if (base8Complete()) {
         if (!state.collected.has("gmax")) hints.push("새로운 탐색지가 열린 것 같다... 거대한 무언가의 기운이...");
         if (!state.collected.has("ghost")) hints.push("밤에 이브이의 친밀도가 0 이하로 떨어지면... 어둠의 진화가 일어날지도...");
-        if (!state.collected.has("fighting") && ec >= 10) hints.push("이브이와 친해진 상태로 탐색을 많이 하면 강해질 것 같다...");
+        if (!state.collected.has("fighting") && ec >= 10) hints.push("탐색을 많이 하고 이브이와 친해지면 강해질 것 같다...");
         if (!state.collected.has("ground")) hints.push("깊은동굴에서 찾을 수 있는 부드러운모래를 지닌 채로 휴식을 반복하면...");
         if (!state.collected.has("rock")) hints.push("같은 탐색지에 3번 연속 파견하고, 이끼바위와 얼음바위를 갖고 있으면...");
-        if (!state.collected.has("flying")) hints.push("하늘산등성이에서 찾을 수 있는 바람깃털을 이브이에게 전달하면...");
+        if (!state.collected.has("flying")) hints.push("바람깃털을 전달하고, 여러 이브이로 모든 지역을 방문해두면...");
         if (!state.collected.has("steel")) hints.push("물의돌, 불꽃의돌, 천둥의돌, 부드러운모래를 모두 모으고 친밀도가 최대라면...");
         if (!state.collected.has("poison")) hints.push("독안개늪에서 찾을 수 있는 독바늘을 이브이에게 전달하면...");
         if (!state.collected.has("bug")) hints.push("벌레숲에서 찾을 수 있는 벌레껍질을 이브이에게 전달하면...");
