@@ -444,7 +444,7 @@ function friendshipMax() { return FRIENDSHIP.max; }
    5. FARM ENTITIES (쿼터뷰 2D 이동)
    ═══════════════════════════════════════════ */
 const ACTIVITY_BASE_MAX = 50;
-function getActivityMax() { return allComplete() ? 99999 : ACTIVITY_BASE_MAX; }
+function getActivityMax() { return (allComplete() || state.endingShown) ? 99999 : ACTIVITY_BASE_MAX; }
 const ACTIVITY_FRUIT_LIKED = 5;
 const ACTIVITY_FRUIT_NEUTRAL = 2;
 const ACTIVITY_FRUIT_DISLIKED = -3;
@@ -3026,7 +3026,8 @@ function drawExplorePanel() {
             ctx.textAlign = "center";
             ctx.fillText(ee.name, cx, cy + 24);
             // 활동성 바
-            const actR = clamp(ee.act / ACTIVITY_BASE_MAX, 0, 1);
+            const eeCap = allComplete() ? Math.max(ACTIVITY_BASE_MAX, ee.act) : ACTIVITY_BASE_MAX;
+            const actR = clamp(ee.act / eeCap, 0, 1);
             const abx = cx - CELL_W / 2 + 10, aby = cy + 28, abw = CELL_W - 20, abh = 4;
             ctx.fillStyle = "#333"; roundRect(abx, aby, abw, abh, 2); ctx.fill();
             ctx.fillStyle = actR >= 1 ? "#4FC3F7" : actR >= 0.7 ? "#FF9800" : actR >= 0.3 ? "#FFB74D" : "#795548";
@@ -3390,13 +3391,15 @@ function drawDexPanel() {
                 ctx.fillText(onExp ? "🏃탐색 중" : "⚔전투 중", CW - 20, by + 12);
 
                 // 활동성 바
-                const actR = clamp((farmEe.activity || 0) / getActivityMax(), 0, 1);
+                const feAct = farmEe.activity || 0;
+                const feCap = allComplete() ? Math.max(ACTIVITY_BASE_MAX, feAct) : ACTIVITY_BASE_MAX;
+                const actR = clamp(feAct / feCap, 0, 1);
                 const barX = CW - 120, barY = by + 22, barW = 95, barH = 6;
                 ctx.fillStyle = "#333"; roundRect(barX, barY, barW, barH, 2); ctx.fill();
                 ctx.fillStyle = actR >= 1 ? "#4FC3F7" : actR >= 0.7 ? "#FF9800" : actR >= 0.3 ? "#FFB74D" : "#795548";
                 roundRect(barX, barY, barW * actR, barH, 2); ctx.fill();
                 ctx.textAlign = "right"; ctx.fillStyle = "#aaa"; ctx.font = "8px system-ui";
-                ctx.fillText(`활동성 ${Math.round(farmEe.activity || 0)}`, CW - 20, by + 38);
+                ctx.fillText(`활동성 ${Math.round(feAct)}`, CW - 20, by + 38);
 
                 // 좋아하는/싫어하는 열매
                 ctx.textAlign = "left"; ctx.font = "9px system-ui";
@@ -3923,13 +3926,15 @@ function drawPopup() {
         ctx.fillText(`${evo ? evo.type : ""} 타입`, px + 50, py + 36);
         // 활동성 바
         ctx.textAlign = "center";
-        const actR = clamp((e.activity || 0) / getActivityMax(), 0, 1);
+        const actDisp = e.activity || 0;
+        const actCap = allComplete() ? Math.max(ACTIVITY_BASE_MAX, actDisp) : ACTIVITY_BASE_MAX;
+        const actR = clamp(actDisp / actCap, 0, 1);
         ctx.fillStyle = "#444"; ctx.fillRect(px + 15, py + 52, pw - 30, 6);
         ctx.fillStyle = actR >= 1 ? "#4FC3F7" : actR >= 0.7 ? "#FF9800" : actR >= 0.3 ? "#FFB74D" : "#795548";
         ctx.fillRect(px + 15, py + 52, (pw - 30) * actR, 6);
         ctx.strokeStyle = "#555"; ctx.lineWidth = 0.5; ctx.strokeRect(px + 15, py + 52, pw - 30, 6);
         ctx.fillStyle = "#999"; ctx.font = "10px system-ui";
-        ctx.fillText(`활동성 ${Math.round(e.activity || 0)} / ${getActivityMax()}`, px + pw / 2, py + 70);
+        ctx.fillText(`활동성 ${Math.round(actDisp)}${allComplete() ? "" : " / " + ACTIVITY_BASE_MAX}`, px + pw / 2, py + 70);
         // 열매 + 조각 버튼들
         const availFruits = [...FRUITS, "태양조각", "달조각"].filter(f => hasItem(f));
         if (availFruits.length > 0) {
