@@ -1117,12 +1117,17 @@ function loadGame() {
             };
         });
 
-        // 중복 기본이브이 보정: farm에 evoId=null이 있으면서 currentEevee도 있으면 farm쪽 제거
-        if (state.currentEevee) {
-            const nullCount = state.farm.filter(e => !e.evoId).length;
-            if (nullCount > 0) {
-                const idx = state.farm.findIndex(e => !e.evoId);
-                if (idx !== -1) state.farm.splice(idx, 1);
+        // 중복 기본이브이 보정: 기본이브이(evoId 없음)는 최대 1마리만 허용
+        {
+            let nullInFarm = 0;
+            for (let i = state.farm.length - 1; i >= 0; i--) {
+                if (!state.farm[i].evoId) {
+                    if (state.currentEevee || nullInFarm >= 1) {
+                        state.farm.splice(i, 1);
+                    } else {
+                        nullInFarm++;
+                    }
+                }
             }
         }
 
