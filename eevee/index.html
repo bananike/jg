@@ -832,13 +832,17 @@ function checkEvolution() {
             case "craft": match = state._deliveredItem === evo.craft; break;
             case "friendship_item": match = ee.friendship >= FRIENDSHIP.max && state._deliveredItem === evo.item; break;
             case "friendship_zero_night": match = ee.friendship <= 0 && tod === "night"; break;
-            case "explore_count": match = ee.exploreCount >= 30 && ee.friendship >= FRIENDSHIP.max; break;
+            case "explore_count": match = state.totalExplores >= 30 && ee.friendship >= FRIENDSHIP.max; break;
             case "ground_stone": match = hasItem("부드러운모래") && ee.friendship >= FRIENDSHIP.max && state.totalExplores >= 10; break;
             case "rock_craft": match = (state._globalRepeat || 0) >= 3 && ee.friendship >= FRIENDSHIP.max && hasItem("이끼바위") && hasItem("얼음바위"); break;
             case "flying_feather":
-                // 에어리아: 친밀도 MAX + 바람깃털 전달 + 모든 지역 1회 이상 방문
+                // 에어리아: 친밀도 MAX + 바람깃털 전달 + 모든 지역 1회 이상 방문 (글로벌)
                 const allLocs = LOCATIONS.filter(l => isLocationUnlocked(l));
-                const allVisited = allLocs.length > 0 && allLocs.every(l => ee.visitedLocations && ee.visitedLocations.has(l.id));
+                const globalVisited = new Set();
+                const allEv = [...state.farm];
+                if (state.currentEevee) allEv.push(state.currentEevee);
+                for (const e of allEv) { if (e.visitedLocations) e.visitedLocations.forEach(v => globalVisited.add(v)); }
+                const allVisited = allLocs.length > 0 && allLocs.every(l => globalVisited.has(l.id));
                 match = state._deliveredItem === "바람깃털" && ee.friendship >= FRIENDSHIP.max && allVisited;
                 break;
             case "four_stones":
