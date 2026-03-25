@@ -766,8 +766,8 @@ function updateFarmEntities() {
 
             if (dist < 0.08) {
                 const isFarmEevee = state.farm.includes(e);
-                if (isFruit && isFarmEevee && e.aiState === "walk" && (e.activity || 0) < getActivityMax()) {
-                    // 진화 이브이가 열매 자동 섭취
+                if (isFruit && isFarmEevee && e.aiState === "walk" && (e.activity || 0) < getActivityMax() && Math.random() < 0.15) {
+                    // 진화 이브이가 열매 자동 섭취 (15% 확률)
                     let delta = ACTIVITY_FRUIT_NEUTRAL;
                     let reaction = "neutral";
                     if (item.name === e.likedFruit) { delta = ACTIVITY_FRUIT_LIKED; reaction = "liked"; }
