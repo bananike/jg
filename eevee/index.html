@@ -1304,7 +1304,7 @@ function calcEeveeDPS(eevee) {
     if (!evo) basePower = 0.5; // 기본 이브이
     if (state.endingShown) basePower += 0.5;
 
-    const act = eevee.activity || 0;
+    const act = Math.min(eevee.activity || 0, ACTIVITY_BASE_MAX);
     let dps = basePower + act * 0.3;
 
     // 상성 보정 (다중 타입)
@@ -1320,10 +1320,12 @@ function calcEeveeDPS(eevee) {
     if (tag === "battle_combo") dps *= 1 + Math.min((eevee._comboStacks || 0) * 0.02, 0.5); // 파이티아: 콤보 누적
     if (tag === "battle_sturdy") dps *= 1.15; // 록키온: DPS +15%
     if (tag === "battle_fixed") dps += 2;
-    if (tag === "battle_curse" && state.monster) dps += state.monster.maxHp * 0.005;
-    if (tag === "leafeon" && state.monster) dps += state.monster.maxHp * 0.003;
+    // maxHp 비례 능력: 상한 캡 (기본 DPS의 3배까지)
+    const hpCap = dps * 3;
+    if (tag === "battle_curse" && state.monster) dps += Math.min(state.monster.maxHp * 0.005, hpCap);
+    if (tag === "leafeon" && state.monster) dps += Math.min(state.monster.maxHp * 0.003, hpCap);
     if (tag === "sylveon") dps *= 1.2;
-    if (tag === "battle_dot" && state.monster) dps += state.monster.maxHp * 0.01; // 바이퍼스: 매초 최대HP 1%
+    if (tag === "battle_dot" && state.monster) dps += Math.min(state.monster.maxHp * 0.01, hpCap); // 바이퍼스: 매초 최대HP 1%
     if (tag === "battle_swarm") dps *= 1 + getFighterCount() * 0.05; // 하이버: 마리당 +5%
 
     return dps;
