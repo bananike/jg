@@ -932,7 +932,10 @@ function updateDayNight() {
     state.hintUsed = false;
     state.exploreRefresh = Math.min(getRefreshMax(), (state.exploreRefresh || 0) + 1); // 밤낮 전환 +1
     state._deliveredItem = null;
-    showMessage(state.timeOfDay === "day" ? "☀️ 낮이 되었다!" : "🌙 밤이 되었다!", 90);
+    // 밤낮 전환 시 전체 이브이 활동성 소량 회복
+    if (state.currentEevee) state.currentEevee.activity = Math.min(getActivityMax(), (state.currentEevee.activity || 0) + 3);
+    for (const e of state.farm) e.activity = Math.min(getActivityMax(), (e.activity || 0) + 3);
+    showMessage(state.timeOfDay === "day" ? "☀️ 낮이 되었다! (활동성 +3)" : "🌙 밤이 되었다! (활동성 +3)", 90);
     // 전환 후 시간대로도 진화 체크 (낮 조건 등)
     if (!evoBefore) {
         const evoAfter = checkEvolution();
