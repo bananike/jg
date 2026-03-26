@@ -2856,6 +2856,7 @@ const SPRITE_SCALE = {
     "이브이강철.png": 1.05,    // 메탈리아: 웅크린 자세
     "이브이격투.png": 1.0,     // 브레이버: 기본 크기로
     "이브이바위.png": 1.05,    // 록키온: 약간만 보정
+    "왕이브이.png": 1.25,      // 거다이브: 거대 이브이답게 크게
     "님피아.png": 1.1,         // 님피아: 리본 장식 비중 크고 얼굴 작음
     "블래키.png": 1.1,         // 블래키: 다리 길고 머리 상대적으로 작음
 };
@@ -3705,7 +3706,7 @@ function drawDexPanel() {
             ctx.fillRect(0, 0, CW, CH);
 
             // 팝업 박스
-            const pw = CW - 40, ph = 380;
+            const pw = CW - 40, ph = 440;
             const px = 20, ppY = (CH - ph) / 2;
             ctx.fillStyle = "rgba(25,25,50,0.95)";
             ctx.strokeStyle = "#6C63FF"; ctx.lineWidth = 2;
@@ -3771,7 +3772,7 @@ function drawDexPanel() {
                 const feCap = allComplete() ? Math.max(ACTIVITY_BASE_MAX, feAct) : ACTIVITY_BASE_MAX;
                 const actR = clamp(feAct / feCap, 0, 1);
                 ctx.fillStyle = "#aaa"; ctx.font = "10px system-ui";
-                ctx.fillText(`활동성 ${Math.round(feAct)} / ${feCap}`, px + 15, descY);
+                ctx.fillText(`활동성 ${Math.round(feAct)} / ${Math.round(feCap)}`, px + 15, descY);
                 descY += 10;
                 const barX = px + 15, barW = pw - 30, barH = 8;
                 ctx.fillStyle = "#333"; roundRect(barX, descY, barW, barH, 3); ctx.fill();
@@ -3785,8 +3786,27 @@ function drawDexPanel() {
                 descY += 18;
                 ctx.fillStyle = "#E53935";
                 ctx.fillText(`💢 싫어하는 열매: ${farmEe.dislikedFruit || "?"}`, px + 15, descY);
-                descY += 22;
-            } else {
+                descY += 18;
+            }
+
+            // 스킬 정보
+            const skill = SKILLS[evo.id];
+            if (skill) {
+                ctx.strokeStyle = "#444"; ctx.lineWidth = 1;
+                ctx.beginPath(); ctx.moveTo(px + 15, descY); ctx.lineTo(px + pw - 15, descY); ctx.stroke();
+                descY += 14;
+                ctx.fillStyle = skill.color; ctx.font = "bold 12px system-ui";
+                ctx.fillText(`⚔ ${skill.name}`, px + 15, descY);
+                ctx.fillStyle = "#aaa"; ctx.font = "10px system-ui"; ctx.textAlign = "right";
+                ctx.fillText(`발동 ${Math.round(skill.chance * 100)}% | 쿨 ${(skill.cd / 60).toFixed(0)}초`, px + pw - 15, descY);
+                ctx.textAlign = "left";
+                descY += 16;
+                ctx.fillStyle = "#ccc"; ctx.font = "11px system-ui";
+                ctx.fillText(skill.desc, px + 15, descY);
+                descY += 18;
+            }
+
+            if (!farmEe) {
                 ctx.fillStyle = "#888"; ctx.font = "11px system-ui";
                 ctx.fillText("농장에 없음", px + 15, descY);
                 descY += 22;
