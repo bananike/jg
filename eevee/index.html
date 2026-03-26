@@ -191,7 +191,7 @@ const EVOS = [
     { id:"umbreon",   name:"블래키",     type:"악",     img:"블래키.png",      condition:"friendship_night", spd:65,
       ability:"야행성",   abilityDesc:"밤에 탐색 시 아이템 드롭률 증가", abilityTag:"explore_night" },
     { id:"leafeon",   name:"리피아",     type:"풀",     img:"리피아.png",      condition:"craft", craft:"이끼바위", spd:95,
-      ability:"광합성",   abilityDesc:"농장:활동성 자동회복 / 탐색:열매 드롭 확률↑ / 전투:매턴 HP 3% 추가딜", abilityTag:"leafeon" },
+      ability:"포자",     abilityDesc:"전투:근처 몬스터 이속 15% 감소 (중첩) / 탐색:열매 드롭 확률↑", abilityTag:"leafeon" },
     { id:"glaceon",   name:"글레이시아", type:"얼음",   img:"글레이시아.png",  condition:"craft", craft:"얼음바위", spd:65,
       ability:"절대영도",  abilityDesc:"전투 시 15% 확률로 보스 이동속도 감소", abilityTag:"battle_slow" },
     { id:"sylveon",   name:"님피아",     type:"페어리", img:"님피아.png",      condition:"friendship_item", item:"리본", spd:60,
@@ -227,7 +227,7 @@ const SKILLS = {
     flareon:   { name:"화염방사",       type:"불",     color:"#FF5722", chance:0.10, cd:600,  buff:"selfDps2x", buffDur:180, desc:"3초간 자신 DPS 2배" },
     espeon:    { name:"사이코키네시스", type:"에스퍼", color:"#CE93D8", chance:0.10, cd:720,  stun:90,  desc:"1.5초 이동정지" },
     umbreon:   { name:"악의파동",       type:"악",     color:"#5C6BC0", chance:0.15, cd:600,  debuff:"kbReduce", debuffDur:180, desc:"넉백 50% 감소 3초" },
-    leafeon:   { name:"리프블레이드",   type:"풀",     color:"#66BB6A", chance:0.15, cd:480,  dmgMult:2.5, heal:5, desc:"DPS 250% + 활동성 5 회복" },
+    leafeon:   { name:"리프블레이드",   type:"풀",     color:"#66BB6A", chance:0.15, cd:480,  dmgMult:2.5, heal:5, desc:"DPS 250% + 본인&주변 활동성 5 회복" },
     glaceon:   { name:"냉동빔",         type:"얼음",   color:"#B3E5FC", chance:0.15, cd:480,  debuff:"slow70", debuffDur:180, desc:"이속 70% 감소 3초" },
     sylveon:   { name:"문포스",         type:"페어리", color:"#F48FB1", chance:0.10, cd:720,  buff:"partyDps30", buffDur:180, desc:"전원 DPS 30% 버프 3초" },
     gmax:      { name:"거대충격",       type:"노멀",   color:"#FFFFFF", chance:0.08, cd:900,  dmgMult:4.0, buff:"partyKbImmune", buffDur:180, desc:"DPS 400% + 전원 3초 넉백 무효" },
@@ -681,14 +681,7 @@ function updateFarmEntities() {
 
     // 스태미나 시스템 폐지됨 (출정 시스템으로 대체)
 
-    // 리피아 광합성: 농장 대기 시 활동성 서서히 회복
-    for (let fi = 0; fi < state.farm.length; fi++) {
-        const e = state.farm[fi];
-        const evo = _getEvo(e.evoId);
-        if (evo && evo.abilityTag === "leafeon" && !isOnExpedition(fi)) {
-            e.activity = Math.min(getActivityMax(), (e.activity || 0) + 0.005);
-        }
-    }
+    // 리피아 포자: 전투 시 리피아 근처 몬스터 이속 15% 감소 (글레이시아와 중첩)
 
     // 기본 이브이: 주변 이브이 활동성 미약 회복
     if (state.currentEevee && !isOnExpedition("current")) {
@@ -707,9 +700,8 @@ function updateFarmEntities() {
         const e = state.farm[fi];
         const evo = _getEvo(e.evoId);
         if (evo && evo.abilityTag === "sylveon" && !isOnExpedition(fi)) {
-            // 근처 이브이들 활동성 회복
+            // 근처 이브이들 + 자신 활동성 회복
             for (const other of state.farm) {
-                if (other === e) continue;
                 const dx = e.wx - other.wx, dy = e.wy - other.wy;
                 if (dx * dx + dy * dy < 0.04) { // 반경 0.2
                     other.activity = Math.min(getActivityMax(), (other.activity || 0) + 0.003);
@@ -1564,7 +1556,19 @@ function updateFarmBattle() {
     const slow70Mult = (monsterDebuffs.slow70 > 0) ? 0.3 : 1.0; // 냉동빔 슬로우
     const slowMult = (mon._slowTimer > 0) ? 0.4 : slow70Mult; // 글레이시아 패시브 슬로우
     const stunMult = (monsterDebuffs.stun > 0) ? 0 : 1.0; // 스턴 시 이동 정지
-    const monSpeed = (mon.spd / 80000) * 1.2 * stageBonus * (mon.isBoss ? 0.7 : 1.0) * slowMult * stunMult;
+    // 리피아 포자: 근처에 있으면 이속 15% 감소 (중첩)
+    let sporeMult = 1.0;
+    const allEeSpore = [];
+    if (state.currentEevee && !isOnExpedition("current")) allEeSpore.push(state.currentEevee);
+    state.farm.forEach((e, i) => { if (!isOnExpedition(i)) allEeSpore.push(e); });
+    for (const ee of allEeSpore) {
+        const evo = _getEvo(ee.evoId);
+        if (evo && evo.abilityTag === "leafeon") {
+            const dx = ee.wx - mon.wx, dy = ee.wy - mon.wy;
+            if (dx*dx + dy*dy < 0.04) sporeMult *= 0.85; // 반경 0.2 내 15% 감소
+        }
+    }
+    const monSpeed = (mon.spd / 80000) * 1.2 * stageBonus * (mon.isBoss ? 0.7 : 1.0) * slowMult * stunMult * sporeMult;
     let targetX = 0.5, targetY = 0.5;
     let foundFruit = false;
     if (state.farmItems.length > 0) {
@@ -1737,7 +1741,17 @@ function updateFarmBattle() {
                     if (skill.selfDebuff === "dps50") ee._dps50 = skill.selfDebuffDur;
 
                     // 힐
-                    if (skill.heal) ee.activity = Math.min(getActivityMax(), (ee.activity || 0) + skill.heal);
+                    // 힐: 본인 + 주변 이브이
+                    if (skill.heal) {
+                        ee.activity = Math.min(getActivityMax(), (ee.activity || 0) + skill.heal);
+                        for (const other of allEe) {
+                            if (other === ee) continue;
+                            const hdx = other.wx - ee.wx, hdy = other.wy - ee.wy;
+                            if (hdx*hdx + hdy*hdy < 0.04) { // 반경 0.2
+                                other.activity = Math.min(getActivityMax(), (other.activity || 0) + skill.heal);
+                            }
+                        }
+                    }
 
                     // 이펙트: 텍스트 팝업
                     const scr = worldToScreen(ee.wx, ee.wy);
@@ -1855,6 +1869,35 @@ function applyMonsterReward(stage) {
     const gotAccel = Math.random() < accelChance;
     if (gotAccel) {
         state.farmItems.push({ name:"가속장치", wx: dropX + (Math.random()-0.5)*0.1, wy: dropY + 0.05, vx: (Math.random()-0.5)*0.005, vy: 0.002 });
+    }
+
+    // 레이드 보스 처치 시 특별 보상
+    if (mon && mon.isRaidBoss) {
+        // 열매 5개 랜덤
+        for (let i = 0; i < 5; i++) {
+            const fruit = FRUITS[Math.floor(Math.random() * FRUITS.length)];
+            state.farmItems.push({ name: fruit, wx: dropX + (Math.random()-0.5)*0.2, wy: dropY + (Math.random()-0.5)*0.15, vx: (Math.random()-0.5)*0.01, vy: (Math.random()-0.5)*0.008 });
+        }
+        // 모든 탐색지 아이템 중 랜덤 2종
+        const allItems = [];
+        for (const loc of LOCATIONS) {
+            for (const item of loc.items) {
+                if (item.type !== "fruit" && item.type !== "tm" && !allItems.includes(item.name)) allItems.push(item.name);
+            }
+        }
+        for (let i = allItems.length - 1; i > 0; i--) { const j = Math.floor(Math.random()*(i+1)); [allItems[i],allItems[j]]=[allItems[j],allItems[i]]; }
+        for (let i = 0; i < Math.min(2, allItems.length); i++) {
+            addItem(allItems[i]);
+        }
+        // 미습득 기술머신 1종
+        const unlearnedTMs = Object.keys(TM_TARGET).filter(tm => !state.learnedSkills.has(TM_TARGET[tm]) && !hasItem(tm));
+        if (unlearnedTMs.length > 0) {
+            const tmDrop = unlearnedTMs[Math.floor(Math.random() * unlearnedTMs.length)];
+            addItem(tmDrop);
+        }
+        const itemMsg = allItems.slice(0,2).join(", ");
+        const tmMsg = unlearnedTMs.length > 0 ? " + 기술머신!" : "";
+        return `레이드 보스 처치! 열매x5 + ${itemMsg}${tmMsg}`;
     }
 
     // 보스 처치 시 열매 추가 드롭
@@ -2385,7 +2428,7 @@ function getHint() {
         "진화 아이템을 이브이에게 전달하면 소모된다. 진화 조건이 안 맞으면 그냥 사라지니 주의!",
         "일부 아이템 전달은 친밀도가 충분히 높아야 가능하다.",
         "샤미드(물)의 수의장막은 탐색 시 열매 드롭을 확정 2개로 만든다!",
-        "리피아(풀)는 농장에서 대기만 해도 활동성이 서서히 회복된다.",
+        "리피아(풀)의 포자는 근처 몬스터의 이동속도를 늦춘다! 글레이시아와 중첩된다.",
         "하이버(벌레)은 농장에 이브이가 많을수록 전투 데미지가 올라간다!",
         "플라이비(비행)는 낮에, 레이시아(고스트)는 밤에 활동성 부스트를 받는다.",
         "가속장치를 사용하면 탐색 남은시간이 50% 줄어든다!",
