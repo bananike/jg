@@ -2052,12 +2052,12 @@ function getHint() {
         if (!state.collected.has("gmax")) hints.push("새로운 탐색지가 열린 것 같다... 거대한 무언가의 기운이...");
         if (!state.collected.has("ghost")) hints.push("밤에 이브이의 친밀도가 0 이하로 떨어지면... 어둠의 진화가 일어날지도...");
         if (!state.collected.has("fighting") && ec >= 10) hints.push("탐색을 많이 하고 이브이와 친해지면 강해질 것 같다...");
-        if (!state.collected.has("ground")) hints.push("깊은동굴에서 찾을 수 있는 부드러운모래를 지닌 채로 휴식을 반복하면...");
+        if (!state.collected.has("ground")) hints.push("부드러운모래를 보유한 채 친밀도를 MAX로 올리고 탐색을 10회 이상 하면...");
         if (!state.collected.has("rock")) hints.push("같은 탐색지에 3번 연속 파견하고, 이끼바위와 얼음바위를 갖고 있으면...");
-        if (!state.collected.has("flying")) hints.push("바람깃털을 전달하고, 여러 이브이로 모든 지역을 방문해두면...");
+        if (!state.collected.has("flying")) hints.push("바람깃털을 전달하고, 친밀도 MAX + 모든 지역을 방문해두면...");
         if (!state.collected.has("steel")) hints.push("물의돌, 불꽃의돌, 천둥의돌, 부드러운모래를 모두 모으고 친밀도가 최대라면...");
-        if (!state.collected.has("poison")) hints.push("독안개늪에서 찾을 수 있는 독바늘을 이브이에게 전달하면...");
-        if (!state.collected.has("bug")) hints.push("벌레숲에서 찾을 수 있는 벌레껍질을 이브이에게 전달하면...");
+        if (!state.collected.has("poison")) hints.push("독안개늪에서 찾을 수 있는 독바늘을 친밀도 MAX인 이브이에게 전달하면...");
+        if (!state.collected.has("bug")) hints.push("벌레숲에서 찾을 수 있는 벌레껍질을 친밀도 MAX인 이브이에게 전달하면...");
     }
     // 게임플레이 팁 (진화 힌트가 없을 때 or 50% 확률)
     const tips = [
@@ -3345,17 +3345,17 @@ function drawInventoryPanel() {
 
 function getEvoConditionText(evo) {
     switch (evo.condition) {
-        case "stone": return `${evo.stone} 사용`;
+        case "stone": return evo.postGame ? `${evo.stone} 전달 + 친밀도 MAX` : `${evo.stone} 전달`;
         case "friendship_day": return "친밀도 MAX + 낮";
         case "friendship_night": return "친밀도 MAX + 밤";
-        case "craft": return `${evo.craft} 제작 후 사용`;
+        case "craft": return `${evo.craft} 제작 후 전달`;
         case "friendship_item": return `친밀도 MAX + ${evo.item} 전달`;
         case "friendship_zero_night": return "친밀도 0 이하 + 밤";
         case "explore_count": return "탐색 30회 + 친밀도 MAX";
-        case "ground_stone": return "부드러운모래 전달 + 친밀도 MAX + 탐색 10회";
-        case "rock_craft": return "같은 탐색지 3연속 + 친밀도 MAX + 이끼바위&얼음바위";
+        case "ground_stone": return "부드러운모래 보유 + 친밀도 MAX + 탐색 10회";
+        case "rock_craft": return "같은 탐색지 3연속 + 친밀도 MAX + 이끼바위&얼음바위 보유";
         case "flying_feather": return "바람깃털 전달 + 친밀도 MAX + 모든 지역 방문";
-        case "four_stones": return "물의돌+불꽃의돌+천둥의돌+부드러운모래 보유 + 친밀도 MAX";
+        case "four_stones": return "물·불꽃·천둥의돌+부드러운모래 보유 + 친밀도 MAX";
         case "dragon": return "거다이브&메가브이 수집 + 용의비늘 전달 + 친밀도 MAX";
         case "poison_evo": return "독바늘 전달 + 친밀도 MAX";
         case "bug_evo": return "벌레껍질 전달 + 친밀도 MAX";
