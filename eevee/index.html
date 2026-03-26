@@ -405,6 +405,8 @@ const state = {
     monster: null,            // { type, name, hp, maxHp, stage }
     monsterStage: 0,          // 현재 몬스터 스테이지
     monsterMaxStage: 0,       // 최고 클리어 스테이지
+    maxDps: 0,                // 최고 DPS 기록
+    gameSpeed: 1,             // 게임 배속 (엔딩 후 2배속 가능)
     monsterHitAnim: 0,        // 피격 애니메이션 타이머
     monsterKillAnim: 0,       // 처치 애니메이션 타이머
     monsterSpawnAnim: 0,      // 등장 애니메이션 타이머
@@ -1092,6 +1094,8 @@ function saveGame() {
             hintBoosts: state.hintBoosts || [],
             base8Notified: state.base8Notified,
             monsterMaxStage: state.monsterMaxStage || 0,
+            maxDps: state.maxDps || 0,
+            gameSpeed: state.gameSpeed || 1,
             monsterStage: state.monsterStage || 0,
             monster: state.monster || null,
             unlockedByBattle: [...(state.unlockedByBattle || [])],
@@ -1122,6 +1126,8 @@ function loadGame() {
         state.hintBoosts = data.hintBoosts || [];
         state.base8Notified = data.base8Notified || false;
         state.monsterMaxStage = data.monsterMaxStage || 0;
+        state.maxDps = data.maxDps || 0;
+        state.gameSpeed = data.gameSpeed || 1;
         state.monsterStage = data.monsterStage || data.monsterMaxStage || 0;
         state.monster = data.monster || null;
         // 몬스터 타이머 리셋 (로드 시 제한시간 새로 부여)
@@ -1263,6 +1269,7 @@ function submitScore() {
         id: state.playerId,
         stage: state.monsterMaxStage,
         collected: state.collected.size,
+        maxDps: Math.round(state.maxDps * 10) / 10,
     };
     fetch(LB_URL, {
         method: "POST",
@@ -1420,7 +1427,7 @@ function spawnMonster(stage) {
         mon = pool[Math.floor(Math.random() * pool.length)];
     }
 
-    const hpMult = isRaidBoss ? 5.0 : isBoss ? 3.0 : 1.0;
+    const hpMult = isRaidBoss ? 3.0 : isBoss ? 3.0 : 1.0;
     const maxHp = Math.floor((30 + stage * 25 + Math.pow(stage, 1.6) * 5) * hpMult);
     state.monster = {
         name: mon.name, img: mon.img, types: mon.types,
@@ -1442,7 +1449,7 @@ function spawnMonster(stage) {
     skillParticles.length = 0; skillTexts.length = 0;
     state.monsterTimer = Date.now();
     const bossClears = Math.floor((state.monsterMaxStage || 0) / 10);
-    state.monsterTimeLimit = isRaidBoss ? 120 * 1000 : (60 + bossClears * 5) * 1000 * (isBoss ? 1.5 : 1);
+    state.monsterTimeLimit = isRaidBoss ? 180 * 1000 : (60 + bossClears * 5) * 1000 * (isBoss ? 1.5 : 1);
 }
 
 // 다중 타입 상성 계산 (몬스터가 2타입일 수 있음)
@@ -1572,7 +1579,6 @@ function updateFarmBattle() {
     let targetX = 0.5, targetY = 0.5;
     let foundFruit = false;
     if (state.farmItems.length > 0) {
-        // 가장 가까운 타겟 찾기 (레이드: 모든 아이템, 일반: 열매만)
         let minDist = Infinity;
         for (const item of state.farmItems) {
             if (!mon.isRaidBoss && !FRUITS.includes(item.name)) continue;
@@ -1581,15 +1587,16 @@ function updateFarmBattle() {
         }
     }
     if (!foundFruit) {
-        // 열매 없으면 넓게 배회
         targetX = 0.5 + Math.sin(frame * 0.003 + mon.stage * 7) * 0.35;
         targetY = 0.4 + Math.cos(frame * 0.004 + mon.stage * 5) * 0.25;
     }
     const mdx = targetX - mw, mdy = targetY - mh;
     const mDist = Math.sqrt(mdx * mdx + mdy * mdy);
+    // 타겟 추적 시 거리에 따라 감속 (가까울수록 느려짐, 직선 돌진 방지)
+    const chaseMult = foundFruit ? Math.min(mDist * 3, 0.6) : 1.0;
     if (mDist > 0.01) {
-        mon.wx += (mdx / mDist) * monSpeed;
-        mon.wy += (mdy / mDist) * monSpeed * 0.7; // y축은 더 느리게 (원근감)
+        mon.wx += (mdx / mDist) * monSpeed * chaseMult;
+        mon.wy += (mdy / mDist) * monSpeed * chaseMult * 0.7;
     }
     mon.wx = clamp(mon.wx, 0.08, 0.92);
     mon.wy = clamp(mon.wy, 0.08, 0.85);
@@ -1804,6 +1811,7 @@ function updateFarmBattle() {
         return;
     }
 
+    if (totalDPS > state.maxDps) state.maxDps = totalDPS;
     if (totalDPS <= 0) return;
 
     const dmgPerFrame = totalDPS / 60;
@@ -1820,8 +1828,8 @@ function updateFarmBattle() {
         if (state.monster.isRaidBoss && state._raidPhase2) {
             const p2 = state._raidPhase2;
             const stage = state.monster.stage;
-            const baseHp = Math.floor((30 + stage * 25 + Math.pow(stage, 1.6) * 5) * 5.0);
-            const p2Hp = baseHp * 2; // 2페이즈 체력 2배
+            const baseHp = Math.floor((30 + stage * 25 + Math.pow(stage, 1.6) * 5) * 3.0);
+            const p2Hp = Math.floor(baseHp * 1.5); // 2페이즈 체력 1.5배
             state.monster = {
                 name: p2.name, img: p2.img, types: p2.types,
                 stage, maxHp: p2Hp, hp: p2Hp, isBoss: true,
@@ -1832,7 +1840,7 @@ function updateFarmBattle() {
             };
             state._raidPhase2 = null; // 2페이즈 데이터 소모
             state.monsterTimer = Date.now(); // 제한시간 초기화
-            state.monsterTimeLimit = 120 * 1000;
+            state.monsterTimeLimit = 180 * 1000;
             state.monsterSpawnAnim = 60;
             // 디버프 초기화
             monsterDebuffs.stun = 0; monsterDebuffs.slow70 = 0; monsterDebuffs.kbReduce = 0;
@@ -3213,6 +3221,17 @@ function drawHUD() {
     ctx.fillStyle = "#aaa"; ctx.font = "9px system-ui";
     ctx.fillText(nextIcon, barX + barW + 5, 14);
 
+    // 2배속 버튼 (엔딩 후)
+    if (state.endingShown || allComplete()) {
+        const sx = barX + barW + 20, sy = 4, sw = 36, sh = 18;
+        const is2x = state.gameSpeed === 2;
+        ctx.fillStyle = is2x ? "rgba(255,152,0,0.8)" : "rgba(80,80,80,0.6)";
+        roundRect(sx, sy, sw, sh, 4); ctx.fill();
+        ctx.fillStyle = "#fff"; ctx.font = "bold 10px system-ui"; ctx.textAlign = "center";
+        ctx.fillText(is2x ? "▶▶" : "▶×2", sx + sw/2, sy + sh/2);
+        state._speedBtnRect = { x: sx, y: sy, w: sw, h: sh };
+    }
+
     ctx.fillStyle = "#ddd"; ctx.font = "12px system-ui";
 
     // 전투 진행 표시
@@ -3411,7 +3430,7 @@ function drawExplorePanel() {
             roundRect(cx - CELL_W / 2 + 4, cy - CELL_H / 2 + 4, CELL_W - 8, CELL_H - 8, 8);
             ctx.fill(); ctx.stroke();
             // 스프라이트
-            drawSprite(ee.img, cx, cy - 8, 1, 30);
+            drawSprite(ee.img, cx, cy + 12, 1, 30);
             // 이름
             ctx.fillStyle = "#fff"; ctx.font = "bold 10px system-ui";
             ctx.textAlign = "center";
@@ -3799,7 +3818,7 @@ function drawDexPanel() {
 
         if (collected) {
             // 스프라이트
-            drawSprite(evo.img, cx + CARD_W / 2, cy + 30, 1, 36);
+            drawSprite(evo.img, cx + CARD_W / 2, cy + 48, 1, 36);
 
             // 이름
             ctx.textAlign = "center";
@@ -3829,7 +3848,14 @@ function drawDexPanel() {
 
                 // 활동성 수치
                 ctx.fillStyle = "#aaa"; ctx.font = "8px system-ui";
-                ctx.fillText(`활동성 ${Math.round(feAct)}`, cx + CARD_W / 2, cy + 112);
+                ctx.fillText(`활동성 ${Math.round(feAct)}`, cx + CARD_W / 2, cy + 108);
+            }
+            // 스킬 습득 여부
+            const skill = SKILLS[evo.id];
+            if (skill) {
+                const learned = state.learnedSkills.has(evo.id);
+                ctx.fillStyle = learned ? skill.color : "#555"; ctx.font = "bold 8px system-ui";
+                ctx.fillText(learned ? `⚔${skill.name}` : "⚔미습득", cx + CARD_W / 2, cy + 118);
             }
         } else {
             ctx.fillStyle = "#444"; ctx.font = "bold 32px system-ui"; ctx.textAlign = "center";
@@ -3864,7 +3890,7 @@ function drawDexPanel() {
             ctx.fillText("✕", px + pw - 10, ppY + 18);
 
             // 스프라이트
-            drawSprite(evo.img, px + 50, ppY + 55, 1, 52);
+            drawSprite(evo.img, px + 50, ppY + 75, 1, 52);
 
             // 이름 + 타입
             ctx.textAlign = "left";
@@ -4637,8 +4663,10 @@ function drawPopup() {
 
                 ctx.textAlign = "left"; ctx.fillStyle = "#fff"; ctx.font = "bold 12px system-ui";
                 ctx.fillText(`${medal} ${row.name}`, px + 18, ry + 12);
-                ctx.textAlign = "right"; ctx.fillStyle = "#4FC3F7"; ctx.font = "bold 12px system-ui";
-                ctx.fillText(`Lv.${row.stage}`, px + pw - 60, ry + 12);
+                ctx.textAlign = "right"; ctx.fillStyle = "#4FC3F7"; ctx.font = "bold 11px system-ui";
+                ctx.fillText(`Lv.${row.stage}`, px + pw - 100, ry + 12);
+                ctx.fillStyle = "#FF5722"; ctx.font = "bold 10px system-ui";
+                ctx.fillText(`${row.maxDps || 0}dps`, px + pw - 45, ry + 12);
                 ctx.fillStyle = "#aaa"; ctx.font = "10px system-ui";
                 ctx.fillText(`${row.collected}종`, px + pw - 18, ry + 12);
                 ctx.textAlign = "center";
@@ -5639,6 +5667,15 @@ function handleInput() {
         return;
     }
 
+    // 배속 토글
+    if (state._speedBtnRect) {
+        const sb = state._speedBtnRect;
+        if (hitBox(x, y, sb.x, sb.y, sb.w, sb.h)) {
+            state.gameSpeed = state.gameSpeed === 2 ? 1 : 2;
+            return;
+        }
+    }
+
     // 둥지 클릭
     if (canSummonEevee() && hitBox(x, y, CW / 2 - 80, BTN_Y - 52, 160, 28)) {
         summonEevee();
@@ -5721,10 +5758,20 @@ function loop() {
         requestAnimationFrame(loop); return;
     }
 
-    handleInput();
-    checkExpeditionReturns();
-    if (state.scene === "farm") updateDayNight();
-    if (state.scene === "farm") updateFarmBattle();
+    const spd = state.gameSpeed || 1;
+    // 배속 시 Date.now() 기반 타이머 가속 (프레임당 추가 ms 차감)
+    if (spd > 1) {
+        const bonus = Math.floor(1000 / 60 * (spd - 1)); // 2배속이면 ~16ms 추가
+        if (state.monsterTimer) state.monsterTimer -= bonus;
+        if (state.expeditions) for (const exp of state.expeditions) exp.startTime -= bonus;
+        if (typeof lastDayNightCheck !== "undefined") lastDayNightCheck -= bonus;
+    }
+    for (let sp = 0; sp < spd; sp++) {
+        handleInput();
+        checkExpeditionReturns();
+        if (state.scene === "farm") updateDayNight();
+        if (state.scene === "farm") updateFarmBattle();
+    }
 
     // 패널 슬라이드 애니메이션
     if (state.panel) {
