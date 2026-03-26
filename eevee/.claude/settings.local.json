@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(npx --version)",
-      "Bash(npx live-server:*)"
+      "Bash(npx live-server:*)",
+      "Bash(find /Users/ajy -maxdepth 4 -type d -name *nnw*erp*)"
     ]
   }
 }
