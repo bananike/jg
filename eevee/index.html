@@ -1568,8 +1568,11 @@ function applyMonsterReward(stage) {
     const mon = state.monster;
     const dropX = mon ? mon.wx : 0.5, dropY = mon ? mon.wy : 0.5;
 
-    // 가속장치: 20% 확률 드롭 (보스는 50%)
-    const accelChance = (mon && mon.isBoss) ? 0.3 : 0.1;
+    // 가속장치: 보스클리어마다 +1%, 몬스터 최대 50%, 보스 최대 75%
+    const bossClears = Math.floor((state.monsterMaxStage || 0) / 10);
+    const accelChance = (mon && mon.isBoss)
+        ? Math.min(0.50 + bossClears * 0.01, 0.75)
+        : Math.min(0.20 + bossClears * 0.01, 0.50);
     const gotAccel = Math.random() < accelChance;
     if (gotAccel) {
         state.farmItems.push({ name:"가속장치", wx: dropX + (Math.random()-0.5)*0.1, wy: dropY + 0.05, vx: (Math.random()-0.5)*0.005, vy: 0.002 });
