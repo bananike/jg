@@ -457,6 +457,7 @@ const imageList = [
     "mon/매시붕.png","mon/페로코체.png","mon/전수목.png","mon/종이신도.png",
     "mon/텅비드.png","mon/차곡차곡.png","mon/두파팡.png","mon/악식킹.png","mon/위유이.png",
     "mon/총지엔.png","mon/파오젠.png","mon/딩루.png","mon/철화구야.png",
+    "mon/네크로즈마.png","mon/울트라네크로즈마.png","mon/무한다이노.png","mon/무한다이노다이맥스.png",
 ];
 const totalImages = imageList.length;
 imageList.forEach(name => {
@@ -1395,33 +1396,51 @@ const BOSS_MONSTERS = [
     { name:"위유이",   img:"mon/위유이.png",   types:["악","불"],    spd:100 },
 ];
 
+// 100레벨 단위 레이드 보스 (2페이즈)
+const RAID_BOSSES = [
+    { phase1: { name:"네크로즈마",     img:"mon/네크로즈마.png",     types:["에스퍼"],         spd:130 },
+      phase2: { name:"울트라네크로즈마", img:"mon/울트라네크로즈마.png", types:["에스퍼","드래곤"], spd:130 } },
+    { phase1: { name:"무한다이노",     img:"mon/무한다이노.png",     types:["독","드래곤"],     spd:120 },
+      phase2: { name:"무한다이노다이맥스", img:"mon/무한다이노다이맥스.png", types:["독","드래곤"], spd:120 } },
+];
+
 // 몬스터 생성
 function spawnMonster(stage) {
     const isBoss = stage % 10 === 0;
+    const isRaidBoss = stage % 100 === 0 && stage > 0;
     let mon;
     const prevName = state.monster ? state.monster.name : "";
-    if (isBoss) {
+
+    if (isRaidBoss) {
+        // 100레벨 단위 레이드 보스
+        const raidIdx = ((stage / 100) - 1) % RAID_BOSSES.length;
+        const raid = RAID_BOSSES[raidIdx];
+        mon = raid.phase1;
+        state._raidPhase2 = raid.phase2; // 2페이즈 데이터 저장
+    } else if (isBoss) {
         const pool = BOSS_MONSTERS.filter(m => m.name !== prevName);
         mon = pool[Math.floor(Math.random() * pool.length)];
     } else {
-        // 보스 클리어 수에 따라 해금 (초반 4종 + 보스 클리어당 1종)
         const bossClears = Math.floor((state.monsterMaxStage || 0) / 10);
         const unlocked = Math.min(4 + bossClears, UB_MONSTERS.length);
         const available = UB_MONSTERS.slice(0, unlocked);
         const pool = available.filter(m => m.name !== prevName);
         mon = pool[Math.floor(Math.random() * pool.length)];
     }
-    const hpMult = isBoss ? 3.0 : 1.0;
+
+    const hpMult = isRaidBoss ? 5.0 : isBoss ? 3.0 : 1.0;
     const maxHp = Math.floor((30 + stage * 25 + Math.pow(stage, 1.6) * 5) * hpMult);
     state.monster = {
         name: mon.name, img: mon.img, types: mon.types,
         stage, maxHp, hp: maxHp, isBoss,
+        isRaidBoss,
         spd: mon.spd || 60,
         wx: 0.2 + Math.random() * 0.6,
         wy: 0.15 + Math.random() * 0.5,
-        targetItem: null, // 목표 열매 인덱스
+        targetItem: null,
         _slowTimer: 0, _pushCooldown: 0,
     };
+    if (!isRaidBoss) state._raidPhase2 = null;
     state.monsterStage = stage;
     state.monsterSpawnAnim = 90;
     // 디버프/버프 초기화
@@ -1431,7 +1450,7 @@ function spawnMonster(stage) {
     skillParticles.length = 0; skillTexts.length = 0;
     state.monsterTimer = Date.now();
     const bossClears = Math.floor((state.monsterMaxStage || 0) / 10);
-    state.monsterTimeLimit = (60 + bossClears * 5) * 1000 * (isBoss ? 1.5 : 1); // ms
+    state.monsterTimeLimit = isRaidBoss ? 120 * 1000 : (60 + bossClears * 5) * 1000 * (isBoss ? 1.5 : 1);
 }
 
 // 다중 타입 상성 계산 (몬스터가 2타입일 수 있음)
@@ -1549,10 +1568,10 @@ function updateFarmBattle() {
     let targetX = 0.5, targetY = 0.5;
     let foundFruit = false;
     if (state.farmItems.length > 0) {
-        // 가장 가까운 열매 찾기
+        // 가장 가까운 타겟 찾기 (레이드: 모든 아이템, 일반: 열매만)
         let minDist = Infinity;
         for (const item of state.farmItems) {
-            if (!FRUITS.includes(item.name)) continue;
+            if (!mon.isRaidBoss && !FRUITS.includes(item.name)) continue;
             const d = Math.sqrt((item.wx - mw) ** 2 + (item.wy - mh) ** 2);
             if (d < minDist) { minDist = d; targetX = item.wx; targetY = item.wy; foundFruit = true; }
         }
@@ -1571,35 +1590,33 @@ function updateFarmBattle() {
     mon.wx = clamp(mon.wx, 0.08, 0.92);
     mon.wy = clamp(mon.wy, 0.08, 0.85);
 
-    // 몬스터와 열매 충돌 = 공격 (접촉 시 HP 깎기 + 밀어내기)
+    // 몬스터와 아이템 충돌 = 공격
     for (let fi = state.farmItems.length - 1; fi >= 0; fi--) {
         const item = state.farmItems[fi];
-        if (!FRUITS.includes(item.name)) continue;
+        const isFruitItem = FRUITS.includes(item.name);
+        // 일반 몬스터: 열매만 공격 / 레이드 보스: 모든 아이템 공격
+        if (!isFruitItem && !mon.isRaidBoss) continue;
         const fdx = item.wx - mon.wx, fdy = item.wy - mon.wy;
         const d = Math.sqrt(fdx * fdx + fdy * fdy);
         if (d < 0.05) {
-            if (item.hp == null) item.hp = 2;
+            if (item.hp == null) item.hp = mon.isRaidBoss ? 1 : 2; // 레이드: 1회 제거
             if (item._hitCooldown == null) item._hitCooldown = 0;
             if (item._hitCooldown > 0) { item._hitCooldown--; }
-            // 충돌 시 밀어내기 (열매가 튕겨남)
             if (d > 0.001) {
                 const pushF = 0.02;
                 item.vx += (fdx / d) * pushF;
                 item.vy += (fdy / d) * pushF;
             }
-            // 쿨다운 지나면 데미지 (항상 1 고정)
             if (item._hitCooldown <= 0) {
                 item.hp -= 1;
-                item._hitCooldown = 45; // 0.75초 쿨다운
-                item.damaged = true; // 반짝이 이펙트 제거용
+                item._hitCooldown = mon.isRaidBoss ? 20 : 45;
+                item.damaged = true;
                 if (item.hp <= 0) {
-                    // 삭제 이펙트 추가
                     const scr = worldToScreen(item.wx, item.wy);
                     if (!state.fruitDestroyFx) state.fruitDestroyFx = [];
                     state.fruitDestroyFx.push({ x: scr.sx, y: scr.sy, timer: 45, emoji: itemEmoji(item.name) });
                     state.farmItems.splice(fi, 1);
-                    // 열매 파괴 시 몬스터 최대체력 10% 회복
-                    mon.hp = Math.min(mon.hp + mon.maxHp * 0.1, mon.maxHp);
+                    if (isFruitItem) mon.hp = Math.min(mon.hp + mon.maxHp * 0.1, mon.maxHp);
                 }
             }
         }
@@ -1625,7 +1642,7 @@ function updateFarmBattle() {
             const edx = ee.wx - mon.wx, edy = ee.wy - mon.wy;
             const eDist = Math.sqrt(edx * edx + edy * edy);
             if (eDist < pushRadius && eDist > 0.001) {
-                let kbPower = 0.07;
+                let kbPower = mon.isRaidBoss ? 0.105 : 0.07; // 레이드 보스 넉백 1.5배
                 // 거다이브 근처 이브이: 넉백 50% 감소
                 const gmaxEe = allEe.find(g => { const gEvo = _getEvo(g.evoId); return gEvo && gEvo.abilityTag === "battle_noweakness"; });
                 if (gmaxEe) {
@@ -1784,14 +1801,39 @@ function updateFarmBattle() {
     // 몬스터 처치
     if (state.monster.hp <= 0) {
         state.monster.hp = 0;
+
+        // 레이드 보스 2페이즈 전환
+        if (state.monster.isRaidBoss && state._raidPhase2) {
+            const p2 = state._raidPhase2;
+            const stage = state.monster.stage;
+            const baseHp = Math.floor((30 + stage * 25 + Math.pow(stage, 1.6) * 5) * 5.0);
+            const p2Hp = baseHp * 2; // 2페이즈 체력 2배
+            state.monster = {
+                name: p2.name, img: p2.img, types: p2.types,
+                stage, maxHp: p2Hp, hp: p2Hp, isBoss: true,
+                isRaidBoss: true, isPhase2: true,
+                spd: Math.floor((p2.spd || 120) * 1.5), // 이속 1.5배
+                wx: state.monster.wx, wy: state.monster.wy,
+                targetItem: null, _slowTimer: 0, _pushCooldown: 0,
+            };
+            state._raidPhase2 = null; // 2페이즈 데이터 소모
+            state.monsterTimer = Date.now(); // 제한시간 초기화
+            state.monsterTimeLimit = 120 * 1000;
+            state.monsterSpawnAnim = 60;
+            // 디버프 초기화
+            monsterDebuffs.stun = 0; monsterDebuffs.slow70 = 0; monsterDebuffs.kbReduce = 0;
+            monsterDebuffs.dmgTaken2x = 0; monsterDebuffs.dot2 = 0;
+            partyBuffs.dps30 = 0; partyBuffs.kbImmune = 0;
+            showMessage(`⚠ ${p2.name} 등장! 2페이즈 시작!`, 180);
+            return;
+        }
+
         state.monsterMaxStage = state.monsterStage;
-        state.exploreRefresh = Math.min(getRefreshMax(), (state.exploreRefresh || 0) + 1); // 처치 시 +1
+        state.exploreRefresh = Math.min(getRefreshMax(), (state.exploreRefresh || 0) + 1);
         state.monsterReward = applyMonsterReward(state.monsterStage);
-        state.monsterKillAnim = state.monster.isBoss ? 600 : 420;
-        // 스테이지 갱신 시 리더보드 업로드
+        state.monsterKillAnim = state.monster.isRaidBoss ? 900 : state.monster.isBoss ? 600 : 420;
         submitScore();
         saveGame();
-        // 다음 몬스터는 killAnim 끝난 후 spawn
     }
 }
 
@@ -1979,30 +2021,32 @@ function resolveExpedition(exp) {
     const isNightLoc = loc.time === "night";
     const allDrops = [];
 
+    // ── 아이템 드롭 (1회 통합 판정) ──
+    let itemPool = baseItemPool.filter(i => {
+        if (i.type === "tm") {
+            const targetId = TM_TARGET[i.name];
+            if (targetId && state.learnedSkills.has(targetId)) return false;
+            if (hasItem(i.name)) return false;
+        }
+        return true;
+    });
+    const isNight = state.timeOfDay === "night";
+    let itemChance = 0.35;
+    // 타입 매치: 파티 중 지역 타입과 같은 이브이가 있으면 +0.20
+    if (members.some(m => loc.attr === m.type)) itemChance += 0.20;
+    // 에브이: 낮에 +0.20 / 블래키: 밤에 +0.20
+    if (members.some(m => m.tag === "explore_day") && !isNight) itemChance += 0.20;
+    if (members.some(m => m.tag === "explore_night") && isNight) itemChance += 0.20;
+    itemChance = Math.min(itemChance, 1.0);
+
+    if (itemPool.length > 0 && Math.random() < itemChance) {
+        allDrops.push(weightedRandom(itemPool));
+    }
+
+    // ── 열매 드롭 (멤버별 개별 판정) ──
     for (const m of members) {
         const tag = m.tag || "";
-        // TM은 이미 습득했거나 인벤에 있으면 드롭풀에서 제외
-        let itemPool = baseItemPool.filter(i => {
-            if (i.type === "tm") {
-                const targetId = TM_TARGET[i.name];
-                if (targetId && state.learnedSkills.has(targetId)) return false;
-                if (hasItem(i.name)) return false;
-            }
-            return true;
-        });
-        const typeMatch = loc.attr === m.type;
-        const isNight = state.timeOfDay === "night";
-        let itemChance = typeMatch ? 0.55 : 0.35;
-        // 에브이: 낮에 드롭률 증가 / 블래키: 밤에 드롭률 증가
-        if (tag === "explore_day" && !isNight) itemChance = Math.min(itemChance + 0.35, 1.0);
-        if (tag === "explore_night" && isNight) itemChance = Math.min(itemChance + 0.35, 1.0);
 
-        // 아이템 드롭
-        if (itemPool.length > 0 && Math.random() < itemChance) {
-            allDrops.push(weightedRandom(itemPool));
-        }
-
-        // 열매 드롭
         const fruitCount = tag === "explore_fruit2" ? 2 : 1;
         const fruitChance = tag === "explore_fruit2" ? 1.0 : (tag === "leafeon" ? 0.75 : 0.45);
         for (let fi = 0; fi < fruitCount; fi++) {
@@ -4616,7 +4660,7 @@ function drawMonster() {
     const m = state.monster;
     const mScr = worldToScreen(state.monster.wx, state.monster.wy);
     const mx = mScr.sx, my = mScr.sy;
-    const monSize = m.isBoss ? 90 : 72;
+    const monSize = m.isRaidBoss ? 135 : m.isBoss ? 90 : 72;
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
 
     // 등장 연출 (하늘에서 떨어짐)
