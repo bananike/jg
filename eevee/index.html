@@ -207,7 +207,7 @@ const EVOS = [
     { id:"dragon",    name:"드라키온",   type:"드래곤", img:"이브이드래곤.png", condition:"dragon", postGame:true, spd:90,
       ability:"용의분노",  abilityDesc:"전투 시 고정 데미지 20 추가", abilityTag:"battle_fixed" },
     { id:"ground",    name:"샌디온",     type:"땅",     img:"이브이땅.png",    condition:"ground_stone", postGame:true, spd:50,
-      ability:"발굴",     abilityDesc:"탐색 시 아이템 추가 1개 드롭", abilityTag:"explore_extra" },
+      ability:"발굴",     abilityDesc:"탐색 시 열매 추가 1개 드롭", abilityTag:"explore_extra" },
     { id:"rock",      name:"록키온",     type:"바위",   img:"이브이바위.png",  condition:"rock_craft", postGame:true, spd:40,
       ability:"견고",     abilityDesc:"전투 시 받는 넉백 무효 + DPS +15%", abilityTag:"battle_sturdy" },
     { id:"flying",    name:"플라이비",   type:"비행",   img:"이브이비행.png",  condition:"flying_feather", postGame:true, spd:115,
@@ -1044,6 +1044,7 @@ function saveGame() {
             unlockedByBattle: [...(state.unlockedByBattle || [])],
             expeditions: (state.expeditions || []).map(e => ({ ...e })),
             // expeditionSlots는 getExpSlots()로 동적 계산
+            _lastExpRefs: state._lastExpRefs || [],
             endingShown: state.endingShown || false,
             playerName: state.playerName || "",
             playerId: state.playerId || "",
@@ -1077,6 +1078,7 @@ function loadGame() {
         state.unlockedByBattle = new Set(data.unlockedByBattle || []);
         state.expeditions = data.expeditions || [];
         // expeditionSlots는 getExpSlots()로 동적 계산
+        state._lastExpRefs = data._lastExpRefs || [];
         state.endingShown = data.endingShown || false;
         state.playerName = data.playerName || "";
         state.playerId = data.playerId || "";
@@ -1720,6 +1722,7 @@ function sendExpedition(locId, eeveeRefs) {
         state._globalRepeat = 1;
     }
     state._lastExpLocation = locId;
+    state._lastExpRefs = eeveeRefs.slice(); // 최근 탐색 멤버 저장
 
     const hasSylveon = members.some(m => m.tag === "sylveon");
     for (const m of members) {
@@ -1767,8 +1770,8 @@ function resolveExpedition(exp) {
             if (Math.random() < fruitChance) allDrops.push(weightedRandom(fruitPool));
         }
 
-        // 샌디온 발굴
-        if (tag === "explore_extra" && itemPool.length > 0) allDrops.push(weightedRandom(itemPool));
+        // 샌디온 발굴: 열매 추가 1개
+        if (tag === "explore_extra") allDrops.push(weightedRandom(fruitPool));
     }
 
     // 최소 1개 보장
@@ -2645,10 +2648,22 @@ const SPRITE_DEFAULT_FACING = {
     "이브이바위.png": -1, "이브이비행.png": -1, "이브이강철.png": -1,
 };
 
+// 머리가 작게 표현된 스프라이트 보정 스케일 (기준 1.0)
+const SPRITE_SCALE = {
+    "이브이고스트.png": 1.25,  // 레이시아: 몸통 비중 크고 머리 매우 작음
+    "이브이땅.png": 1.2,      // 샌디온: 앉은 자세, 전체적으로 작아보임
+    "이브이강철.png": 1.2,    // 메탈리아: 웅크린 자세, 머리 작음
+    "이브이격투.png": 1.15,   // 브레이버: 몸통 비중 큼
+    "이브이바위.png": 1.2,    // 록키온: 전체적으로 작은 체형
+    "님피아.png": 1.1,        // 님피아: 리본 장식 비중 크고 얼굴 작음
+    "블래키.png": 1.1,        // 블래키: 다리 길고 머리 상대적으로 작음
+};
+
 function drawSprite(imgName, sx, sy, facing, size) {
     const img = images[imgName];
     if (!img || !img.complete) return;
-    const w = size;
+    const scale = SPRITE_SCALE[imgName] || 1.0;
+    const w = size * scale;
     const h = w * (img.height / img.width);
     const defaultDir = SPRITE_DEFAULT_FACING[imgName] || -1;
     ctx.save();
@@ -3005,6 +3020,18 @@ function drawExplorePanel() {
             const evo = EVOS.find(ev => ev.id === e.evoId);
             if (evo) allEe.push({ ref: i, name: evo.name, img: evo.img, type: evo.type, act: e.activity || 0 });
         });
+        // 정렬: 최근 탐색 멤버 우선 → 나머지 (획득순 유지)
+        const lastRefs = state._lastExpRefs || [];
+        if (lastRefs.length > 0) {
+            allEe.sort((a, b) => {
+                const aIdx = lastRefs.indexOf(a.ref);
+                const bIdx = lastRefs.indexOf(b.ref);
+                if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
+                if (aIdx !== -1) return -1;
+                if (bIdx !== -1) return 1;
+                return 0;
+            });
+        }
 
         const loc = LOCATIONS.find(l => l.id === state.expeditionSelect.locId);
         const GRID_COLS = 4;
@@ -4884,7 +4911,7 @@ function handleInput() {
                                 "explore_fastest": "탐색 시간 60% 단축!",
                                 "explore_day": "낮에 드롭률 UP!",
                                 "explore_night": "밤에 드롭률 UP!",
-                                "explore_extra": "아이템 추가 1개!",
+                                "explore_extra": "열매 추가 1개!",
                                 "leafeon": "열매 드롭 확률 UP!",
                                 "sylveon": "활동성 소모 없음!",
                             };
@@ -5019,7 +5046,7 @@ function handleInput() {
         const ce = state.currentEevee;
         const scr = worldToScreen(ce.wx, ce.wy);
         const sz = spriteSize(ce.wy);
-        if (Math.abs(x - scr.sx) < sz && y > scr.sy - sz * 1.3 && y < scr.sy + 15) {
+        if (Math.abs(x - scr.sx) < sz * 0.8 && y > scr.sy - sz * 1.5 && y < scr.sy + 10) {
             state.popup = { type: "feed_current" };
             state.popupTimer = 0;
             return;
@@ -5031,8 +5058,8 @@ function handleInput() {
         if (isOnExpedition(i)) continue;
         const e = state.farm[i];
         const scr = worldToScreen(e.wx, e.wy);
-        const sz = spriteSize(e.wy);
-        if (Math.abs(x - scr.sx) < sz && y > scr.sy - sz * 1.3 && y < scr.sy + 15) {
+        const sz = spriteSize(e.wy) * 1.2; // 진화형 렌더 크기와 일치
+        if (Math.abs(x - scr.sx) < sz * 0.8 && y > scr.sy - sz * 1.5 && y < scr.sy + 10) {
             state.selectedFarmEevee = i;
             state.popup = { type: "feed_farm", farmIdx: i };
             state.popupTimer = 0;
