@@ -220,6 +220,38 @@ const EVOS = [
       ability:"군체",     abilityDesc:"농장 이브이 수가 많을수록 DPS 증가 (+마리당 5%)", abilityTag:"battle_swarm" },
 ];
 
+/* ── 액티브 스킬 데이터 ── */
+const SKILLS = {
+    vaporeon:  { name:"파도타기",       type:"물",     color:"#4FC3F7", chance:0.15, cd:480,  dmgMult:2.5, stun:60,  desc:"DPS 250% + 1초 이동정지" },
+    jolteon:   { name:"번개",           type:"전기",   color:"#FFD54F", chance:0.20, cd:360,  dmgMult:3.0, desc:"DPS 300% 즉발" },
+    flareon:   { name:"화염방사",       type:"불",     color:"#FF5722", chance:0.10, cd:600,  buff:"selfDps2x", buffDur:180, desc:"3초간 자신 DPS 2배" },
+    espeon:    { name:"사이코키네시스", type:"에스퍼", color:"#CE93D8", chance:0.10, cd:720,  stun:90,  desc:"1.5초 이동정지" },
+    umbreon:   { name:"악의파동",       type:"악",     color:"#5C6BC0", chance:0.15, cd:600,  debuff:"kbReduce", debuffDur:180, desc:"넉백 50% 감소 3초" },
+    leafeon:   { name:"리프블레이드",   type:"풀",     color:"#66BB6A", chance:0.15, cd:480,  dmgMult:2.5, heal:5, desc:"DPS 250% + 활동성 5 회복" },
+    glaceon:   { name:"냉동빔",         type:"얼음",   color:"#B3E5FC", chance:0.15, cd:480,  debuff:"slow70", debuffDur:180, desc:"이속 70% 감소 3초" },
+    sylveon:   { name:"문포스",         type:"페어리", color:"#F48FB1", chance:0.10, cd:720,  buff:"partyDps30", buffDur:180, desc:"전원 DPS 30% 버프 3초" },
+    gmax:      { name:"거대충격",       type:"노멀",   color:"#FFFFFF", chance:0.08, cd:900,  dmgMult:4.0, buff:"partyKbImmune", buffDur:180, desc:"DPS 400% + 전원 3초 넉백 무효" },
+    mega:      { name:"극한돌파",       type:"노멀",   color:"#FFFFFF", chance:0.08, cd:900,  dmgMult:5.0, desc:"DPS 500% 즉발" },
+    fighting:  { name:"인파이트",       type:"격투",   color:"#FF8A65", chance:0.10, cd:720,  buff:"comboBoost", buffDur:300, desc:"5초간 공속+콤보 2배" },
+    ghost:     { name:"섀도볼",         type:"고스트", color:"#7E57C2", chance:0.10, cd:600,  debuff:"dmgTaken2x", debuffDur:180, desc:"3초간 받는 데미지 2배" },
+    dragon:    { name:"용성군",         type:"드래곤", color:"#42A5F5", chance:0.12, cd:600,  dmgMult:3.5, selfDebuff:"dps50", selfDebuffDur:180, desc:"DPS 350% + 자신 3초 DPS -50%" },
+    ground:    { name:"지진",           type:"땅",     color:"#A1887F", chance:0.12, cd:600,  dmgMult:3.0, stun:90,  desc:"DPS 300% + 1.5초 이동정지" },
+    rock:      { name:"스톤엣지",       type:"바위",   color:"#8D6E63", chance:0.10, cd:720,  dmgMult:3.0, buff:"partyKbImmune", buffDur:180, desc:"DPS 300% + 전원 3초 넉백 무효" },
+    flying:    { name:"브레이브버드",   type:"비행",   color:"#81D4FA", chance:0.15, cd:480,  dmgMult:3.5, desc:"DPS 350% 즉발" },
+    steel:     { name:"아이언테일",     type:"강철",   color:"#B0BEC5", chance:0.12, cd:600,  dmgMult:2.5, buff:"selfMinroll90", buffDur:180, desc:"DPS 250% + 3초 하한 90%" },
+    poison:    { name:"독찌르기",       type:"독",     color:"#AB47BC", chance:0.12, cd:600,  debuff:"dot2", debuffDur:300, desc:"5초간 매초 HP 2% DOT" },
+    bug:       { name:"시저크로스",     type:"벌레",   color:"#9CCC65", chance:0.15, cd:480,  dmgMult:2.0, swarmScale:true, desc:"DPS 200% x 이브이 수 보정" },
+};
+
+// 스킬 이펙트 파티클 배열
+const skillParticles = [];
+// 스킬 텍스트 팝업 배열
+const skillTexts = [];
+// 몬스터 디버프 상태
+const monsterDebuffs = { stun:0, slow70:0, kbReduce:0, dmgTaken2x:0, dot2:0 };
+// 파티 버프 상태
+const partyBuffs = { dps30:0, kbImmune:0 };
+
 /* ── 탐색지 ── */
 const LOCATIONS = [
     // ── Tier 1: 초반 (1세대 돌 진화) - 처음부터 해금 ──
@@ -962,6 +994,7 @@ function getExpSlots() {
     return 1;
 }
 function canSummonEevee() {
+    if (allComplete() || state.endingShown) return false;
     return !state.currentEevee;
 }
 function summonEevee() {
@@ -1045,6 +1078,7 @@ function saveGame() {
             expeditions: (state.expeditions || []).map(e => ({ ...e })),
             // expeditionSlots는 getExpSlots()로 동적 계산
             _lastExpRefs: state._lastExpRefs || [],
+            turnLocations: (state.turnLocations || []).map(l => l.id),
             endingShown: state.endingShown || false,
             playerName: state.playerName || "",
             playerId: state.playerId || "",
@@ -1079,6 +1113,8 @@ function loadGame() {
         state.expeditions = data.expeditions || [];
         // expeditionSlots는 getExpSlots()로 동적 계산
         state._lastExpRefs = data._lastExpRefs || [];
+        state.turnLocations = (data.turnLocations || []).map(id => LOCATIONS.find(l => l.id === id)).filter(Boolean);
+        if (state.turnLocations.length === 0) rollTurnLocations(); // 저장 데이터 없으면 새로 생성
         state.endingShown = data.endingShown || false;
         state.playerName = data.playerName || "";
         state.playerId = data.playerId || "";
@@ -1142,8 +1178,6 @@ function loadGame() {
             name: i.name, wx: i.wx, wy: i.wy, vx: 0, vy: 0,
         }));
 
-        // 탐색지 재배치
-        rollTurnLocations();
         invalidateBgCache();
         lastDayNightCheck = Date.now(); // 밤낮 타이머 리셋
         state.scene = "farm";
@@ -1236,6 +1270,64 @@ function fetchLeaderboard() {
         });
 }
 
+/* ── 클라우드 세이브/로드 ── */
+function generateCloudCode() {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // 혼동 문자 제외 (0OI1)
+    let code = "";
+    for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+    return code;
+}
+
+function cloudSave() {
+    const code = generateCloudCode();
+    try {
+        const raw = localStorage.getItem(SAVE_KEY);
+        if (!raw) { showMessage("저장 데이터가 없습니다", 90); return; }
+        const encoded = btoa(encodeURIComponent(raw));
+        state.popup = { type: "cloud_saving" };
+        state.popupTimer = 0;
+        fetch(LB_URL, {
+            method: "POST",
+            body: JSON.stringify({ action: "cloud_save", code, data: encoded }),
+        }).then(r => r.json()).then(data => {
+            if (data.ok) {
+                state.popup = { type: "cloud_code", code };
+                state.popupTimer = 0;
+            } else {
+                state.popup = null;
+                showMessage("클라우드 저장 실패", 90);
+            }
+        }).catch(() => { state.popup = null; showMessage("클라우드 저장 실패", 90); });
+    } catch (e) { showMessage("클라우드 저장 실패", 90); }
+}
+
+function cloudLoad(code) {
+    code = code.toUpperCase().trim();
+    if (code.length !== 6) { showMessage("6자리 코드를 입력하세요", 90); return; }
+    state.popup = { type: "cloud_loading" };
+    state.popupTimer = 0;
+    fetch(LB_URL, {
+        method: "POST",
+        body: JSON.stringify({ action: "cloud_load", code }),
+    }).then(r => r.json()).then(data => {
+        if (data.ok && data.data) {
+            try {
+                const decoded = decodeURIComponent(atob(data.data));
+                localStorage.setItem(SAVE_KEY, decoded);
+                loadGame();
+                state.popup = null;
+                showMessage("클라우드 로드 성공!", 120);
+            } catch (e) {
+                state.popup = null;
+                showMessage("데이터 복호화 실패: " + e.message, 120);
+            }
+        } else {
+            state.popup = null;
+            showMessage(data.error || "코드를 찾을 수 없습니다", 90);
+        }
+    }).catch((e) => { state.popup = null; showMessage("클라우드 로드 실패: " + e.message, 120); });
+}
+
 /* ═══════════════════════════════════════════
    7-2. FARM MONSTER SYSTEM (상시 전투)
    ═══════════════════════════════════════════ */
@@ -1302,6 +1394,11 @@ function spawnMonster(stage) {
     };
     state.monsterStage = stage;
     state.monsterSpawnAnim = 90;
+    // 디버프/버프 초기화
+    monsterDebuffs.stun = 0; monsterDebuffs.slow70 = 0; monsterDebuffs.kbReduce = 0;
+    monsterDebuffs.dmgTaken2x = 0; monsterDebuffs.dot2 = 0;
+    partyBuffs.dps30 = 0; partyBuffs.kbImmune = 0;
+    skillParticles.length = 0; skillTexts.length = 0;
     state.monsterTimer = Date.now();
     const bossClears = Math.floor((state.monsterMaxStage || 0) / 10);
     state.monsterTimeLimit = (60 + bossClears * 5) * 1000 * (isBoss ? 1.5 : 1); // ms
@@ -1410,9 +1507,15 @@ function updateFarmBattle() {
     const mw = mon.wx, mh = mon.wy;
 
     // ── 몬스터 AI: 가장 가까운 열매를 향해 이동 ──
-    const stageBonus = 1 + Math.min(mon.stage * 0.01, 0.5); // 스테이지당 +1%, 최대 +50%
-    const slowMult = (mon._slowTimer > 0) ? 0.4 : 1.0; // 글레이시아 슬로우
-    const monSpeed = (mon.spd / 80000) * 1.2 * stageBonus * (mon.isBoss ? 0.7 : 1.0) * slowMult;
+    // 스턴 중이면 이동 불가
+    if (monsterDebuffs.stun > 0) {
+        // 스턴 중에도 DPS 계산은 진행 (아래로 넘어감)
+    }
+    const stageBonus = 1 + Math.min(mon.stage * 0.01, 0.5);
+    const slow70Mult = (monsterDebuffs.slow70 > 0) ? 0.3 : 1.0; // 냉동빔 슬로우
+    const slowMult = (mon._slowTimer > 0) ? 0.4 : slow70Mult; // 글레이시아 패시브 슬로우
+    const stunMult = (monsterDebuffs.stun > 0) ? 0 : 1.0; // 스턴 시 이동 정지
+    const monSpeed = (mon.spd / 80000) * 1.2 * stageBonus * (mon.isBoss ? 0.7 : 1.0) * slowMult * stunMult;
     let targetX = 0.5, targetY = 0.5;
     let foundFruit = false;
     if (state.farmItems.length > 0) {
@@ -1487,8 +1590,8 @@ function updateFarmBattle() {
             if (ee._knockback > 0) continue;
             const evo = _getEvo(ee.evoId);
             const eeTag = evo ? evo.abilityTag : "";
-            // 록키온: 넉백 무효 / 거다이브: 넉백 무효
-            if (eeTag === "battle_sturdy" || eeTag === "battle_noweakness") continue;
+            // 록키온: 넉백 무효 / 거다이브: 넉백 무효 / 파티 넉백 무효 버프
+            if (eeTag === "battle_sturdy" || eeTag === "battle_noweakness" || partyBuffs.kbImmune > 0) continue;
             const edx = ee.wx - mon.wx, edy = ee.wy - mon.wy;
             const eDist = Math.sqrt(edx * edx + edy * edy);
             if (eDist < pushRadius && eDist > 0.001) {
@@ -1508,6 +1611,18 @@ function updateFarmBattle() {
         if (pushed) mon._pushCooldown = mon.isBoss ? 180 : 120;
     }
 
+    // ── 디버프/버프 타이머 갱신 ──
+    if (monsterDebuffs.stun > 0) monsterDebuffs.stun--;
+    if (monsterDebuffs.slow70 > 0) monsterDebuffs.slow70--;
+    if (monsterDebuffs.kbReduce > 0) monsterDebuffs.kbReduce--;
+    if (monsterDebuffs.dmgTaken2x > 0) monsterDebuffs.dmgTaken2x--;
+    if (monsterDebuffs.dot2 > 0) {
+        monsterDebuffs.dot2--;
+        if (frame % 60 === 0 && mon.maxHp) mon.hp -= mon.maxHp * 0.02; // 매초 2% DOT
+    }
+    if (partyBuffs.dps30 > 0) partyBuffs.dps30--;
+    if (partyBuffs.kbImmune > 0) partyBuffs.kbImmune--;
+
     // ── 근접 이브이만 DPS 계산 ──
     const atkRange = 0.15;
     let totalDPS = 0;
@@ -1516,13 +1631,98 @@ function updateFarmBattle() {
         const edx = ee.wx - mon.wx, edy = ee.wy - mon.wy;
         const inRange = edx * edx + edy * edy < atkRange * atkRange;
         if (inRange) {
-            totalDPS += calcEeveeDPS(ee);
+            let eeDps = calcEeveeDPS(ee);
             const evo = _getEvo(ee.evoId);
             const eeTag = evo ? evo.abilityTag : "";
-            // 브레이버: 콤보 누적 (공격 범위 내 매 프레임 +1)
+
+            // 버프/디버프 적용
+            if (partyBuffs.dps30 > 0) eeDps *= 1.3;
+            if (ee._selfDps2x > 0) { eeDps *= 2; ee._selfDps2x--; }
+            if (ee._dps50 > 0) { eeDps *= 0.5; ee._dps50--; }
+            if (ee._comboBoost > 0) { ee._comboStacks = Math.min((ee._comboStacks || 0) + 0.10, 25); ee._comboBoost--; }
+
+            // 몬스터 받는 데미지 2배
+            if (monsterDebuffs.dmgTaken2x > 0) eeDps *= 2;
+
+            totalDPS += eeDps;
+
+            // 브레이버: 콤보 누적
             if (eeTag === "battle_combo") ee._comboStacks = Math.min((ee._comboStacks || 0) + 0.05, 25);
             // 글레이시아: 슬로우 체크
             if (eeTag === "battle_slow") hasGlaceon = true;
+
+            // ── 스킬 발동 판정 (활동성 50 이상, 쿨타임 중 아님) ──
+            if (evo && SKILLS[evo.id] && (ee.activity || 0) >= 50) {
+                const skill = SKILLS[evo.id];
+                if (!ee._skillCd) ee._skillCd = 0;
+                if (ee._skillCd > 0) { ee._skillCd--; }
+                else if (Math.random() < skill.chance / 60) { // 초당 chance 확률 → 프레임당
+                    ee._skillCd = skill.cd;
+
+                    // 스킬 데미지 (타입 상성 적용)
+                    if (skill.dmgMult) {
+                        let sklDmg = calcEeveeDPS(ee) * skill.dmgMult;
+                        // 스킬 타입 vs 몬스터 타입 상성
+                        if (mon.types) sklDmg *= calcTypeMultVsMonster(skill.type, mon.types);
+                        if (monsterDebuffs.dmgTaken2x > 0) sklDmg *= 2;
+                        // 하이버: 이브이 수 보정
+                        if (skill.swarmScale) sklDmg *= 1 + getFighterCount() * 0.1;
+                        mon.hp -= sklDmg / 60; // 즉발 데미지 (1프레임)
+                    }
+
+                    // 스턴 (이동정지)
+                    if (skill.stun) monsterDebuffs.stun = Math.max(monsterDebuffs.stun, skill.stun);
+
+                    // 디버프
+                    if (skill.debuff === "slow70") monsterDebuffs.slow70 = Math.max(monsterDebuffs.slow70, skill.debuffDur);
+                    if (skill.debuff === "kbReduce") monsterDebuffs.kbReduce = Math.max(monsterDebuffs.kbReduce, skill.debuffDur);
+                    if (skill.debuff === "dmgTaken2x") monsterDebuffs.dmgTaken2x = Math.max(monsterDebuffs.dmgTaken2x, skill.debuffDur);
+                    if (skill.debuff === "dot2") monsterDebuffs.dot2 = Math.max(monsterDebuffs.dot2, skill.debuffDur);
+
+                    // 버프
+                    if (skill.buff === "selfDps2x") ee._selfDps2x = skill.buffDur;
+                    if (skill.buff === "partyDps30") partyBuffs.dps30 = Math.max(partyBuffs.dps30, skill.buffDur);
+                    if (skill.buff === "partyKbImmune") partyBuffs.kbImmune = Math.max(partyBuffs.kbImmune, skill.buffDur);
+                    if (skill.buff === "comboBoost") ee._comboBoost = skill.buffDur;
+                    if (skill.buff === "selfMinroll90") ee._minroll90 = skill.buffDur;
+
+                    // 셀프 디버프 (용성군)
+                    if (skill.selfDebuff === "dps50") ee._dps50 = skill.selfDebuffDur;
+
+                    // 힐
+                    if (skill.heal) ee.activity = Math.min(getActivityMax(), (ee.activity || 0) + skill.heal);
+
+                    // 이펙트: 텍스트 팝업
+                    const scr = worldToScreen(ee.wx, ee.wy);
+                    skillTexts.push({ text: skill.name, x: scr.sx, y: scr.sy - 40, color: skill.color, timer: 60 });
+
+                    // 이펙트: 파티클
+                    for (let p = 0; p < 8; p++) {
+                        const angle = Math.random() * Math.PI * 2;
+                        const speed = 1 + Math.random() * 2;
+                        skillParticles.push({
+                            x: scr.sx, y: scr.sy - 20,
+                            vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - 1,
+                            color: skill.color, life: 30 + Math.random() * 20, maxLife: 50,
+                            size: 3 + Math.random() * 3,
+                        });
+                    }
+
+                    // 디버프 스킬이면 몬스터에도 파티클
+                    if (skill.debuff || skill.stun) {
+                        const mscr = worldToScreen(mon.wx, mon.wy);
+                        for (let p = 0; p < 6; p++) {
+                            const angle = Math.random() * Math.PI * 2;
+                            skillParticles.push({
+                                x: mscr.sx, y: mscr.sy - 20,
+                                vx: Math.cos(angle) * 1.5, vy: Math.sin(angle) * 1.5 - 0.5,
+                                color: skill.color, life: 40, maxLife: 40,
+                                size: 4 + Math.random() * 3,
+                            });
+                        }
+                    }
+                }
+            }
         } else {
             // 범위 밖이면 콤보 리셋
             const evo = _getEvo(ee.evoId);
@@ -1734,6 +1934,7 @@ function sendExpedition(locId, eeveeRefs) {
 
     state.panel = null; state.panelSlide = 0;
     state.expeditionSelect = null;
+    rollTurnLocations(); // 탐색 출발 후 탐색지 리프레시
     showMessage(`${loc.name}으로 ${members.length}마리 출동!`, 60);
     saveGame();
 }
@@ -2650,13 +2851,13 @@ const SPRITE_DEFAULT_FACING = {
 
 // 머리가 작게 표현된 스프라이트 보정 스케일 (기준 1.0)
 const SPRITE_SCALE = {
-    "이브이고스트.png": 1.25,  // 레이시아: 몸통 비중 크고 머리 매우 작음
-    "이브이땅.png": 1.2,      // 샌디온: 앉은 자세, 전체적으로 작아보임
-    "이브이강철.png": 1.2,    // 메탈리아: 웅크린 자세, 머리 작음
-    "이브이격투.png": 1.15,   // 브레이버: 몸통 비중 큼
-    "이브이바위.png": 1.2,    // 록키온: 전체적으로 작은 체형
-    "님피아.png": 1.1,        // 님피아: 리본 장식 비중 크고 얼굴 작음
-    "블래키.png": 1.1,        // 블래키: 다리 길고 머리 상대적으로 작음
+    "이브이고스트.png": 1.15,  // 레이시아: 몸통 비중 크고 머리 작음
+    "이브이땅.png": 1.05,      // 샌디온: 앉은 자세
+    "이브이강철.png": 1.05,    // 메탈리아: 웅크린 자세
+    "이브이격투.png": 1.0,     // 브레이버: 기본 크기로
+    "이브이바위.png": 1.05,    // 록키온: 약간만 보정
+    "님피아.png": 1.1,         // 님피아: 리본 장식 비중 크고 얼굴 작음
+    "블래키.png": 1.1,         // 블래키: 다리 길고 머리 상대적으로 작음
 };
 
 function drawSprite(imgName, sx, sy, facing, size) {
@@ -3368,6 +3569,16 @@ function drawInventoryPanel() {
         ctx.fillStyle = "rgba(255,255,255,0.2)";
         roundRect(CW - 8, sbY, 4, sbH, 2); ctx.fill();
     }
+
+    // 클라우드 세이브/로드 버튼
+    const cbY = CH - 32;
+    ctx.fillStyle = "rgba(63,81,181,0.8)"; roundRect(10, cbY, 110, 26, 6); ctx.fill();
+    ctx.fillStyle = "#fff"; ctx.font = "bold 11px system-ui"; ctx.textAlign = "center";
+    ctx.fillText("☁ 클라우드 저장", 65, cbY + 13);
+
+    ctx.fillStyle = "rgba(56,142,60,0.8)"; roundRect(130, cbY, 120, 26, 6); ctx.fill();
+    ctx.fillStyle = "#fff";
+    ctx.fillText("☁ 코드로 불러오기", 190, cbY + 13);
 }
 
 function getEvoConditionText(evo) {
@@ -3909,6 +4120,12 @@ function drawPopup() {
         pw = 300; ph = 150;
     } else if (p.type === "leaderboard" || p.type === "leaderboard_loading") {
         pw = 340; ph = p.type === "leaderboard_loading" ? 100 : 360;
+    } else if (p.type === "cloud_code") {
+        pw = 300; ph = 160;
+    } else if (p.type === "cloud_saving" || p.type === "cloud_loading") {
+        pw = 260; ph = 80;
+    } else if (p.type === "cloud_input") {
+        pw = 300; ph = 130;
     }
     const px = (CW - pw) / 2;
     const py = (isFeedCurrent || isFeedFarm) ? Math.max(10, (CH - ph) / 2) : BTN_Y - ph - 10;
@@ -4209,6 +4426,27 @@ function drawPopup() {
         // 닫기
         ctx.fillStyle = "#aaa"; ctx.font = "12px system-ui";
         ctx.fillText("터치하여 닫기", px + pw / 2, py + ph - 15);
+    } else if (p.type === "cloud_saving" || p.type === "cloud_loading") {
+        ctx.fillStyle = "#FFD54F"; ctx.font = "bold 14px system-ui";
+        const dots = ".".repeat(Math.floor(frame / 20) % 4);
+        ctx.fillText(p.type === "cloud_saving" ? `저장 중${dots}` : `불러오는 중${dots}`, px + pw / 2, py + 45);
+    } else if (p.type === "cloud_code") {
+        ctx.fillStyle = "#FFD54F"; ctx.font = "bold 16px system-ui";
+        ctx.fillText("☁ 클라우드 저장 완료!", px + pw / 2, py + 30);
+        ctx.fillStyle = "#fff"; ctx.font = "bold 32px monospace";
+        ctx.fillText(p.code, px + pw / 2, py + 75);
+        ctx.fillStyle = "#aaa"; ctx.font = "12px system-ui";
+        ctx.fillText("이 코드를 메모해두세요!", px + pw / 2, py + 105);
+        ctx.fillText("다른 기기에서 코드로 불러올 수 있습니다", px + pw / 2, py + 122);
+        ctx.fillStyle = "#666"; ctx.font = "11px system-ui";
+        ctx.fillText("터치하여 닫기", px + pw / 2, py + 148);
+    } else if (p.type === "cloud_input") {
+        ctx.fillStyle = "#FFD54F"; ctx.font = "bold 16px system-ui";
+        ctx.fillText("☁ 코드로 불러오기", px + pw / 2, py + 30);
+        ctx.fillStyle = "#aaa"; ctx.font = "12px system-ui";
+        ctx.fillText("6자리 코드를 입력하고 Enter", px + pw / 2, py + 55);
+        ctx.fillStyle = "#666"; ctx.font = "11px system-ui";
+        ctx.fillText("터치하여 취소", px + pw / 2, py + 115);
     }
 }
 
@@ -4373,6 +4611,36 @@ function drawMonster() {
         ctx.drawImage(img, mx - monSize / 2 + shake, my - monSize / 2 + breathe, monSize, monSize);
     }
 
+    // 디버프 이펙트 (몬스터에 오버레이)
+    if (monsterDebuffs.stun > 0) {
+        ctx.globalAlpha = 0.3 + Math.sin(frame * 0.2) * 0.1;
+        ctx.fillStyle = "#CE93D8";
+        ctx.beginPath(); ctx.arc(mx + shake, my + breathe, monSize / 2, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1;
+    }
+    if (monsterDebuffs.slow70 > 0) {
+        ctx.globalAlpha = 0.25;
+        ctx.fillStyle = "#B3E5FC";
+        ctx.beginPath(); ctx.arc(mx + shake, my + breathe, monSize / 2 + 4, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1;
+    }
+    if (monsterDebuffs.dmgTaken2x > 0) {
+        ctx.globalAlpha = 0.2 + Math.sin(frame * 0.15) * 0.1;
+        ctx.fillStyle = "#7E57C2";
+        ctx.beginPath(); ctx.arc(mx + shake, my + breathe, monSize / 2 + 2, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1;
+    }
+    if (monsterDebuffs.dot2 > 0) {
+        ctx.globalAlpha = 0.3;
+        ctx.fillStyle = "#AB47BC";
+        for (let di = 0; di < 3; di++) {
+            const dx = mx + Math.sin(frame * 0.05 + di * 2) * monSize * 0.3;
+            const dy = my - monSize * 0.2 + Math.cos(frame * 0.04 + di) * monSize * 0.2;
+            ctx.beginPath(); ctx.arc(dx, dy, 4, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+    }
+
     // 보스 아우라
     if (m.isBoss) {
         ctx.strokeStyle = `rgba(255,87,34,${0.3 + Math.sin(frame * 0.05) * 0.15})`;
@@ -4419,6 +4687,33 @@ function drawMonster() {
         ctx.strokeText(`⏱${remain}초`, mx, my + monSize / 2 + 22);
         ctx.fillText(`⏱${remain}초`, mx, my + monSize / 2 + 22);
     }
+}
+
+function drawSkillEffects() {
+    // 파티클 업데이트 & 렌더
+    for (let i = skillParticles.length - 1; i >= 0; i--) {
+        const p = skillParticles[i];
+        p.x += p.vx; p.y += p.vy; p.vy += 0.05; p.life--;
+        if (p.life <= 0) { skillParticles.splice(i, 1); continue; }
+        ctx.globalAlpha = clamp(p.life / p.maxLife, 0, 0.8);
+        ctx.fillStyle = p.color;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.size * (p.life / p.maxLife), 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // 텍스트 팝업 업데이트 & 렌더
+    for (let i = skillTexts.length - 1; i >= 0; i--) {
+        const t = skillTexts[i];
+        t.y -= 0.8; t.timer--;
+        if (t.timer <= 0) { skillTexts.splice(i, 1); continue; }
+        ctx.globalAlpha = clamp(t.timer / 20, 0, 1);
+        ctx.font = "bold 13px system-ui"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.strokeStyle = "#000"; ctx.lineWidth = 3;
+        ctx.strokeText(t.text, t.x, t.y);
+        ctx.fillStyle = t.color;
+        ctx.fillText(t.text, t.x, t.y);
+    }
+    ctx.globalAlpha = 1;
 }
 
 /* ── 열매 삭제 이펙트 ── */
@@ -4756,7 +5051,16 @@ function handleInput() {
             state.popup = null;
             return;
         }
-        if (state.popup.type === "leaderboard_loading") return; // 로딩 중 닫기 차단
+        if (state.popup.type === "leaderboard_loading") return;
+        if (state.popup.type === "cloud_saving" || state.popup.type === "cloud_loading") return; // 로딩 중 닫기 차단
+        if (state.popup.type === "cloud_code") { state.popup = null; return; }
+        if (state.popup.type === "cloud_input") {
+            nickInput.style.top = "-100px";
+            nickInput.style.transform = "";
+            nickInput.maxLength = 10;
+            nickInput.onkeydown = null;
+            state.popup = null; return;
+        }
         if (state.popupTimer > 15) {
             state.popup = null;
         }
@@ -4876,10 +5180,21 @@ function handleInput() {
                     return;
                 }
 
-                // 이브이 토글 선택
+                // 이브이 토글 선택 (그리기와 동일한 정렬 적용)
                 const allEe = [];
                 if (state.currentEevee && !isOnExpedition("current")) allEe.push("current");
                 state.farm.forEach((e, i) => { if (!isOnExpedition(i) && EVOS.find(ev => ev.id === e.evoId)) allEe.push(i); });
+                const lastRefs = state._lastExpRefs || [];
+                if (lastRefs.length > 0) {
+                    allEe.sort((a, b) => {
+                        const aIdx = lastRefs.indexOf(a);
+                        const bIdx = lastRefs.indexOf(b);
+                        if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
+                        if (aIdx !== -1) return -1;
+                        if (bIdx !== -1) return 1;
+                        return 0;
+                    });
+                }
 
                 const GRID_COLS = 4;
                 const CELL_W = 100, CELL_H = 80;
@@ -5007,6 +5322,36 @@ function handleInput() {
                 const dbx2 = bx + bw - 38;
                 if (hitBox(x, y, dbx2, by + 5, 34, 26)) { dropItem(name); return; }
             }
+            // 클라우드 버튼
+            const cbY = CH - 32;
+            if (hitBox(x, y, 10, cbY, 110, 26)) { cloudSave(); return; }
+            if (hitBox(x, y, 130, cbY, 120, 26)) {
+                state.popup = { type: "cloud_input" };
+                state.popupTimer = 0;
+                nickInput.value = "";
+                nickInput.maxLength = 6;
+                nickInput.placeholder = "6자리 코드";
+                nickInput.style.top = "50%";
+                nickInput.style.left = "50%";
+                nickInput.style.transform = "translate(-50%, -50%)";
+                nickInput.style.width = "160px";
+                nickInput.style.fontSize = "24px";
+                nickInput.style.textAlign = "center";
+                nickInput.style.textTransform = "uppercase";
+                setTimeout(() => nickInput.focus(), 100);
+                nickInput.onkeydown = (e) => {
+                    if (e.key === "Enter") {
+                        const code = nickInput.value.toUpperCase().trim();
+                        nickInput.style.top = "-100px";
+                        nickInput.style.transform = "";
+                        nickInput.maxLength = 10;
+                        nickInput.onkeydown = null;
+                        if (code.length === 6) cloudLoad(code);
+                        else showMessage("6자리 코드를 입력하세요", 90);
+                    }
+                };
+                return;
+            }
         } else if (state.panel === "dex") {
             // 도감 팝업이 열려있으면 닫기
             if (state.dexPopup) { state.dexPopup = null; return; }
@@ -5046,7 +5391,7 @@ function handleInput() {
         const ce = state.currentEevee;
         const scr = worldToScreen(ce.wx, ce.wy);
         const sz = spriteSize(ce.wy);
-        if (Math.abs(x - scr.sx) < sz * 0.8 && y > scr.sy - sz * 1.5 && y < scr.sy + 10) {
+        if (Math.abs(x - scr.sx) < sz * 1.2 && y > scr.sy - sz * 2.0 && y < scr.sy + sz * 0.5) {
             state.popup = { type: "feed_current" };
             state.popupTimer = 0;
             return;
@@ -5058,8 +5403,8 @@ function handleInput() {
         if (isOnExpedition(i)) continue;
         const e = state.farm[i];
         const scr = worldToScreen(e.wx, e.wy);
-        const sz = spriteSize(e.wy) * 1.2; // 진화형 렌더 크기와 일치
-        if (Math.abs(x - scr.sx) < sz * 0.8 && y > scr.sy - sz * 1.5 && y < scr.sy + 10) {
+        const sz = spriteSize(e.wy) * 1.2;
+        if (Math.abs(x - scr.sx) < sz * 1.2 && y > scr.sy - sz * 2.0 && y < scr.sy + sz * 0.5) {
             state.selectedFarmEevee = i;
             state.popup = { type: "feed_farm", farmIdx: i };
             state.popupTimer = 0;
@@ -5178,6 +5523,7 @@ function loop() {
         ctx.drawImage(getBgCache(), 0, 0);
         drawFarmEntities();
         drawMonster();
+        drawSkillEffects();
         drawFruitDestroyFx();
         // 둥지 버튼 (이브이 없을 때 - 하단 버튼 바로 위)
         if (canSummonEevee()) {
