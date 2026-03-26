@@ -256,39 +256,39 @@ const partyBuffs = { dps30:0, kbImmune:0 };
 const LOCATIONS = [
     // ── Tier 1: 초반 (1세대 돌 진화) - 처음부터 해금 ──
     { id:"lake",    name:"호수",   time:"any",   attr:"물",    dur:5, items:[
-        {name:"물의돌",type:"stone",weight:30}]},
+        {name:"물의돌",type:"stone",weight:30},{name:"TM파도타기",type:"tm",weight:5}]},
     { id:"volcano", name:"화산",   time:"any",   attr:"불",    dur:5, items:[
-        {name:"불꽃의돌",type:"stone",weight:30}]},
+        {name:"불꽃의돌",type:"stone",weight:30},{name:"TM화염방사",type:"tm",weight:5},{name:"TM스톤엣지",type:"tm",weight:3}]},
     { id:"plant",   name:"발전소", time:"any",   attr:"전기",  dur:5, items:[
-        {name:"천둥의돌",type:"stone",weight:30}]},
+        {name:"천둥의돌",type:"stone",weight:30},{name:"TM번개",type:"tm",weight:5}]},
     // ── Tier 2: 중반 (2세대 친밀도 진화) - 도감 2종 이상 ──
     { id:"temple",  name:"신전",   time:"day",   attr:"에스퍼",dur:8, dexReq:2, items:[
-        {name:"태양조각",type:"shard",weight:20},{name:"달조각",type:"shard",weight:8}]},
+        {name:"태양조각",type:"shard",weight:20},{name:"달조각",type:"shard",weight:8},{name:"TM사이코키네시스",type:"tm",weight:4}]},
     { id:"tower",   name:"폐탑",   time:"night", attr:"악",    dur:8, dexReq:2, items:[
-        {name:"달조각",type:"shard",weight:20},{name:"태양조각",type:"shard",weight:8}]},
+        {name:"달조각",type:"shard",weight:20},{name:"태양조각",type:"shard",weight:8},{name:"TM악의파동",type:"tm",weight:4},{name:"TM섀도볼",type:"tm",weight:3}]},
     // ── Tier 3: 중후반 (4세대 제작 진화) - 도감 4종 이상 ──
     { id:"forest",  name:"숲",     time:"any",   attr:"풀",    dur:12, dexReq:4, items:[
-        {name:"이끼바위조각",type:"material",weight:24},{name:"태양조각",type:"shard",weight:8},{name:"달조각",type:"shard",weight:8}]},
+        {name:"이끼바위조각",type:"material",weight:24},{name:"태양조각",type:"shard",weight:8},{name:"달조각",type:"shard",weight:8},{name:"TM리프블레이드",type:"tm",weight:4}]},
     { id:"snow",    name:"설산",   time:"any",   attr:"얼음",  dur:12, dexReq:4, items:[
-        {name:"얼음바위조각",type:"material",weight:24},{name:"태양조각",type:"shard",weight:8},{name:"달조각",type:"shard",weight:8}]},
+        {name:"얼음바위조각",type:"material",weight:24},{name:"태양조각",type:"shard",weight:8},{name:"달조각",type:"shard",weight:8},{name:"TM냉동빔",type:"tm",weight:4},{name:"TM아이언테일",type:"tm",weight:3}]},
     // ── Tier 4: 후반 (6세대 님피아) - 도감 6종 이상 ──
     { id:"flower",  name:"꽃밭",   time:"day",   attr:"페어리",dur:15, dexReq:6, items:[
-        {name:"리본",type:"special",weight:15},{name:"태양조각",type:"shard",weight:20}]},
+        {name:"리본",type:"special",weight:15},{name:"태양조각",type:"shard",weight:20},{name:"TM문포스",type:"tm",weight:4}]},
     // ── 히든: 도감 해금 (팬메이드) ──
     { id:"swamp",   name:"독안개늪",     time:"night", attr:"독",  dur:30, dexReq:8, items:[
-        {name:"독바늘",type:"special",weight:12},{name:"달조각",type:"shard",weight:25}]},
+        {name:"독바늘",type:"special",weight:12},{name:"달조각",type:"shard",weight:25},{name:"TM독찌르기",type:"tm",weight:4}]},
     { id:"nest",    name:"벌레숲",       time:"day",   attr:"벌레", dur:30, dexReq:8, items:[
-        {name:"벌레껍질",type:"special",weight:12},{name:"태양조각",type:"shard",weight:25}]},
+        {name:"벌레껍질",type:"special",weight:12},{name:"태양조각",type:"shard",weight:25},{name:"TM시저크로스",type:"tm",weight:4}]},
     { id:"den",     name:"거대소굴",     time:"night", attr:"노멀",  dur:20, dexReq:10, items:[
-        {name:"다이버섯",type:"stone",weight:8},{name:"태양조각",type:"shard",weight:20},{name:"달조각",type:"shard",weight:20}]},
+        {name:"다이버섯",type:"stone",weight:8},{name:"태양조각",type:"shard",weight:20},{name:"달조각",type:"shard",weight:20},{name:"TM거대충격",type:"tm",weight:3},{name:"TM인파이트",type:"tm",weight:3}]},
     { id:"ruins",   name:"고대유적",     time:"night", attr:"노멀",  dur:20, dexReq:10, items:[
-        {name:"이브이나이트",type:"stone",weight:8},{name:"달조각",type:"shard",weight:25}]},
+        {name:"이브이나이트",type:"stone",weight:8},{name:"달조각",type:"shard",weight:25},{name:"TM극한돌파",type:"tm",weight:3}]},
     { id:"cave",    name:"깊은동굴",     time:"night", attr:"땅",   dur:25, dexReq:12, items:[
-        {name:"부드러운모래",type:"stone",weight:12},{name:"달조각",type:"shard",weight:25}]},
+        {name:"동굴조약돌",type:"stone",weight:12},{name:"달조각",type:"shard",weight:25},{name:"TM지진",type:"tm",weight:4}]},
     { id:"sky",     name:"하늘산등성이", time:"day",   attr:"비행", dur:25, dexReq:12, items:[
-        {name:"바람깃털",type:"special",weight:12},{name:"태양조각",type:"shard",weight:25}]},
+        {name:"바람깃털",type:"special",weight:12},{name:"태양조각",type:"shard",weight:25},{name:"TM브레이브버드",type:"tm",weight:4}]},
     { id:"valley",  name:"용의계곡",     time:"day",   attr:"드래곤",dur:30, dexReq:12, items:[
-        {name:"용의비늘",type:"stone",weight:8},{name:"태양조각",type:"shard",weight:25}]},
+        {name:"용의비늘",type:"stone",weight:8},{name:"태양조각",type:"shard",weight:25},{name:"TM용성군",type:"tm",weight:4}]},
 ];
 
 const FRUITS = ["오랭열매","치리열매","크라보열매","모모열매","나나열매","라즈열매"];
@@ -301,8 +301,13 @@ const ITEM_EMOJI = {
     "물의돌":"💧","불꽃의돌":"🔥","천둥의돌":"⚡","태양조각":"☀️","달조각":"🌙",
     "이끼바위조각":"🪨","얼음바위조각":"🧊","이끼바위":"🌿","얼음바위":"❄️",
     "리본":"🎀","다이버섯":"🍄","이브이나이트":"💎","용의비늘":"🐉",
-    "부드러운모래":"🏜️","바람깃털":"🪶","가속장치":"💊",
+    "동굴조약돌":"🪨","바람깃털":"🪶","가속장치":"💊",
     "독바늘":"☠️","벌레껍질":"🐛",
+    "TM파도타기":"💿","TM번개":"💿","TM화염방사":"💿","TM사이코키네시스":"💿",
+    "TM악의파동":"💿","TM리프블레이드":"💿","TM냉동빔":"💿","TM문포스":"💿",
+    "TM거대충격":"💿","TM극한돌파":"💿","TM인파이트":"💿","TM섀도볼":"💿",
+    "TM용성군":"💿","TM지진":"💿","TM스톤엣지":"💿","TM브레이브버드":"💿",
+    "TM아이언테일":"💿","TM독찌르기":"💿","TM시저크로스":"💿",
 };
 function itemEmoji(name) { return ITEM_EMOJI[name] || "📦"; }
 
@@ -315,9 +320,27 @@ const ITEM_DESC = {
     "이끼바위조각":"3개 모아 이끼바위 제작","얼음바위조각":"3개 모아 얼음바위 제작",
     "이끼바위":"풀타입 진화에 필요","얼음바위":"얼음타입 진화에 필요",
     "리본":"페어리타입 진화에 필요 (친밀도 MAX)","다이버섯":"왕타입 진화에 필요","이브이나이트":"메가타입 진화에 필요",
-    "용의비늘":"드래곤타입 진화에 필요","부드러운모래":"땅타입 진화에 필요",
+    "용의비늘":"드래곤타입 진화에 필요","동굴조약돌":"땅타입 진화에 필요",
     "바람깃털":"비행타입 진화에 필요","가속장치":"탐색 시간 50% 단축",
     "독바늘":"독타입 진화에 필요","벌레껍질":"벌레타입 진화에 필요",
+    "TM파도타기":"샤미드 스킬 습득","TM번개":"쥬피썬더 스킬 습득","TM화염방사":"부스터 스킬 습득",
+    "TM사이코키네시스":"에브이 스킬 습득","TM악의파동":"블래키 스킬 습득","TM리프블레이드":"리피아 스킬 습득",
+    "TM냉동빔":"글레이시아 스킬 습득","TM문포스":"님피아 스킬 습득",
+    "TM거대충격":"거다이브 스킬 습득","TM극한돌파":"메가브이 스킬 습득","TM인파이트":"브레이버 스킬 습득",
+    "TM섀도볼":"레이시아 스킬 습득","TM용성군":"드라키온 스킬 습득","TM지진":"샌디온 스킬 습득",
+    "TM스톤엣지":"록키온 스킬 습득","TM브레이브버드":"플라이비 스킬 습득",
+    "TM아이언테일":"메탈리아 스킬 습득","TM독찌르기":"바이퍼스 스킬 습득","TM시저크로스":"하이버 스킬 습득",
+};
+
+// TM → 대상 이브이 id 매핑
+const TM_TARGET = {
+    "TM파도타기":"vaporeon","TM번개":"jolteon","TM화염방사":"flareon",
+    "TM사이코키네시스":"espeon","TM악의파동":"umbreon","TM리프블레이드":"leafeon",
+    "TM냉동빔":"glaceon","TM문포스":"sylveon",
+    "TM거대충격":"gmax","TM극한돌파":"mega","TM인파이트":"fighting",
+    "TM섀도볼":"ghost","TM용성군":"dragon","TM지진":"ground",
+    "TM스톤엣지":"rock","TM브레이브버드":"flying",
+    "TM아이언테일":"steel","TM독찌르기":"poison","TM시저크로스":"bug",
 };
 
 /* ── 진화 가능 아이템 체크 ── */
@@ -351,6 +374,7 @@ const state = {
     timeOfDay: "day",
     hintUsed: false,        // 턴당 힌트 1회
     hintBoosts: [],          // 힌트로 활성화된 드롭률 부스트 [{locId, itemName}]
+    learnedSkills: new Set(),  // 스킬 습득 완료된 이브이 id (예: "vaporeon")
     base8Notified: false,    // 8종 완성 알림 표시 여부
     totalExplores: 0,       // 총 탐색 횟수
     _deliveredItem: null,
@@ -492,7 +516,7 @@ const EVO_ITEM_AFFINITY = {
     "얼음바위조각": "glaceon", "얼음바위": "glaceon",
     "리본": "sylveon",
     "다이버섯": "gmax", "이브이나이트": "mega", "용의비늘": "dragon",
-    "부드러운모래": "ground", "바람깃털": "flying",
+    "동굴조약돌": "ground", "바람깃털": "flying",
     "독바늘": "poison", "벌레껍질": "bug",
 };
 
@@ -869,7 +893,7 @@ function checkEvolution() {
             case "friendship_item": match = ee.friendship >= FRIENDSHIP.max && state._deliveredItem === evo.item; break;
             case "friendship_zero_night": match = ee.friendship <= 0 && tod === "night"; break;
             case "explore_count": match = state.totalExplores >= 30 && ee.friendship >= FRIENDSHIP.max; break;
-            case "ground_stone": match = hasItem("부드러운모래") && ee.friendship >= FRIENDSHIP.max && state.totalExplores >= 10; break;
+            case "ground_stone": match = hasItem("동굴조약돌") && ee.friendship >= FRIENDSHIP.max && state.totalExplores >= 10; break;
             case "rock_craft": match = (state._globalRepeat || 0) >= 3 && ee.friendship >= FRIENDSHIP.max && hasItem("이끼바위") && hasItem("얼음바위"); break;
             case "flying_feather":
                 // 플라이비: 친밀도 MAX + 바람깃털 전달 + 모든 지역 1회 이상 방문 (글로벌)
@@ -882,7 +906,7 @@ function checkEvolution() {
                 match = state._deliveredItem === "바람깃털" && ee.friendship >= FRIENDSHIP.max && allVisited;
                 break;
             case "four_stones":
-                match = ["물의돌","불꽃의돌","천둥의돌","부드러운모래"].every(s => hasItem(s)) && ee.friendship >= FRIENDSHIP.max;
+                match = ["물의돌","불꽃의돌","천둥의돌","동굴조약돌"].every(s => hasItem(s)) && ee.friendship >= FRIENDSHIP.max;
                 break;
             case "dragon":
                 match = state.collected.has("gmax") && state.collected.has("mega") && state._deliveredItem === "용의비늘" && ee.friendship >= FRIENDSHIP.max;
@@ -895,7 +919,10 @@ function checkEvolution() {
                 break;
         }
         if (match) {
-            // 아이템은 feedItem에서 이미 제거됨 → 중복 제거 안 함
+            // 보유 조건 아이템 소모 (전달 아이템은 feedItem에서 이미 제거됨)
+            if (evo.condition === "ground_stone") removeItem("동굴조약돌");
+            if (evo.condition === "rock_craft") { removeItem("이끼바위"); removeItem("얼음바위"); }
+            if (evo.condition === "four_stones") { removeItem("물의돌"); removeItem("불꽃의돌"); removeItem("천둥의돌"); removeItem("동굴조약돌"); }
             return evo;
         }
     }
@@ -1078,6 +1105,7 @@ function saveGame() {
             expeditions: (state.expeditions || []).map(e => ({ ...e })),
             // expeditionSlots는 getExpSlots()로 동적 계산
             _lastExpRefs: state._lastExpRefs || [],
+            learnedSkills: [...state.learnedSkills],
             turnLocations: (state.turnLocations || []).map(l => l.id),
             endingShown: state.endingShown || false,
             playerName: state.playerName || "",
@@ -1113,6 +1141,7 @@ function loadGame() {
         state.expeditions = data.expeditions || [];
         // expeditionSlots는 getExpSlots()로 동적 계산
         state._lastExpRefs = data._lastExpRefs || [];
+        state.learnedSkills = new Set(data.learnedSkills || []);
         state.turnLocations = (data.turnLocations || []).map(id => LOCATIONS.find(l => l.id === id)).filter(Boolean);
         if (state.turnLocations.length === 0) rollTurnLocations(); // 저장 데이터 없으면 새로 생성
         state.endingShown = data.endingShown || false;
@@ -1203,6 +1232,7 @@ function deleteSave() {
     state.currentEevee = null;
     state.farm = []; state.farmItems = [];
     state.collected = new Set(); state.inventory = {};
+    state.learnedSkills = new Set();
     state.turnLocations = [];
     state.selectedFarmEevee = null;
     state.invScroll = 0; state.dexScroll = 0;
@@ -1651,8 +1681,8 @@ function updateFarmBattle() {
             // 글레이시아: 슬로우 체크
             if (eeTag === "battle_slow") hasGlaceon = true;
 
-            // ── 스킬 발동 판정 (활동성 50 이상, 쿨타임 중 아님) ──
-            if (evo && SKILLS[evo.id] && (ee.activity || 0) >= 50) {
+            // ── 스킬 발동 판정 (습득 완료 + 활동성 50 이상, 쿨타임 중 아님) ──
+            if (evo && SKILLS[evo.id] && state.learnedSkills.has(evo.id) && (ee.activity || 0) >= 50) {
                 const skill = SKILLS[evo.id];
                 if (!ee._skillCd) ee._skillCd = 0;
                 if (ee._skillCd > 0) { ee._skillCd--; }
@@ -1883,7 +1913,7 @@ function sendExpedition(locId, eeveeRefs) {
 
     // 최고 활동성 기반 단축
     const maxAct = Math.max(...members.map(m => m.act));
-    duration *= (1 - maxAct / 200);
+    duration *= Math.max(0.1, 1 - Math.min(maxAct, 100) / 200); // 활동성 100까지만 반영, 최소 10%
 
     // 협동 보너스: 2마리 -30%, 3마리 -50%
     if (members.length >= 3) duration *= 0.5;
@@ -1951,7 +1981,15 @@ function resolveExpedition(exp) {
 
     for (const m of members) {
         const tag = m.tag || "";
-        let itemPool = [...baseItemPool];
+        // TM은 이미 습득했거나 인벤에 있으면 드롭풀에서 제외
+        let itemPool = baseItemPool.filter(i => {
+            if (i.type === "tm") {
+                const targetId = TM_TARGET[i.name];
+                if (targetId && state.learnedSkills.has(targetId)) return false;
+                if (hasItem(i.name)) return false;
+            }
+            return true;
+        });
         const typeMatch = loc.attr === m.type;
         const isNight = state.timeOfDay === "night";
         let itemChance = typeMatch ? 0.55 : 0.35;
@@ -2133,6 +2171,27 @@ function feedItem(itemName) {
             const evo = checkEvolution();
             if (evo) { triggerEvolution(evo); return; }
         }
+    } else if (TM_TARGET[itemName]) {
+        // TM 전달 → 스킬 습득
+        const targetId = TM_TARGET[itemName];
+        if (state.learnedSkills.has(targetId)) {
+            showMessage("이미 습득한 스킬입니다!", 60);
+            return;
+        }
+        // 대상 이브이가 농장에 있는지 체크
+        const targetEvo = EVOS.find(e => e.id === targetId);
+        const inFarm = state.farm.some(e => e.evoId === targetId);
+        if (!inFarm) {
+            showMessage(`${targetEvo ? targetEvo.name : "대상"}이(가) 농장에 없습니다!`, 90);
+            return;
+        }
+        removeItem(itemName);
+        state.learnedSkills.add(targetId);
+        const skillName = SKILLS[targetId] ? SKILLS[targetId].name : itemName;
+        showMessage(`${targetEvo.name}이(가) ${skillName}을(를) 배웠다!`, 150);
+        state.panel = null; state.panelSlide = 0;
+        saveGame();
+        return;
     } else {
         // 전달 가능한 아이템 목록 (진화 아이템만)
         const EVO_ITEMS = {
@@ -2221,6 +2280,7 @@ function feedFarmEevee(farmIdx, itemName) {
 
 function dropItem(itemName) {
     if (!hasItem(itemName)) return;
+    if (itemName.startsWith("TM")) { showMessage("기술머신은 버릴 수 없습니다!", 60); return; }
     removeItem(itemName);
     addFarmItem(itemName);
     saveGame();
@@ -2256,10 +2316,10 @@ function getHint() {
         if (!state.collected.has("gmax")) hints.push("새로운 탐색지가 열린 것 같다... 거대한 무언가의 기운이...");
         if (!state.collected.has("ghost")) hints.push("밤에 이브이의 친밀도가 0 이하로 떨어지면... 어둠의 진화가 일어날지도...");
         if (!state.collected.has("fighting") && ec >= 10) hints.push("탐색을 많이 하고 이브이와 친해지면 강해질 것 같다...");
-        if (!state.collected.has("ground")) hints.push("부드러운모래를 보유한 채 친밀도를 MAX로 올리고 탐색을 10회 이상 하면...");
+        if (!state.collected.has("ground")) hints.push("동굴조약돌를 보유한 채 친밀도를 MAX로 올리고 탐색을 10회 이상 하면...");
         if (!state.collected.has("rock")) hints.push("같은 탐색지에 3번 연속 파견하고, 이끼바위와 얼음바위를 갖고 있으면...");
         if (!state.collected.has("flying")) hints.push("바람깃털을 전달하고, 친밀도 MAX + 모든 지역을 방문해두면...");
-        if (!state.collected.has("steel")) hints.push("물의돌, 불꽃의돌, 천둥의돌, 부드러운모래를 모두 모으고 친밀도가 최대라면...");
+        if (!state.collected.has("steel")) hints.push("물의돌, 불꽃의돌, 천둥의돌, 동굴조약돌를 모두 모으고 친밀도가 최대라면...");
         if (!state.collected.has("poison")) hints.push("독안개늪에서 찾을 수 있는 독바늘을 친밀도 MAX인 이브이에게 전달하면...");
         if (!state.collected.has("bug")) hints.push("벌레숲에서 찾을 수 있는 벌레껍질을 친밀도 MAX인 이브이에게 전달하면...");
     }
@@ -2523,7 +2583,7 @@ function applyCheat(type) {
         // 모든 열매 100개
         for (const f of FRUITS) addItem(f, 100);
         // 진화용 아이템
-        for (const name of ["물의돌","불꽃의돌","천둥의돌","리본","이끼바위조각","얼음바위조각","태양조각","달조각","다이버섯","이브이나이트","용의비늘","부드러운모래","바람깃털","독바늘","벌레껍질"]) addItem(name, 10);
+        for (const name of ["물의돌","불꽃의돌","천둥의돌","리본","이끼바위조각","얼음바위조각","태양조각","달조각","다이버섯","이브이나이트","용의비늘","동굴조약돌","바람깃털","독바늘","벌레껍질"]) addItem(name, 10);
         showMessage("🔧 모든 아이템 추가!", 90);
     } else if (type === "friendship_max") {
         if (ee) ee.friendship = FRIENDSHIP.max;
@@ -3591,10 +3651,10 @@ function getEvoConditionText(evo) {
         case "friendship_item": return `친밀도 MAX + ${evo.item} 전달`;
         case "friendship_zero_night": return "친밀도 0 이하 + 밤";
         case "explore_count": return "탐색 30회 + 친밀도 MAX";
-        case "ground_stone": return "부드러운모래 보유 + 친밀도 MAX + 탐색 10회";
+        case "ground_stone": return "동굴조약돌 보유 + 친밀도 MAX + 탐색 10회";
         case "rock_craft": return "같은 탐색지 3연속 + 친밀도 MAX + 이끼바위&얼음바위 보유";
         case "flying_feather": return "바람깃털 전달 + 친밀도 MAX + 모든 지역 방문";
-        case "four_stones": return "물·불꽃·천둥의돌+부드러운모래 보유 + 친밀도 MAX";
+        case "four_stones": return "물·불꽃·천둥의돌+동굴조약돌 보유 + 친밀도 MAX";
         case "dragon": return "거다이브&메가브이 수집 + 용의비늘 전달 + 친밀도 MAX";
         case "poison_evo": return "독바늘 전달 + 친밀도 MAX";
         case "bug_evo": return "벌레껍질 전달 + 친밀도 MAX";
@@ -3706,7 +3766,7 @@ function drawDexPanel() {
             ctx.fillRect(0, 0, CW, CH);
 
             // 팝업 박스
-            const pw = CW - 40, ph = 440;
+            const pw = CW - 40, ph = 520;
             const px = 20, ppY = (CH - ph) / 2;
             ctx.fillStyle = "rgba(25,25,50,0.95)";
             ctx.strokeStyle = "#6C63FF"; ctx.lineWidth = 2;
@@ -3792,17 +3852,20 @@ function drawDexPanel() {
             // 스킬 정보
             const skill = SKILLS[evo.id];
             if (skill) {
+                const learned = state.learnedSkills.has(evo.id);
                 ctx.strokeStyle = "#444"; ctx.lineWidth = 1;
                 ctx.beginPath(); ctx.moveTo(px + 15, descY); ctx.lineTo(px + pw - 15, descY); ctx.stroke();
                 descY += 14;
-                ctx.fillStyle = skill.color; ctx.font = "bold 12px system-ui";
-                ctx.fillText(`⚔ ${skill.name}`, px + 15, descY);
-                ctx.fillStyle = "#aaa"; ctx.font = "10px system-ui"; ctx.textAlign = "right";
-                ctx.fillText(`발동 ${Math.round(skill.chance * 100)}% | 쿨 ${(skill.cd / 60).toFixed(0)}초`, px + pw - 15, descY);
-                ctx.textAlign = "left";
+                ctx.fillStyle = learned ? skill.color : "#555"; ctx.font = "bold 12px system-ui";
+                ctx.fillText(`⚔ ${skill.name}${learned ? "" : " (미습득)"}`, px + 15, descY);
+                if (learned) {
+                    ctx.fillStyle = "#aaa"; ctx.font = "10px system-ui"; ctx.textAlign = "right";
+                    ctx.fillText(`발동 ${Math.round(skill.chance * 100)}% | 쿨 ${(skill.cd / 60).toFixed(0)}초`, px + pw - 15, descY);
+                    ctx.textAlign = "left";
+                }
                 descY += 16;
-                ctx.fillStyle = "#ccc"; ctx.font = "11px system-ui";
-                ctx.fillText(skill.desc, px + 15, descY);
+                ctx.fillStyle = learned ? "#ccc" : "#666"; ctx.font = "11px system-ui";
+                ctx.fillText(learned ? skill.desc : "탐색에서 기술머신을 찾아 전달하세요", px + 15, descY);
                 descY += 18;
             }
 
@@ -3822,6 +3885,44 @@ function drawDexPanel() {
             ctx.fillStyle = "#ddd"; ctx.font = "11px system-ui";
             const condText = getEvoConditionText(evo);
             ctx.fillText(condText, px + 15, descY);
+            descY += 20;
+
+            // 열매/TM 전달 버튼
+            if (farmEe) {
+                const dexItems = [];
+                // 열매 + 조각
+                for (const f of [...FRUITS, "태양조각", "달조각"]) { if (hasItem(f)) dexItems.push(f); }
+                // TM
+                const tmN = Object.keys(TM_TARGET).find(tm => TM_TARGET[tm] === evo.id);
+                if (tmN && hasItem(tmN) && !state.learnedSkills.has(evo.id)) dexItems.push(tmN);
+
+                if (dexItems.length > 0) {
+                    ctx.strokeStyle = "#444"; ctx.lineWidth = 1;
+                    ctx.beginPath(); ctx.moveTo(px + 15, descY); ctx.lineTo(px + pw - 15, descY); ctx.stroke();
+                    descY += 12;
+                    ctx.fillStyle = "#FFD54F"; ctx.font = "bold 11px system-ui";
+                    ctx.fillText("아이템 전달", px + 15, descY);
+                    descY += 14;
+                    // 버튼 그리드 저장 (클릭용)
+                    state._dexFeedBtns = [];
+                    const cols = 4;
+                    for (let di = 0; di < dexItems.length; di++) {
+                        const name = dexItems[di];
+                        const col = di % cols, row = Math.floor(di / cols);
+                        const bx = px + 15 + col * ((pw - 30) / cols);
+                        const by = descY + row * 28;
+                        const bw = (pw - 30) / cols - 4, bh = 24;
+                        const isTM = name.startsWith("TM");
+                        ctx.fillStyle = isTM ? "rgba(63,81,181,0.8)" : "rgba(50,50,90,0.8)";
+                        ctx.strokeStyle = isTM ? "#7C4DFF" : "#555"; ctx.lineWidth = 1;
+                        roundRect(bx, by, bw, bh, 4); ctx.fill(); ctx.stroke();
+                        ctx.fillStyle = "#fff"; ctx.font = "9px system-ui"; ctx.textAlign = "center";
+                        ctx.fillText(isTM ? `💿${name.slice(2)}` : `${itemEmoji(name)}x${itemCount(name)}`, bx + bw / 2, by + 13);
+                        ctx.textAlign = "left";
+                        state._dexFeedBtns.push({ name, x: bx, y: by, w: bw, h: bh });
+                    }
+                }
+            }
         }
     }
 }
@@ -4120,7 +4221,13 @@ function drawPopup() {
         if (invOthers.length > 0) ph += 20 + otRows * 36;
         ph += 10;
     } else if (isFeedFarm) {
+        const farmE = state.farm[p.farmIdx];
+        const farmEvo = farmE ? EVOS.find(ev => ev.id === farmE.evoId) : null;
         const af = [...FRUITS, "태양조각", "달조각"].filter(f => hasItem(f));
+        if (farmEvo) {
+            const tmN = Object.keys(TM_TARGET).find(tm => TM_TARGET[tm] === farmEvo.id);
+            if (tmN && hasItem(tmN) && !state.learnedSkills.has(farmEvo.id)) af.push(tmN);
+        }
         const fruitRows = Math.ceil(af.length / 3);
         ph = af.length > 0 ? 90 + fruitRows * 36 : 130;
     } else if (p.type === "hint") {
@@ -4338,24 +4445,31 @@ function drawPopup() {
         ctx.strokeStyle = "#555"; ctx.lineWidth = 0.5; ctx.strokeRect(px + 15, py + 52, pw - 30, 6);
         ctx.fillStyle = "#999"; ctx.font = "10px system-ui";
         ctx.fillText(`활동성 ${Math.round(actDisp)}${allComplete() ? "" : " / " + ACTIVITY_BASE_MAX}`, px + pw / 2, py + 70);
-        // 열매 + 조각 버튼들
-        const availFruits = [...FRUITS, "태양조각", "달조각"].filter(f => hasItem(f));
-        if (availFruits.length > 0) {
+        // 열매 + 조각 + TM 버튼들
+        const availItems = [...FRUITS, "태양조각", "달조각"].filter(f => hasItem(f));
+        // 이 이브이에게 줄 수 있는 TM 추가
+        if (evo) {
+            const tmName = Object.keys(TM_TARGET).find(tm => TM_TARGET[tm] === evo.id);
+            if (tmName && hasItem(tmName) && !state.learnedSkills.has(evo.id)) availItems.push(tmName);
+        }
+        if (availItems.length > 0) {
             const cols = 3;
-            for (let i = 0; i < availFruits.length; i++) {
-                const name = availFruits[i];
+            for (let i = 0; i < availItems.length; i++) {
+                const name = availItems[i];
                 const col = i % cols, row = Math.floor(i / cols);
                 const fbx = px + 15 + col * 92, fby = py + 82 + row * 36, fbw = 85, fbh = 30;
-                ctx.fillStyle = "rgba(50,50,90,0.9)"; ctx.strokeStyle = "#555"; ctx.lineWidth = 1;
+                const isTM = name.startsWith("TM");
+                ctx.fillStyle = isTM ? "rgba(63,81,181,0.9)" : "rgba(50,50,90,0.9)";
+                ctx.strokeStyle = isTM ? "#7C4DFF" : "#555"; ctx.lineWidth = 1;
                 roundRect(fbx, fby, fbw, fbh, 5); ctx.fill(); ctx.stroke();
-                ctx.fillStyle = "#fff"; ctx.font = "11px system-ui";
-                ctx.fillText(`${itemEmoji(name)} x${itemCount(name)}`, fbx + fbw / 2, fby + 11);
-                ctx.fillStyle = "#888"; ctx.font = "8px system-ui";
-                ctx.fillText(ITEM_DESC[name] || "", fbx + fbw / 2, fby + 23);
+                ctx.fillStyle = "#fff"; ctx.font = isTM ? "bold 10px system-ui" : "11px system-ui";
+                ctx.fillText(isTM ? `💿 ${name.slice(2)}` : `${itemEmoji(name)} x${itemCount(name)}`, fbx + fbw / 2, fby + 11);
+                ctx.fillStyle = isTM ? "#B388FF" : "#888"; ctx.font = "8px system-ui";
+                ctx.fillText(isTM ? "스킬 습득" : (ITEM_DESC[name] || ""), fbx + fbw / 2, fby + 23);
             }
         } else {
             ctx.fillStyle = "#666"; ctx.font = "12px system-ui";
-            ctx.fillText("줄 수 있는 열매가 없습니다", px + pw / 2, py + 100);
+            ctx.fillText("줄 수 있는 아이템이 없습니다", px + pw / 2, py + 100);
         }
     } else if (p.type === "cheat") {
         ctx.fillStyle = "#FF5722"; ctx.font = "bold 15px system-ui";
@@ -4997,17 +5111,38 @@ function handleInput() {
             return;
         }
         if (state.popup.type === "feed_farm") {
-            const availFruits = [...FRUITS, "태양조각", "달조각"].filter(f => hasItem(f));
-            const fruitRows = Math.ceil(availFruits.length / 3);
-            const pw = 300, ph = availFruits.length > 0 ? 90 + fruitRows * 36 : 130;
+            const e = state.farm[state.popup.farmIdx];
+            const evo = e ? EVOS.find(ev => ev.id === e.evoId) : null;
+            const availItems = [...FRUITS, "태양조각", "달조각"].filter(f => hasItem(f));
+            if (evo) {
+                const tmName = Object.keys(TM_TARGET).find(tm => TM_TARGET[tm] === evo.id);
+                if (tmName && hasItem(tmName) && !state.learnedSkills.has(evo.id)) availItems.push(tmName);
+            }
+            const itemRows = Math.ceil(availItems.length / 3);
+            const pw = 300, ph = availItems.length > 0 ? 90 + itemRows * 36 : 130;
             const px = (CW - pw) / 2, py = Math.max(10, (CH - ph) / 2);
-            if (availFruits.length > 0) {
+            if (availItems.length > 0) {
                 const cols = 3;
-                for (let i = 0; i < availFruits.length; i++) {
+                for (let i = 0; i < availItems.length; i++) {
                     const col = i % cols, row = Math.floor(i / cols);
                     const fbx = px + 15 + col * 92, fby = py + 82 + row * 36, fbw = 85, fbh = 30;
                     if (hitBox(x, y, fbx, fby, fbw, fbh)) {
-                        feedFarmEevee(state.popup.farmIdx, availFruits[i]);
+                        const itemName = availItems[i];
+                        if (itemName.startsWith("TM")) {
+                            // TM 전달
+                            const targetId = TM_TARGET[itemName];
+                            if (targetId && !state.learnedSkills.has(targetId)) {
+                                removeItem(itemName);
+                                state.learnedSkills.add(targetId);
+                                const skillName = SKILLS[targetId] ? SKILLS[targetId].name : itemName;
+                                const targetEvo = EVOS.find(ev => ev.id === targetId);
+                                showMessage(`${targetEvo.name}이(가) ${skillName}을(를) 배웠다!`, 150);
+                                state.popup = null; state.selectedFarmEevee = null;
+                                saveGame();
+                            }
+                        } else {
+                            feedFarmEevee(state.popup.farmIdx, itemName);
+                        }
                         return;
                     }
                 }
@@ -5374,7 +5509,37 @@ function handleInput() {
             }
         } else if (state.panel === "dex") {
             // 도감 팝업이 열려있으면 닫기
-            if (state.dexPopup) { state.dexPopup = null; return; }
+            if (state.dexPopup) {
+                // 아이템 전달 버튼 체크
+                if (state._dexFeedBtns) {
+                    for (const btn of state._dexFeedBtns) {
+                        if (hitBox(x, y, btn.x, btn.y, btn.w, btn.h)) {
+                            const itemName = btn.name;
+                            if (itemName.startsWith("TM")) {
+                                const targetId = TM_TARGET[itemName];
+                                if (targetId && !state.learnedSkills.has(targetId)) {
+                                    removeItem(itemName);
+                                    state.learnedSkills.add(targetId);
+                                    const sk = SKILLS[targetId];
+                                    const ev = EVOS.find(e => e.id === targetId);
+                                    showMessage(`${ev.name}이(가) ${sk.name}을(를) 배웠다!`, 150);
+                                    saveGame();
+                                }
+                            } else {
+                                // 열매/조각 전달 — farmEe 찾아서 feedFarmEevee
+                                const evo = EVOS.find(e => e.id === state.dexPopup);
+                                if (evo) {
+                                    const fi = state.farm.findIndex(e => e.evoId === evo.id);
+                                    if (fi >= 0) { feedFarmEevee(fi, itemName); }
+                                }
+                            }
+                            state._dexFeedBtns = null;
+                            return;
+                        }
+                    }
+                }
+                state.dexPopup = null; state._dexFeedBtns = null; return;
+            }
             // 그리드 카드 클릭 → 팝업 열기
             if (state._dexGrid) {
                 for (const card of state._dexGrid) {
@@ -5411,7 +5576,7 @@ function handleInput() {
         const ce = state.currentEevee;
         const scr = worldToScreen(ce.wx, ce.wy);
         const sz = spriteSize(ce.wy);
-        if (Math.abs(x - scr.sx) < sz * 1.2 && y > scr.sy - sz * 2.0 && y < scr.sy + sz * 0.5) {
+        if (Math.abs(x - scr.sx) < sz * 1.5 && y > scr.sy - sz * 2.2 && y < scr.sy + sz * 0.8) {
             state.popup = { type: "feed_current" };
             state.popupTimer = 0;
             return;
@@ -5424,7 +5589,7 @@ function handleInput() {
         const e = state.farm[i];
         const scr = worldToScreen(e.wx, e.wy);
         const sz = spriteSize(e.wy) * 1.2;
-        if (Math.abs(x - scr.sx) < sz * 1.2 && y > scr.sy - sz * 2.0 && y < scr.sy + sz * 0.5) {
+        if (Math.abs(x - scr.sx) < sz * 1.5 && y > scr.sy - sz * 2.2 && y < scr.sy + sz * 0.8) {
             state.selectedFarmEevee = i;
             state.popup = { type: "feed_farm", farmIdx: i };
             state.popupTimer = 0;
