@@ -224,21 +224,21 @@ const EVOS = [
 const SKILLS = {
     vaporeon:  { name:"파도타기",       type:"물",     color:"#4FC3F7", chance:0.15, cd:480,  dmgMult:2.5, stun:60,  desc:"DPS 250% + 1초 이동정지" },
     jolteon:   { name:"번개",           type:"전기",   color:"#FFD54F", chance:0.20, cd:360,  dmgMult:3.0, desc:"DPS 300% 즉발" },
-    flareon:   { name:"화염방사",       type:"불",     color:"#FF5722", chance:0.10, cd:600,  buff:"selfDps2x", buffDur:180, desc:"3초간 자신 DPS 2배" },
-    espeon:    { name:"사이코키네시스", type:"에스퍼", color:"#CE93D8", chance:0.10, cd:720,  stun:90,  desc:"1.5초 이동정지" },
-    umbreon:   { name:"악의파동",       type:"악",     color:"#5C6BC0", chance:0.15, cd:600,  debuff:"kbReduce", debuffDur:180, desc:"넉백 50% 감소 3초" },
+    flareon:   { name:"화염방사",       type:"불",     color:"#FF5722", chance:0.10, cd:480,  buff:"selfDps2x", buffDur:240, desc:"4초간 자신 DPS 2배" },
+    espeon:    { name:"사이코키네시스", type:"에스퍼", color:"#CE93D8", chance:0.12, cd:600,  dmgMult:1.5, stun:120, stunResetKb:true, desc:"DPS 150% + 2초 이동정지 (넉백도 차단)" },
+    umbreon:   { name:"악의파동",       type:"악",     color:"#5C6BC0", chance:0.15, cd:480,  dmgMult:1.5, debuff:"kbReduce", debuffDur:300, desc:"DPS 150% + 넉백 50% 감소 5초" },
     leafeon:   { name:"리프블레이드",   type:"풀",     color:"#66BB6A", chance:0.15, cd:480,  dmgMult:2.5, heal:5, desc:"DPS 250% + 본인&주변 활동성 5 회복" },
-    glaceon:   { name:"냉동빔",         type:"얼음",   color:"#B3E5FC", chance:0.15, cd:480,  debuff:"slow70", debuffDur:180, desc:"이속 70% 감소 3초" },
+    glaceon:   { name:"냉동빔",         type:"얼음",   color:"#B3E5FC", chance:0.15, cd:480,  dmgMult:1.5, debuff:"slow80", debuffDur:240, desc:"DPS 150% + 이속 80% 감소 4초" },
     sylveon:   { name:"문포스",         type:"페어리", color:"#F48FB1", chance:0.10, cd:720,  buff:"partyDps30", buffDur:180, desc:"전원 DPS 30% 버프 3초" },
     gmax:      { name:"거대충격",       type:"노멀",   color:"#FFFFFF", chance:0.08, cd:900,  dmgMult:4.0, buff:"partyKbImmune", buffDur:180, desc:"DPS 400% + 전원 3초 넉백 무효" },
-    mega:      { name:"극한돌파",       type:"노멀",   color:"#FFFFFF", chance:0.08, cd:900,  dmgMult:5.0, desc:"DPS 500% 즉발" },
+    mega:      { name:"극한돌파",       type:"노멀",   color:"#FFFFFF", chance:0.10, cd:720,  dmgMult:5.0, desc:"DPS 500% 즉발" },
     fighting:  { name:"인파이트",       type:"격투",   color:"#FF8A65", chance:0.10, cd:720,  buff:"comboBoost", buffDur:300, desc:"5초간 공속+콤보 2배" },
-    ghost:     { name:"섀도볼",         type:"고스트", color:"#7E57C2", chance:0.10, cd:600,  debuff:"dmgTaken2x", debuffDur:180, desc:"3초간 받는 데미지 2배" },
+    ghost:     { name:"섀도볼",         type:"고스트", color:"#7E57C2", chance:0.10, cd:720,  debuff:"dmgTaken15", debuffDur:120, desc:"2초간 받는 데미지 1.5배" },
     dragon:    { name:"용성군",         type:"드래곤", color:"#42A5F5", chance:0.12, cd:600,  dmgMult:3.5, selfDebuff:"dps50", selfDebuffDur:180, desc:"DPS 350% + 자신 3초 DPS -50%" },
     ground:    { name:"지진",           type:"땅",     color:"#A1887F", chance:0.12, cd:600,  dmgMult:3.0, stun:90,  desc:"DPS 300% + 1.5초 이동정지" },
     rock:      { name:"스톤엣지",       type:"바위",   color:"#8D6E63", chance:0.10, cd:720,  dmgMult:3.0, buff:"partyKbImmune", buffDur:180, desc:"DPS 300% + 전원 3초 넉백 무효" },
     flying:    { name:"브레이브버드",   type:"비행",   color:"#81D4FA", chance:0.15, cd:480,  dmgMult:3.5, desc:"DPS 350% 즉발" },
-    steel:     { name:"아이언테일",     type:"강철",   color:"#B0BEC5", chance:0.12, cd:600,  dmgMult:2.5, buff:"selfMinroll90", buffDur:180, desc:"DPS 250% + 3초 하한 90%" },
+    steel:     { name:"아이언테일",     type:"강철",   color:"#B0BEC5", chance:0.12, cd:600,  dmgMult:3.0, buff:"selfMinroll90", buffDur:180, desc:"DPS 300% + 3초 하한 90%" },
     poison:    { name:"독찌르기",       type:"독",     color:"#AB47BC", chance:0.12, cd:600,  debuff:"dot2", debuffDur:300, desc:"5초간 매초 HP 2% DOT" },
     bug:       { name:"시저크로스",     type:"벌레",   color:"#9CCC65", chance:0.15, cd:480,  dmgMult:2.0, swarmScale:true, desc:"DPS 200% x 이브이 수 보정" },
 };
@@ -248,7 +248,7 @@ const skillParticles = [];
 // 스킬 텍스트 팝업 배열
 const skillTexts = [];
 // 몬스터 디버프 상태
-const monsterDebuffs = { stun:0, slow70:0, kbReduce:0, dmgTaken2x:0, dot2:0 };
+const monsterDebuffs = { stun:0, slow70:0, slow80:0, kbReduce:0, dmgTaken2x:0, dmgTaken15:0, dot2:0 };
 // 파티 버프 상태
 const partyBuffs = { dps30:0, kbImmune:0, zBoost:0 };
 
@@ -1454,8 +1454,8 @@ function spawnMonster(stage) {
     state.monsterStage = stage;
     state.monsterSpawnAnim = 90;
     // 디버프/버프 초기화
-    monsterDebuffs.stun = 0; monsterDebuffs.slow70 = 0; monsterDebuffs.kbReduce = 0;
-    monsterDebuffs.dmgTaken2x = 0; monsterDebuffs.dot2 = 0;
+    monsterDebuffs.stun = 0; monsterDebuffs.slow70 = 0; monsterDebuffs.slow80 = 0; monsterDebuffs.kbReduce = 0;
+    monsterDebuffs.dmgTaken2x = 0; monsterDebuffs.dmgTaken15 = 0; monsterDebuffs.dot2 = 0;
     partyBuffs.dps30 = 0; partyBuffs.kbImmune = 0; partyBuffs.zBoost = 0;
     skillParticles.length = 0; skillTexts.length = 0;
     state.monsterTimer = Date.now();
@@ -1571,7 +1571,8 @@ function updateFarmBattle() {
         // 스턴 중에도 DPS 계산은 진행 (아래로 넘어감)
     }
     const stageBonus = 1 + Math.min(mon.stage * 0.01, 0.5);
-    const slow70Mult = (monsterDebuffs.slow70 > 0) ? 0.3 : 1.0; // 냉동빔 슬로우
+    const slow80Mult = (monsterDebuffs.slow80 > 0) ? 0.2 : 1.0; // 냉동빔 80% 감속
+    const slow70Mult = (monsterDebuffs.slow70 > 0) ? 0.3 : slow80Mult; // 글레이시아 패시브 or 냉동빔
     const slowMult = (mon._slowTimer > 0) ? 0.4 : slow70Mult; // 글레이시아 패시브 슬로우
     const stunMult = (monsterDebuffs.stun > 0) ? 0 : 1.0; // 스턴 시 이동 정지
     // 리피아 포자: 근처에 있으면 이속 15% 감소 (중첩)
@@ -1683,6 +1684,8 @@ function updateFarmBattle() {
     // ── 디버프/버프 타이머 갱신 ──
     if (monsterDebuffs.stun > 0) monsterDebuffs.stun--;
     if (monsterDebuffs.slow70 > 0) monsterDebuffs.slow70--;
+    if (monsterDebuffs.slow80 > 0) monsterDebuffs.slow80--;
+    if (monsterDebuffs.dmgTaken15 > 0) monsterDebuffs.dmgTaken15--;
     if (monsterDebuffs.kbReduce > 0) monsterDebuffs.kbReduce--;
     if (monsterDebuffs.dmgTaken2x > 0) monsterDebuffs.dmgTaken2x--;
     if (monsterDebuffs.dot2 > 0) {
@@ -1714,6 +1717,7 @@ function updateFarmBattle() {
 
             // 몬스터 받는 데미지 2배
             if (monsterDebuffs.dmgTaken2x > 0) eeDps *= 2;
+            if (monsterDebuffs.dmgTaken15 > 0) eeDps *= 1.5;
 
             totalDPS += eeDps;
 
@@ -1758,18 +1762,25 @@ function updateFarmBattle() {
                         // 스킬 타입 vs 몬스터 타입 상성
                         if (mon.types) sklDmg *= calcTypeMultVsMonster(skill.type, mon.types);
                         if (monsterDebuffs.dmgTaken2x > 0) sklDmg *= 2;
+                        if (monsterDebuffs.dmgTaken15 > 0) sklDmg *= 1.5;
                         // 하이버: 이브이 수 보정
                         if (skill.swarmScale) sklDmg *= 1 + getFighterCount() * 0.1;
                         mon.hp -= sklDmg / 60; // 즉발 데미지 (1프레임)
                     }
 
                     // 스턴 (이동정지)
-                    if (skill.stun) monsterDebuffs.stun = Math.max(monsterDebuffs.stun, skill.stun);
+                    if (skill.stun) {
+                        monsterDebuffs.stun = Math.max(monsterDebuffs.stun, skill.stun);
+                        // 사이코키네시스: 스턴 중 넉백도 차단 (쿨다운 리셋)
+                        if (skill.stunResetKb && mon._pushCooldown !== undefined) mon._pushCooldown = skill.stun;
+                    }
 
                     // 디버프
                     if (skill.debuff === "slow70") monsterDebuffs.slow70 = Math.max(monsterDebuffs.slow70, skill.debuffDur);
+                    if (skill.debuff === "slow80") monsterDebuffs.slow80 = Math.max(monsterDebuffs.slow80, skill.debuffDur);
                     if (skill.debuff === "kbReduce") monsterDebuffs.kbReduce = Math.max(monsterDebuffs.kbReduce, skill.debuffDur);
                     if (skill.debuff === "dmgTaken2x") monsterDebuffs.dmgTaken2x = Math.max(monsterDebuffs.dmgTaken2x, skill.debuffDur);
+                    if (skill.debuff === "dmgTaken15") monsterDebuffs.dmgTaken15 = Math.max(monsterDebuffs.dmgTaken15, skill.debuffDur);
                     if (skill.debuff === "dot2") monsterDebuffs.dot2 = Math.max(monsterDebuffs.dot2, skill.debuffDur);
 
                     // 버프
@@ -4928,13 +4939,13 @@ function drawMonster() {
         ctx.beginPath(); ctx.arc(mx + shake, my + breathe, monSize / 2, 0, Math.PI * 2); ctx.fill();
         ctx.globalAlpha = 1;
     }
-    if (monsterDebuffs.slow70 > 0) {
-        ctx.globalAlpha = 0.25;
+    if (monsterDebuffs.slow80 > 0 || monsterDebuffs.slow70 > 0) {
+        ctx.globalAlpha = monsterDebuffs.slow80 > 0 ? 0.35 : 0.25;
         ctx.fillStyle = "#B3E5FC";
         ctx.beginPath(); ctx.arc(mx + shake, my + breathe, monSize / 2 + 4, 0, Math.PI * 2); ctx.fill();
         ctx.globalAlpha = 1;
     }
-    if (monsterDebuffs.dmgTaken2x > 0) {
+    if (monsterDebuffs.dmgTaken2x > 0 || monsterDebuffs.dmgTaken15 > 0) {
         ctx.globalAlpha = 0.2 + Math.sin(frame * 0.15) * 0.1;
         ctx.fillStyle = "#7E57C2";
         ctx.beginPath(); ctx.arc(mx + shake, my + breathe, monSize / 2 + 2, 0, Math.PI * 2); ctx.fill();
