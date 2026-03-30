@@ -340,6 +340,10 @@ const ITEM_DESC = {
     "TM스톤엣지":"록키온 스킬 습득","TM브레이브버드":"플라이비 스킬 습득",
     "TM아이언테일":"메탈리아 스킬 습득","TM독찌르기":"바이퍼스 스킬 습득","TM시저크로스":"하이버 스킬 습득",
     "Z나인이볼부스트":"이브이 전용 Z기술 — 전달하여 습득",
+    "울퉁불퉁멧":"넉백 시 몬스터 HP 3% 반사","달인의띠":"상성 유리 배율 강화",
+    "초점렌즈":"스킬 발동률 +10%","선제공격발톱":"이동속도 +30%",
+    "빛의점토":"스킬 지속시간 +50%","예리한이빨":"15% 크리티컬 (2배)",
+    "박식안경":"상성 불리 경감","광각렌즈":"공격 범위 확대","겨냥표적":"스킬 쿨타임 -25%",
 };
 
 // TM → 대상 이브이 id 매핑
@@ -352,6 +356,20 @@ const TM_TARGET = {
     "TM스톤엣지":"rock","TM브레이브버드":"flying",
     "TM아이언테일":"steel","TM독찌르기":"poison","TM시저크로스":"bug",
 };
+
+/* ── 도구 시스템 ── */
+const TOOLS = {
+    "울퉁불퉁멧":   { img:"item/울퉁불퉁멧.png",   desc:"넉백 시 몬스터 HP 3% 반사",         effect:"kbReflect" },
+    "달인의띠":     { img:"item/달인의띠.png",     desc:"상성 유리 배율 x1.4 → x1.7",       effect:"expertBelt" },
+    "초점렌즈":     { img:"item/초점렌즈.png",     desc:"스킬 발동률 +10%",                  effect:"scopeLens" },
+    "선제공격발톱": { img:"item/선제공격발톱.png", desc:"이동속도 +30%",                     effect:"quickClaw" },
+    "빛의점토":     { img:"item/빛의점토.png",     desc:"스킬 버프/디버프 지속시간 +50%",    effect:"lightClay" },
+    "예리한이빨":   { img:"item/예리한이빨.png",   desc:"크리티컬 15% 확률 (데미지 2배)",    effect:"razorFang" },
+    "박식안경":     { img:"item/박식안경.png",     desc:"상성 불리 배율 0.65 → 0.85",       effect:"prismArmor" },
+    "광각렌즈":     { img:"item/광각렌즈.png",     desc:"공격 범위 20% 확대",                effect:"wideAngle" },
+    "겨냥표적":     { img:"item/겨냥표적.png",     desc:"스킬 쿨타임 25% 감소",              effect:"burnAmulet" },
+};
+const TOOL_NAMES = Object.keys(TOOLS);
 
 /* ── 진화 가능 아이템 체크 ── */
 function canEvolveWith(itemName) {
@@ -400,6 +418,7 @@ const state = {
     selectedFarmEevee: null, // 농장 이브이 터치 시 인덱스
     invScroll: 0,             // 인벤토리 스크롤 오프셋
     dexScroll: 0,             // 도감 스크롤 오프셋
+    dexTab: "eevee",          // 도감 탭: "eevee" | "tm" | "tool"
     dexPopup: null,           // 도감 팝업 대상 evo id
     eeSelectScroll: 0,        // 이브이 선택 스크롤
     expScroll: 0,             // 탐색 메인 리스트 스크롤
@@ -471,6 +490,8 @@ const imageList = [
     "mon/텅비드.png","mon/차곡차곡.png","mon/두파팡.png","mon/악식킹.png","mon/위유이.png",
     "mon/총지엔.png","mon/파오젠.png","mon/딩루.png","mon/철화구야.png",
     "mon/네크로즈마.png","mon/울트라네크로즈마.png","mon/무한다이노.png","mon/무한다이노다이맥스.png",
+    "item/울퉁불퉁멧.png","item/달인의띠.png","item/초점렌즈.png","item/선제공격발톱.png",
+    "item/빛의점토.png","item/예리한이빨.png","item/박식안경.png","item/광각렌즈.png","item/겨냥표적.png",
 ];
 const totalImages = imageList.length;
 imageList.forEach(name => {
@@ -563,8 +584,9 @@ function getEeveeSpeed(e) {
     // 진화 이브이 spd 보너스 (이브이 기본 spd 55 기준, 초과분의 10%를 가산)
     const evo = e.evoId ? EVOS.find(ev => ev.id === e.evoId) : null;
     const spdBonus = evo && evo.spd ? Math.max(0, evo.spd - 55) * 0.00001 : 0;
-    const zMult = partyBuffs.zBoost > 0 ? 2.0 : 1.0; // Z기술: 이속 2배
-    return (base + spdBonus) * zMult;
+    const zMult = partyBuffs.zBoost > 0 ? 2.0 : 1.0;
+    const toolMult = (e._tool && TOOLS[e._tool] && TOOLS[e._tool].effect === "quickClaw") ? 1.3 : 1.0;
+    return (base + spdBonus) * zMult * toolMult;
 }
 
 function addFarmItem(name) {
@@ -1101,6 +1123,7 @@ function saveGame() {
                 activity: e.activity || 0,
                 likedFruit: e.likedFruit,
                 dislikedFruit: e.dislikedFruit,
+                _tool: e._tool || null,
                 visitedLocations: [...(e.visitedLocations || [])],
             })),
             farmItems: state.farmItems.map(i => ({ name: i.name, wx: i.wx, wy: i.wy })),
@@ -1224,6 +1247,7 @@ function loadGame() {
                 activity: e.activity || 0,
                 likedFruit: liked,
                 dislikedFruit: disliked,
+                _tool: e._tool || null,
                 visitedLocations: new Set(e.visitedLocations || []),
                 wx: 0.15 + Math.random() * 0.7,
                 wy: 0.15 + Math.random() * 0.7,
@@ -1577,26 +1601,36 @@ function calcEeveeDPS(eevee, targetMon) {
         : ACTIVITY_BASE_MAX + Math.sqrt(rawAct - ACTIVITY_BASE_MAX) * 2;
     let dps = basePower + act * 0.3;
 
+    // 도구 효과
+    const tool = eevee._tool ? TOOLS[eevee._tool] : null;
+    const toolEff = tool ? tool.effect : "";
+
     // 상성 보정 (다중 타입)
     if (mon && mon.types) {
         let mult = calcTypeMultVsMonster(type, mon.types);
         if (tag === "battle_noweakness" && mult < 1) mult = 1.0;
         if (tag === "battle_alladvantage") mult = Math.max(mult, 1.5);
+        // 달인의띠: 상성 유리 강화
+        if (toolEff === "expertBelt" && mult > 1) mult *= 1.7 / 1.4;
+        // 박식안경: 상성 불리 경감
+        if (toolEff === "prismArmor" && mult < 1) mult = Math.max(mult, 0.85);
         dps *= mult;
     }
 
     // 고유 능력
     if (tag === "battle_dmg") dps *= 1.3;
-    if (tag === "battle_combo") dps *= 1 + Math.min((eevee._comboStacks || 0) * 0.02, 0.5); // 브레이버: 콤보 누적
-    if (tag === "battle_sturdy") dps *= 1.15; // 록키온: DPS +15%
+    if (tag === "battle_combo") dps *= 1 + Math.min((eevee._comboStacks || 0) * 0.02, 0.5);
+    if (tag === "battle_sturdy") dps *= 1.15;
     if (tag === "battle_fixed") dps += 2;
-    // maxHp 비례 능력: 상한 캡 (기본 DPS의 3배까지)
     const hpCap = dps * 3;
     if (tag === "battle_curse" && mon) dps += Math.min(mon.maxHp * 0.005, hpCap);
     if (tag === "leafeon" && mon) dps += Math.min(mon.maxHp * 0.003, hpCap);
     if (tag === "sylveon") dps *= 1.2;
-    if (tag === "battle_dot" && mon) dps += Math.min(mon.maxHp * 0.01, hpCap); // 바이퍼스: 매초 최대HP 1%
-    if (tag === "battle_swarm") dps *= 1 + getFighterCount() * 0.05; // 하이버: 마리당 +5%
+    if (tag === "battle_dot" && mon) dps += Math.min(mon.maxHp * 0.01, hpCap);
+    if (tag === "battle_swarm") dps *= 1 + getFighterCount() * 0.05;
+
+    // 예리한이빨: 크리티컬 (DPS 평균 기대값 반영)
+    if (toolEff === "razorFang") dps *= 1.15; // 15% 확률 x 2배 = 평균 +15%
 
     return dps;
 }
@@ -1779,6 +1813,10 @@ function updateFarmBattle() {
                     ee._kbVy = (edy / eDist) * kbPower * 0.7;
                     ee._knockback = 30;
                     pushed = true;
+                    // 울퉁불퉁멧: 넉백 시 몬스터 HP 3% 반사
+                    if (ee._tool && TOOLS[ee._tool] && TOOLS[ee._tool].effect === "kbReflect") {
+                        mon.hp -= mon.maxHp * 0.03;
+                    }
                 }
             }
             if (pushed) mon._pushCooldown = mon.isBoss ? 180 : 120;
@@ -1806,7 +1844,9 @@ function updateFarmBattle() {
             if (tgt !== mon) continue;
 
             const edx = ee.wx - mon.wx, edy = ee.wy - mon.wy;
-            const inRange = edx * edx + edy * edy < atkRange * atkRange;
+            // 광각렌즈: 공격 범위 20% 확대
+            const eeRange = (ee._tool && TOOLS[ee._tool] && TOOLS[ee._tool].effect === "wideAngle") ? atkRange * 1.2 : atkRange;
+            const inRange = edx * edx + edy * edy < eeRange * eeRange;
             if (inRange) {
                 let eeDps = calcEeveeDPS(ee, mon);
                 const evo = _getEvo(ee.evoId);
@@ -1854,10 +1894,16 @@ function updateFarmBattle() {
                 // ── 스킬 발동 판정 ──
                 if (evo && SKILLS[evo.id] && state.learnedSkills.has(evo.id) && (ee.activity || 0) >= 50) {
                     const skill = SKILLS[evo.id];
+                    const eeTool = ee._tool ? TOOLS[ee._tool] : null;
+                    const eeToolEff = eeTool ? eeTool.effect : "";
+                    // 겨냥표적: 쿨타임 25% 감소
+                    const cdMult = eeToolEff === "burnAmulet" ? 0.75 : 1.0;
+                    // 초점렌즈: 발동률 +10%
+                    const chanceBonus = eeToolEff === "scopeLens" ? 0.10 : 0;
                     if (!ee._skillCd) ee._skillCd = 0;
                     if (ee._skillCd > 0) { ee._skillCd--; }
-                    else if (Math.random() < skill.chance / 60) {
-                        ee._skillCd = skill.cd;
+                    else if (Math.random() < (skill.chance + chanceBonus) / 60) {
+                        ee._skillCd = Math.floor(skill.cd * cdMult);
 
                         // 스킬 데미지 (타입 상성 적용)
                         if (skill.dmgMult) {
@@ -1869,28 +1915,34 @@ function updateFarmBattle() {
                             mon.hp -= sklDmg / 60;
                         }
 
+                        // 빛의점토: 지속시간 +50%
+                        const durScale = eeToolEff === "lightClay" ? 1.5 : 1.0;
+
                         // 스턴
                         if (skill.stun) {
-                            db.stun = Math.max(db.stun, skill.stun);
-                            if (skill.stunResetKb && mon._pushCooldown !== undefined) mon._pushCooldown = skill.stun;
+                            const stunDur = Math.floor(skill.stun * durScale);
+                            db.stun = Math.max(db.stun, stunDur);
+                            if (skill.stunResetKb && mon._pushCooldown !== undefined) mon._pushCooldown = stunDur;
                         }
 
                         // 디버프 (per-monster)
-                        if (skill.debuff === "slow70") db.slow70 = Math.max(db.slow70, skill.debuffDur);
-                        if (skill.debuff === "slow80") db.slow80 = Math.max(db.slow80, skill.debuffDur);
-                        if (skill.debuff === "kbReduce") db.kbReduce = Math.max(db.kbReduce, skill.debuffDur);
-                        if (skill.debuff === "dmgTaken2x") db.dmgTaken2x = Math.max(db.dmgTaken2x, skill.debuffDur);
-                        if (skill.debuff === "dmgTaken15") db.dmgTaken15 = Math.max(db.dmgTaken15, skill.debuffDur);
-                        if (skill.debuff === "dot2") db.dot2 = Math.max(db.dot2, skill.debuffDur);
+                        const debDur = Math.floor((skill.debuffDur || 0) * durScale);
+                        if (skill.debuff === "slow70") db.slow70 = Math.max(db.slow70, debDur);
+                        if (skill.debuff === "slow80") db.slow80 = Math.max(db.slow80, debDur);
+                        if (skill.debuff === "kbReduce") db.kbReduce = Math.max(db.kbReduce, debDur);
+                        if (skill.debuff === "dmgTaken2x") db.dmgTaken2x = Math.max(db.dmgTaken2x, debDur);
+                        if (skill.debuff === "dmgTaken15") db.dmgTaken15 = Math.max(db.dmgTaken15, debDur);
+                        if (skill.debuff === "dot2") db.dot2 = Math.max(db.dot2, debDur);
 
                         // 버프 (글로벌)
-                        if (skill.buff === "selfDps2x") ee._selfDps2x = skill.buffDur;
-                        if (skill.buff === "partyDps30") partyBuffs.dps30 = Math.max(partyBuffs.dps30, skill.buffDur);
-                        if (skill.buff === "partyKbImmune") partyBuffs.kbImmune = Math.max(partyBuffs.kbImmune, skill.buffDur);
-                        if (skill.buff === "comboBoost") ee._comboBoost = skill.buffDur;
-                        if (skill.buff === "selfMinroll90") ee._minroll90 = skill.buffDur;
+                        const bufDur = Math.floor((skill.buffDur || 0) * durScale);
+                        if (skill.buff === "selfDps2x") ee._selfDps2x = bufDur;
+                        if (skill.buff === "partyDps30") partyBuffs.dps30 = Math.max(partyBuffs.dps30, bufDur);
+                        if (skill.buff === "partyKbImmune") partyBuffs.kbImmune = Math.max(partyBuffs.kbImmune, bufDur);
+                        if (skill.buff === "comboBoost") ee._comboBoost = bufDur;
+                        if (skill.buff === "selfMinroll90") ee._minroll90 = bufDur;
 
-                        // 셀프 디버프
+                        // 셀프 디버프 (빛의점토 적용 안 함)
                         if (skill.selfDebuff === "dps50") ee._dps50 = skill.selfDebuffDur;
 
                         // 힐
@@ -2288,6 +2340,14 @@ function resolveExpedition(exp) {
         if (tag === "explore_extra") allDrops.push(weightedRandom(fruitPool));
     }
 
+    // 도구 드롭 (5% 확률, 미보유 도구만)
+    if (Math.random() < 0.05) {
+        const unowned = TOOL_NAMES.filter(t => !hasItem(t));
+        if (unowned.length > 0) {
+            allDrops.push({ name: unowned[Math.floor(Math.random() * unowned.length)], type: "tool" });
+        }
+    }
+
     // 최소 1개 보장
     if (allDrops.length === 0) allDrops.push(weightedRandom(fruitPool));
     return allDrops;
@@ -2571,7 +2631,7 @@ function feedFarmEevee(farmIdx, itemName) {
 
 function dropItem(itemName) {
     if (!hasItem(itemName)) return;
-    if (itemName.startsWith("TM") || itemName.startsWith("Z")) { showMessage("기술머신은 버릴 수 없습니다!", 60); return; }
+    if (itemName.startsWith("TM") || itemName.startsWith("Z") || TOOLS[itemName]) { showMessage("이 아이템은 버릴 수 없습니다!", 60); return; }
     removeItem(itemName);
     addFarmItem(itemName);
     saveGame();
@@ -3914,7 +3974,13 @@ function drawInventoryPanel() {
         roundRect(bx, by, bw, bh, 5); ctx.fill(); ctx.stroke();
 
         ctx.textAlign = "left"; ctx.fillStyle = "#ddd"; ctx.font = "12px system-ui";
-        ctx.fillText(`${itemEmoji(name)} ${name} x${count}`, bx + 6, by + 13);
+        // 도구는 이미지로 표시
+        if (TOOLS[name] && images[TOOLS[name].img] && images[TOOLS[name].img].complete) {
+            ctx.drawImage(images[TOOLS[name].img], bx + 4, by + 2, 22, 22);
+            ctx.fillText(`${name} x${count}`, bx + 28, by + 13);
+        } else {
+            ctx.fillText(`${itemEmoji(name)} ${name} x${count}`, bx + 6, by + 13);
+        }
 
         // 버리기
         const dbx2 = bx + bw - 38, dbw2 = 34;
@@ -3969,8 +4035,27 @@ function drawDexPanel() {
     const py = startY;
 
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillStyle = "#FFD54F"; ctx.font = "bold 18px system-ui";
-    ctx.fillText("진화 도감", CW / 2, py);
+
+    // 탭 버튼
+    const tabs = [
+        { id:"eevee", label:"이브이" },
+        { id:"tm", label:"기술머신" },
+        { id:"tool", label:"도구" },
+    ];
+    const tabW = (CW - 30) / tabs.length;
+    state._dexTabs = [];
+    for (let ti = 0; ti < tabs.length; ti++) {
+        const tx = 15 + ti * tabW, ty = py - 5, tw = tabW - 4, th = 22;
+        const active = state.dexTab === tabs[ti].id;
+        ctx.fillStyle = active ? "rgba(108,99,255,0.8)" : "rgba(50,50,80,0.6)";
+        roundRect(tx, ty, tw, th, 4); ctx.fill();
+        ctx.fillStyle = active ? "#FFD54F" : "#888"; ctx.font = "bold 11px system-ui";
+        ctx.fillText(tabs[ti].label, tx + tw / 2, ty + th / 2);
+        state._dexTabs.push({ id: tabs[ti].id, x: tx, y: ty, w: tw, h: th });
+    }
+
+    if (state.dexTab === "tm") { _drawDexTM(py); return; }
+    if (state.dexTab === "tool") { _drawDexTool(py); return; }
 
     const showPost = base8Complete();
     const DEX_ORDER = ["vaporeon","jolteon","flareon","espeon","umbreon","leafeon","glaceon","sylveon",
@@ -4057,6 +4142,14 @@ function drawDexPanel() {
                 ctx.fillStyle = learned ? gridSkill.color : "#555"; ctx.font = "bold 8px system-ui";
                 ctx.fillText(learned ? `⚔${gridSkill.name}` : "⚔미습득", cx + CARD_W / 2, cy + 118);
             }
+            // 도구 장착 아이콘 (우상단)
+            const gridFarmEe = evo.id === "eevee" ? (state.currentEevee || state.farm.find(e => !e.evoId)) : state.farm.find(e => e.evoId === evo.id);
+            if (gridFarmEe && gridFarmEe._tool && TOOLS[gridFarmEe._tool]) {
+                const tImg = images[TOOLS[gridFarmEe._tool].img];
+                if (tImg && tImg.complete) {
+                    ctx.drawImage(tImg, cx + CARD_W - 26, cy + 4, 20, 20);
+                }
+            }
         } else {
             ctx.fillStyle = "#444"; ctx.font = "bold 32px system-ui"; ctx.textAlign = "center";
             ctx.fillText("?", cx + CARD_W / 2, cy + CARD_H / 2);
@@ -4079,7 +4172,7 @@ function drawDexPanel() {
             ctx.fillRect(0, 0, CW, CH);
 
             // 팝업 박스
-            const pw = CW - 40, ph = 520;
+            const pw = CW - 40, ph = 600;
             const px = 20, ppY = (CH - ph) / 2;
             ctx.fillStyle = "rgba(25,25,50,0.95)";
             ctx.strokeStyle = "#6C63FF"; ctx.lineWidth = 2;
@@ -4202,6 +4295,60 @@ function drawDexPanel() {
             ctx.fillText(condText, px + 15, descY);
             descY += 20;
 
+            // 도구 장착 상태 + 장착/해제
+            if (farmEe2) {
+                const curTool = farmEe2._tool || null;
+                ctx.strokeStyle = "#444"; ctx.lineWidth = 1;
+                ctx.beginPath(); ctx.moveTo(px + 15, descY); ctx.lineTo(px + pw - 15, descY); ctx.stroke();
+                descY += 14;
+                ctx.fillStyle = "#FFD54F"; ctx.font = "bold 11px system-ui";
+                ctx.fillText("도구", px + 15, descY);
+                if (curTool && TOOLS[curTool]) {
+                    const tImg = images[TOOLS[curTool].img];
+                    if (tImg && tImg.complete) ctx.drawImage(tImg, px + 45, descY - 10, 20, 20);
+                    ctx.fillStyle = "#4CAF50"; ctx.font = "11px system-ui";
+                    ctx.fillText(curTool, px + 70, descY);
+                    ctx.fillStyle = "#aaa"; ctx.font = "9px system-ui";
+                    ctx.fillText(TOOLS[curTool].desc, px + 70, descY + 14);
+                } else {
+                    ctx.fillStyle = "#666"; ctx.font = "11px system-ui";
+                    ctx.fillText("없음", px + 50, descY);
+                }
+                descY += 22;
+                // 도구 장착/해제 버튼
+                const ownedTools = TOOL_NAMES.filter(t => hasItem(t) && t !== curTool);
+                if (curTool || ownedTools.length > 0) {
+                    if (!state._dexToolBtns) state._dexToolBtns = [];
+                    state._dexToolBtns = [];
+                    let dti = 0;
+                    if (curTool) {
+                        const tbx = px + 15, tby = descY, tbw = 60, tbh = 22;
+                        ctx.fillStyle = "rgba(120,40,40,0.8)"; ctx.strokeStyle = "#E53935"; ctx.lineWidth = 1;
+                        roundRect(tbx, tby, tbw, tbh, 4); ctx.fill(); ctx.stroke();
+                        ctx.fillStyle = "#fff"; ctx.font = "bold 9px system-ui"; ctx.textAlign = "center";
+                        ctx.fillText("해제", tbx + tbw / 2, tby + 11);
+                        ctx.textAlign = "left";
+                        state._dexToolBtns.push({ name: "__unequip", x: tbx, y: tby, w: tbw, h: tbh });
+                        dti = 1;
+                    }
+                    for (const tName of ownedTools) {
+                        const tbx = px + 15 + (dti % 4) * ((pw - 30) / 4);
+                        const tby = descY + Math.floor(dti / 4) * 26;
+                        const tbw = (pw - 30) / 4 - 4, tbh = 22;
+                        ctx.fillStyle = "rgba(50,80,50,0.8)"; ctx.strokeStyle = "#4CAF50"; ctx.lineWidth = 1;
+                        roundRect(tbx, tby, tbw, tbh, 4); ctx.fill(); ctx.stroke();
+                        const ttImg = images[TOOLS[tName].img];
+                        if (ttImg && ttImg.complete) ctx.drawImage(ttImg, tbx + 2, tby + 1, 18, 18);
+                        ctx.fillStyle = "#fff"; ctx.font = "8px system-ui"; ctx.textAlign = "center";
+                        ctx.fillText(tName, tbx + tbw / 2 + 8, tby + 11);
+                        ctx.textAlign = "left";
+                        state._dexToolBtns.push({ name: tName, x: tbx, y: tby, w: tbw, h: tbh });
+                        dti++;
+                    }
+                    descY += Math.ceil((dti) / 4) * 26 + 6;
+                }
+            }
+
             // 열매/TM 전달 버튼
             if (farmEe2) {
                 const dexItems = [];
@@ -4240,6 +4387,117 @@ function drawDexPanel() {
             }
         }
     }
+}
+
+function _drawDexTM(py) {
+    const listTop = py + 22;
+    const listBot = CH - 25;
+    const ITEM_H = 50;
+    const tmList = Object.keys(TM_TARGET);
+    const contentH = tmList.length * ITEM_H;
+    const viewH = listBot - listTop;
+    const maxScroll = Math.max(0, contentH - viewH);
+    state.dexScroll = clamp(state.dexScroll, 0, maxScroll);
+
+    ctx.save();
+    ctx.beginPath(); ctx.rect(0, listTop, CW, viewH); ctx.clip();
+
+    for (let i = 0; i < tmList.length; i++) {
+        const tmName = tmList[i];
+        const targetId = TM_TARGET[tmName];
+        const evo = EVOS.find(e => e.id === targetId);
+        const skill = SKILLS[targetId];
+        const learned = state.learnedSkills.has(targetId);
+        const owned = hasItem(tmName);
+        const by = listTop + i * ITEM_H - state.dexScroll;
+        if (by + ITEM_H < listTop || by > listBot) continue;
+
+        ctx.fillStyle = learned ? "rgba(46,125,50,0.4)" : owned ? "rgba(63,81,181,0.4)" : "rgba(40,40,60,0.5)";
+        ctx.strokeStyle = learned ? "#4CAF50" : owned ? "#7C4DFF" : "#333"; ctx.lineWidth = 1;
+        roundRect(10, by, CW - 20, ITEM_H - 3, 6); ctx.fill(); ctx.stroke();
+
+        ctx.textAlign = "left"; ctx.textBaseline = "middle";
+        ctx.fillStyle = learned ? "#4CAF50" : "#fff"; ctx.font = "bold 11px system-ui";
+        ctx.fillText(`💿 ${tmName.slice(2)}`, 20, by + 12);
+        ctx.fillStyle = "#aaa"; ctx.font = "9px system-ui";
+        ctx.fillText(`→ ${evo ? evo.name : "?"}`, 130, by + 12);
+
+        // 스킬 설명
+        if (skill) {
+            ctx.fillStyle = learned ? "#8BC34A" : "#666"; ctx.font = "9px system-ui";
+            ctx.fillText(skill.desc, 20, by + 30);
+            ctx.fillStyle = "#777"; ctx.font = "8px system-ui";
+            ctx.fillText(`발동 ${Math.round(skill.chance * 100)}% | 쿨 ${(skill.cd / 60).toFixed(0)}초`, 20, by + 42);
+        }
+
+        ctx.textAlign = "right";
+        ctx.fillStyle = learned ? "#4CAF50" : owned ? "#7C4DFF" : "#555"; ctx.font = "bold 10px system-ui";
+        ctx.fillText(learned ? "습득완료" : owned ? "보유중" : "미획득", CW - 20, by + 12);
+    }
+    ctx.restore();
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#888"; ctx.font = "11px system-ui";
+    const learnedCount = Object.values(TM_TARGET).filter(id => state.learnedSkills.has(id)).length;
+    ctx.fillText(`${learnedCount} / ${tmList.length}`, CW / 2, CH - 10);
+}
+
+function _drawDexTool(py) {
+    const listTop = py + 22;
+    const listBot = CH - 25;
+    const ITEM_H = 50;
+    const contentH = TOOL_NAMES.length * ITEM_H;
+    const viewH = listBot - listTop;
+    const maxScroll = Math.max(0, contentH - viewH);
+    state.dexScroll = clamp(state.dexScroll, 0, maxScroll);
+
+    ctx.save();
+    ctx.beginPath(); ctx.rect(0, listTop, CW, viewH); ctx.clip();
+
+    for (let i = 0; i < TOOL_NAMES.length; i++) {
+        const tName = TOOL_NAMES[i];
+        const tool = TOOLS[tName];
+        const owned = hasItem(tName);
+        // 장착된 이브이 찾기
+        const equippedEe = state.farm.find(e => e._tool === tName);
+        const equippedName = equippedEe ? (_getEvo(equippedEe.evoId) || {}).name || "이브이" : null;
+        const by = listTop + i * ITEM_H - state.dexScroll;
+        if (by + ITEM_H < listTop || by > listBot) continue;
+
+        ctx.fillStyle = equippedName ? "rgba(46,125,50,0.4)" : owned ? "rgba(63,81,181,0.4)" : "rgba(40,40,60,0.5)";
+        ctx.strokeStyle = equippedName ? "#4CAF50" : owned ? "#7C4DFF" : "#333"; ctx.lineWidth = 1;
+        roundRect(10, by, CW - 20, ITEM_H - 3, 6); ctx.fill(); ctx.stroke();
+
+        // 아이콘 이미지
+        const img = images[tool.img];
+        if (img && img.complete) {
+            ctx.drawImage(img, 16, by + 5, 28, 28);
+        }
+
+        ctx.textAlign = "left"; ctx.textBaseline = "middle";
+        ctx.fillStyle = "#fff"; ctx.font = "bold 11px system-ui";
+        ctx.fillText(tName, 52, by + 12);
+        ctx.fillStyle = "#aaa"; ctx.font = "9px system-ui";
+        ctx.fillText(tool.desc, 52, by + 28);
+
+        ctx.textAlign = "right";
+        if (equippedName) {
+            ctx.fillStyle = "#4CAF50"; ctx.font = "bold 10px system-ui";
+            ctx.fillText(`${equippedName} 장착`, CW - 20, by + 12);
+        } else if (owned) {
+            ctx.fillStyle = "#7C4DFF"; ctx.font = "bold 10px system-ui";
+            ctx.fillText("보유중", CW - 20, by + 12);
+        } else {
+            ctx.fillStyle = "#555"; ctx.font = "bold 10px system-ui";
+            ctx.fillText("미획득", CW - 20, by + 12);
+        }
+        ctx.fillStyle = "#666"; ctx.font = "8px system-ui";
+        ctx.fillText(owned || equippedName ? "" : "탐색에서 획득", CW - 20, by + 28);
+    }
+    ctx.restore();
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#888"; ctx.font = "11px system-ui";
+    const ownedCount = TOOL_NAMES.filter(t => hasItem(t) || state.farm.some(e => e._tool === t)).length;
+    ctx.fillText(`${ownedCount} / ${TOOL_NAMES.length}`, CW / 2, CH - 10);
 }
 
 /* ── 팝업 (중앙 소형) ── */
@@ -4789,6 +5047,47 @@ function drawPopup() {
         } else {
             ctx.fillStyle = "#666"; ctx.font = "12px system-ui";
             ctx.fillText("줄 수 있는 아이템이 없습니다", px + pw / 2, py + 100);
+        }
+        // 도구 장착 섹션
+        const farmIdx = p.farmIdx;
+        const farmE = state.farm[farmIdx];
+        if (farmE) {
+            const curTool = farmE._tool || null;
+            const toolY = availItems.length > 0 ? py + 82 + Math.ceil(availItems.length / 3) * 36 + 8 : py + 115;
+            ctx.fillStyle = "#FFD54F"; ctx.font = "bold 10px system-ui"; ctx.textAlign = "center";
+            ctx.fillText(curTool ? `🔧 ${curTool} 장착 중` : "🔧 도구 없음", px + pw / 2, toolY);
+            // 보유 도구 버튼
+            const ownedTools = TOOL_NAMES.filter(t => hasItem(t) || t === curTool);
+            if (ownedTools.length > 0 || curTool) {
+                state._toolBtns = [];
+                const tCols = 3;
+                let ti = 0;
+                // 해제 버튼
+                if (curTool) {
+                    const tbx = px + 15, tby = toolY + 10, tbw = 85, tbh = 26;
+                    ctx.fillStyle = "rgba(120,40,40,0.8)"; ctx.strokeStyle = "#E53935"; ctx.lineWidth = 1;
+                    roundRect(tbx, tby, tbw, tbh, 4); ctx.fill(); ctx.stroke();
+                    ctx.fillStyle = "#fff"; ctx.font = "bold 9px system-ui";
+                    ctx.fillText("해제", tbx + tbw / 2, tby + 13);
+                    state._toolBtns.push({ name: "__unequip", x: tbx, y: tby, w: tbw, h: tbh });
+                    ti = 1;
+                }
+                for (const tName of ownedTools) {
+                    if (tName === curTool) continue; // 이미 장착된 건 스킵
+                    if (!hasItem(tName)) continue;
+                    const col = ti % tCols, row = Math.floor(ti / tCols);
+                    const tbx = px + 15 + col * 92, tby = toolY + 10 + row * 30, tbw = 85, tbh = 26;
+                    ctx.fillStyle = "rgba(50,80,50,0.8)"; ctx.strokeStyle = "#4CAF50"; ctx.lineWidth = 1;
+                    roundRect(tbx, tby, tbw, tbh, 4); ctx.fill(); ctx.stroke();
+                    // 도구 이미지
+                    const tImg = images[TOOLS[tName].img];
+                    if (tImg && tImg.complete) ctx.drawImage(tImg, tbx + 2, tby + 3, 20, 20);
+                    ctx.fillStyle = "#fff"; ctx.font = "9px system-ui"; ctx.textAlign = "center";
+                    ctx.fillText(tName, tbx + tbw / 2 + 10, tby + 13);
+                    state._toolBtns.push({ name: tName, x: tbx, y: tby, w: tbw, h: tbh });
+                    ti++;
+                }
+            }
         }
     } else if (p.type === "cheat") {
         ctx.fillStyle = "#FF5722"; ctx.font = "bold 15px system-ui";
@@ -5520,7 +5819,27 @@ function handleInput() {
                     }
                 }
             }
-            if (!hitBox(x, y, px, py, pw, ph)) { state.popup = null; state.selectedFarmEevee = null; }
+            // 도구 장착/해제 버튼
+            if (state._toolBtns && e) {
+                for (const tb of state._toolBtns) {
+                    if (hitBox(x, y, tb.x, tb.y, tb.w, tb.h)) {
+                        if (tb.name === "__unequip") {
+                            // 해제: 도구를 인벤으로 반환
+                            if (e._tool) { addItem(e._tool); e._tool = null; }
+                        } else {
+                            // 장착: 기존 도구 반환 후 새 도구 장착
+                            if (e._tool) addItem(e._tool);
+                            removeItem(tb.name);
+                            e._tool = tb.name;
+                        }
+                        showMessage(e._tool ? `${TOOLS[e._tool].emoji} ${e._tool} 장착!` : "도구 해제!", 90);
+                        state._toolBtns = null;
+                        saveGame();
+                        return;
+                    }
+                }
+            }
+            if (!hitBox(x, y, px, py, pw, ph)) { state.popup = null; state.selectedFarmEevee = null; state._toolBtns = null; }
             return;
         }
         if (state.popup.type === "cheat") {
@@ -5881,8 +6200,39 @@ function handleInput() {
                 return;
             }
         } else if (state.panel === "dex") {
+            // 탭 전환
+            if (state._dexTabs) {
+                for (const tab of state._dexTabs) {
+                    if (hitBox(x, y, tab.x, tab.y, tab.w, tab.h)) {
+                        state.dexTab = tab.id; state.dexScroll = 0; state.dexPopup = null;
+                        return;
+                    }
+                }
+            }
             // 도감 팝업이 열려있으면 닫기
             if (state.dexPopup) {
+                // 도구 장착/해제 체크
+                if (state._dexToolBtns) {
+                    for (const tb of state._dexToolBtns) {
+                        if (hitBox(x, y, tb.x, tb.y, tb.w, tb.h)) {
+                            const evo2 = state.dexPopup === "eevee" ? null : EVOS.find(e => e.id === state.dexPopup);
+                            const fe = state.dexPopup === "eevee" ? (state.currentEevee || state.farm.find(e => !e.evoId)) : state.farm.find(e => e.evoId === state.dexPopup);
+                            if (fe) {
+                                if (tb.name === "__unequip") {
+                                    if (fe._tool) { addItem(fe._tool); fe._tool = null; }
+                                } else {
+                                    if (fe._tool) addItem(fe._tool);
+                                    removeItem(tb.name);
+                                    fe._tool = tb.name;
+                                }
+                                showMessage(fe._tool ? `${fe._tool} 장착!` : "도구 해제!", 90);
+                                state._dexToolBtns = null;
+                                saveGame();
+                            }
+                            return;
+                        }
+                    }
+                }
                 // 아이템 전달 버튼 체크
                 if (state._dexFeedBtns) {
                     for (const btn of state._dexFeedBtns) {
@@ -5915,7 +6265,7 @@ function handleInput() {
                         }
                     }
                 }
-                state.dexPopup = null; state._dexFeedBtns = null; return;
+                state.dexPopup = null; state._dexFeedBtns = null; state._dexToolBtns = null; return;
             }
             // 그리드 카드 클릭 → 팝업 열기
             if (state._dexGrid) {
