@@ -250,7 +250,15 @@ const skillTexts = [];
 // 몬스터 디버프 상태
 const monsterDebuffs = { stun:0, slow70:0, kbReduce:0, dmgTaken2x:0, dot2:0 };
 // 파티 버프 상태
-const partyBuffs = { dps30:0, kbImmune:0 };
+const partyBuffs = { dps30:0, kbImmune:0, zBoost:0 };
+
+// Z기술: 모든 TM 습득 시 해금, 기본 이브이 전용
+const Z_SKILL = {
+    name:"나인이볼부스트", color:"#FFD54F", chance:0.08, cd:1200, // 20초 쿨
+    buffDur:300, // 5초간
+    desc:"전원 이속+DPS 50% 증가 5초",
+};
+function allTMsLearned() { return Object.values(TM_TARGET).every(id => state.learnedSkills.has(id)); }
 
 /* ── 탐색지 ── */
 const LOCATIONS = [
@@ -308,6 +316,7 @@ const ITEM_EMOJI = {
     "TM거대충격":"💿","TM극한돌파":"💿","TM인파이트":"💿","TM섀도볼":"💿",
     "TM용성군":"💿","TM지진":"💿","TM스톤엣지":"💿","TM브레이브버드":"💿",
     "TM아이언테일":"💿","TM독찌르기":"💿","TM시저크로스":"💿",
+    "Z나인이볼부스트":"⚡",
 };
 function itemEmoji(name) { return ITEM_EMOJI[name] || "📦"; }
 
@@ -330,6 +339,7 @@ const ITEM_DESC = {
     "TM섀도볼":"레이시아 스킬 습득","TM용성군":"드라키온 스킬 습득","TM지진":"샌디온 스킬 습득",
     "TM스톤엣지":"록키온 스킬 습득","TM브레이브버드":"플라이비 스킬 습득",
     "TM아이언테일":"메탈리아 스킬 습득","TM독찌르기":"바이퍼스 스킬 습득","TM시저크로스":"하이버 스킬 습득",
+    "Z나인이볼부스트":"이브이 전용 Z기술 — 전달하여 습득",
 };
 
 // TM → 대상 이브이 id 매핑
@@ -552,7 +562,8 @@ function getEeveeSpeed(e) {
     // 진화 이브이 spd 보너스 (이브이 기본 spd 55 기준, 초과분의 10%를 가산)
     const evo = e.evoId ? EVOS.find(ev => ev.id === e.evoId) : null;
     const spdBonus = evo && evo.spd ? Math.max(0, evo.spd - 55) * 0.00001 : 0;
-    return base + spdBonus;
+    const zMult = partyBuffs.zBoost > 0 ? 1.5 : 1.0; // Z기술: 이속 50% 증가
+    return (base + spdBonus) * zMult;
 }
 
 function addFarmItem(name) {
@@ -1445,7 +1456,7 @@ function spawnMonster(stage) {
     // 디버프/버프 초기화
     monsterDebuffs.stun = 0; monsterDebuffs.slow70 = 0; monsterDebuffs.kbReduce = 0;
     monsterDebuffs.dmgTaken2x = 0; monsterDebuffs.dot2 = 0;
-    partyBuffs.dps30 = 0; partyBuffs.kbImmune = 0;
+    partyBuffs.dps30 = 0; partyBuffs.kbImmune = 0; partyBuffs.zBoost = 0;
     skillParticles.length = 0; skillTexts.length = 0;
     state.monsterTimer = Date.now();
     const bossClears = Math.floor((state.monsterMaxStage || 0) / 10);
@@ -1680,6 +1691,7 @@ function updateFarmBattle() {
     }
     if (partyBuffs.dps30 > 0) partyBuffs.dps30--;
     if (partyBuffs.kbImmune > 0) partyBuffs.kbImmune--;
+    if (partyBuffs.zBoost > 0) partyBuffs.zBoost--;
 
     // ── 근접 이브이만 DPS 계산 ──
     const atkRange = 0.15;
@@ -1695,6 +1707,7 @@ function updateFarmBattle() {
 
             // 버프/디버프 적용
             if (partyBuffs.dps30 > 0) eeDps *= 1.3;
+            if (partyBuffs.zBoost > 0) eeDps *= 1.5; // Z기술: DPS 50% 증가
             if (ee._selfDps2x > 0) { eeDps *= 2; ee._selfDps2x--; }
             if (ee._dps50 > 0) { eeDps *= 0.5; ee._dps50--; }
             if (ee._comboBoost > 0) { ee._comboStacks = Math.min((ee._comboStacks || 0) + 0.10, 25); ee._comboBoost--; }
@@ -1709,6 +1722,28 @@ function updateFarmBattle() {
             // 글레이시아: 슬로우 체크
             if (eeTag === "battle_slow") hasGlaceon = true;
 
+            // ── Z기술: 기본 이브이 나인이볼부스트 ──
+            if (!evo && state.learnedSkills.has("z_eevee") && (ee.activity || 0) >= 50) {
+                if (!ee._skillCd) ee._skillCd = 0;
+                if (ee._skillCd > 0) { ee._skillCd--; }
+                else if (Math.random() < Z_SKILL.chance / 60) {
+                    ee._skillCd = Z_SKILL.cd;
+                    // 전원 이속+DPS 50% 버프
+                    partyBuffs.zBoost = Z_SKILL.buffDur;
+                    const scr = worldToScreen(ee.wx, ee.wy);
+                    skillTexts.push({ text: Z_SKILL.name, x: scr.sx, y: scr.sy - 40, color: Z_SKILL.color, timer: 90 });
+                    for (let p = 0; p < 12; p++) {
+                        const angle = Math.random() * Math.PI * 2;
+                        const speed = 1.5 + Math.random() * 2.5;
+                        skillParticles.push({
+                            x: scr.sx, y: scr.sy - 20,
+                            vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - 1.5,
+                            color: Z_SKILL.color, life: 40 + Math.random() * 20, maxLife: 60,
+                            size: 4 + Math.random() * 4,
+                        });
+                    }
+                }
+            }
             // ── 스킬 발동 판정 (습득 완료 + 활동성 50 이상, 쿨타임 중 아님) ──
             if (evo && SKILLS[evo.id] && state.learnedSkills.has(evo.id) && (ee.activity || 0) >= 50) {
                 const skill = SKILLS[evo.id];
@@ -1845,7 +1880,7 @@ function updateFarmBattle() {
             // 디버프 초기화
             monsterDebuffs.stun = 0; monsterDebuffs.slow70 = 0; monsterDebuffs.kbReduce = 0;
             monsterDebuffs.dmgTaken2x = 0; monsterDebuffs.dot2 = 0;
-            partyBuffs.dps30 = 0; partyBuffs.kbImmune = 0;
+            partyBuffs.dps30 = 0; partyBuffs.kbImmune = 0; partyBuffs.zBoost = 0;
             showMessage(`⚠ ${p2.name} 등장! 2페이즈 시작!`, 180);
             return;
         }
@@ -2266,6 +2301,18 @@ function feedItem(itemName) {
             const evo = checkEvolution();
             if (evo) { triggerEvolution(evo); return; }
         }
+    } else if (itemName === "Z나인이볼부스트") {
+        // Z기술 전달 → 기본 이브이에게만
+        if (state.learnedSkills.has("z_eevee")) {
+            showMessage("이미 습득한 Z기술입니다!", 60);
+            return;
+        }
+        removeItem(itemName);
+        state.learnedSkills.add("z_eevee");
+        showMessage("이브이가 나인이볼부스트를 배웠다!", 200);
+        state.panel = null; state.panelSlide = 0;
+        saveGame();
+        return;
     } else if (TM_TARGET[itemName]) {
         // TM 전달 → 스킬 습득
         const targetId = TM_TARGET[itemName];
@@ -2284,6 +2331,10 @@ function feedItem(itemName) {
         state.learnedSkills.add(targetId);
         const skillName = SKILLS[targetId] ? SKILLS[targetId].name : itemName;
         showMessage(`${targetEvo.name}이(가) ${skillName}을(를) 배웠다!`, 150);
+        if (allTMsLearned() && !hasItem("Z나인이볼부스트")) {
+            addItem("Z나인이볼부스트");
+            showMessage("모든 기술머신 습득 완료! Z나인이볼부스트 획득!", 250);
+        }
         state.panel = null; state.panelSlide = 0;
         saveGame();
         return;
@@ -2375,7 +2426,7 @@ function feedFarmEevee(farmIdx, itemName) {
 
 function dropItem(itemName) {
     if (!hasItem(itemName)) return;
-    if (itemName.startsWith("TM")) { showMessage("기술머신은 버릴 수 없습니다!", 60); return; }
+    if (itemName.startsWith("TM") || itemName.startsWith("Z")) { showMessage("기술머신은 버릴 수 없습니다!", 60); return; }
     removeItem(itemName);
     addFarmItem(itemName);
     saveGame();
@@ -3059,7 +3110,7 @@ function drawFarmEntities() {
     for (const ent of entities) {
         const { sx, sy } = worldToScreen(ent.wx, ent.wy);
         const baseSize = spriteSize(ent.wy);
-        const size = ent.type === "farm" ? baseSize * 1.2 : baseSize;
+        const size = (ent.type === "farm" && ent.evoId) ? baseSize * 1.2 : baseSize;
 
         if (ent.type === "item") {
             ctx.globalAlpha = 1;
@@ -3780,7 +3831,10 @@ function drawDexPanel() {
     const DEX_ORDER = ["vaporeon","jolteon","flareon","espeon","umbreon","leafeon","glaceon","sylveon",
         "gmax","mega","fighting","ghost","ground","rock","flying","poison","bug","dragon","steel"];
     const sorted = DEX_ORDER.map(id => EVOS.find(e => e.id === id)).filter(Boolean);
-    const list = showPost ? sorted : sorted.slice(0, 8);
+    // 엔딩 후 기본 이브이 추가
+    const EEVEE_DEX = { id:"eevee", name:"이브이", type:"노멀", img:"이브이.png", ability:"적응력", abilityDesc:"Z기술: 나인이볼부스트", spd:55 };
+    let list = showPost ? sorted : sorted.slice(0, 8);
+    if (state.endingShown || allComplete()) list = [EEVEE_DEX, ...list];
 
     // 그리드 레이아웃: 3열
     const COLS = 3;
@@ -3808,7 +3862,7 @@ function drawDexPanel() {
         const cy = listTop + GAP + row * (CARD_H + GAP) - state.dexScroll;
         if (cy + CARD_H < listTop || cy > listBot) continue;
 
-        const collected = state.collected.has(evo.id);
+        const collected = evo.id === "eevee" || state.collected.has(evo.id);
         state._dexGrid.push({ id: evo.id, x: cx, y: cy, w: CARD_W, h: CARD_H });
 
         // 카드 배경
@@ -3829,8 +3883,8 @@ function drawDexPanel() {
             ctx.fillStyle = "#aaa"; ctx.font = "9px system-ui";
             ctx.fillText(`${evo.type}`, cx + CARD_W / 2, cy + 70);
 
-            // 팜 이브이 정보
-            const farmEe = state.farm.find(e => e.evoId === evo.id);
+            // 팜 이브이 정보 (기본 이브이는 currentEevee 또는 farm에서 evoId null)
+            const farmEe = evo.id === "eevee" ? (state.currentEevee || state.farm.find(e => !e.evoId)) : state.farm.find(e => e.evoId === evo.id);
             if (farmEe) {
                 // 활동성 바
                 const feAct = farmEe.activity || 0;
@@ -3851,11 +3905,12 @@ function drawDexPanel() {
                 ctx.fillText(`활동성 ${Math.round(feAct)}`, cx + CARD_W / 2, cy + 108);
             }
             // 스킬 습득 여부
-            const skill = SKILLS[evo.id];
-            if (skill) {
-                const learned = state.learnedSkills.has(evo.id);
-                ctx.fillStyle = learned ? skill.color : "#555"; ctx.font = "bold 8px system-ui";
-                ctx.fillText(learned ? `⚔${skill.name}` : "⚔미습득", cx + CARD_W / 2, cy + 118);
+            const gridSkill = evo.id === "eevee" ? Z_SKILL : SKILLS[evo.id];
+            const gridSkillKey = evo.id === "eevee" ? "z_eevee" : evo.id;
+            if (gridSkill) {
+                const learned = state.learnedSkills.has(gridSkillKey);
+                ctx.fillStyle = learned ? gridSkill.color : "#555"; ctx.font = "bold 8px system-ui";
+                ctx.fillText(learned ? `⚔${gridSkill.name}` : "⚔미습득", cx + CARD_W / 2, cy + 118);
             }
         } else {
             ctx.fillStyle = "#444"; ctx.font = "bold 32px system-ui"; ctx.textAlign = "center";
@@ -3872,8 +3927,8 @@ function drawDexPanel() {
 
     // ── 도감 팝업 ──
     if (state.dexPopup) {
-        const evo = EVOS.find(e => e.id === state.dexPopup);
-        if (evo && state.collected.has(evo.id)) {
+        const evo = state.dexPopup === "eevee" ? EEVEE_DEX : EVOS.find(e => e.id === state.dexPopup);
+        if (evo && (evo.id === "eevee" || state.collected.has(evo.id))) {
             // 오버레이
             ctx.fillStyle = "rgba(0,0,0,0.6)";
             ctx.fillRect(0, 0, CW, CH);
@@ -3926,12 +3981,12 @@ function drawDexPanel() {
             descY += 12;
 
             // 팜 이브이 상세
-            const farmEe = state.farm.find(e => e.evoId === evo.id);
-            if (farmEe) {
-                const onExp = isOnExpedition(state.farm.indexOf(farmEe));
+            const farmEe2 = evo.id === "eevee" ? (state.currentEevee || state.farm.find(e => !e.evoId)) : state.farm.find(e => e.evoId === evo.id);
+            if (farmEe2) {
+                const onExp = evo.id === "eevee" ? isOnExpedition("current") : isOnExpedition(state.farm.indexOf(farmEe2));
 
                 // DPS + 상태
-                const dps = calcEeveeDPS(farmEe);
+                const dps = calcEeveeDPS(farmEe2);
                 ctx.fillStyle = "#FF5722"; ctx.font = "bold 13px system-ui";
                 ctx.fillText(`DPS ${dps.toFixed(1)}`, px + 15, descY);
                 ctx.fillStyle = onExp ? "#FF9800" : "#4CAF50"; ctx.font = "bold 11px system-ui";
@@ -3941,7 +3996,7 @@ function drawDexPanel() {
                 descY += 20;
 
                 // 활동성 바
-                const feAct = farmEe.activity || 0;
+                const feAct = farmEe2.activity || 0;
                 const feCap = allComplete() ? Math.max(ACTIVITY_BASE_MAX, feAct) : ACTIVITY_BASE_MAX;
                 const actR = clamp(feAct / feCap, 0, 1);
                 ctx.fillStyle = "#aaa"; ctx.font = "10px system-ui";
@@ -3955,17 +4010,18 @@ function drawDexPanel() {
 
                 // 열매 정보
                 ctx.fillStyle = "#4CAF50"; ctx.font = "12px system-ui";
-                ctx.fillText(`♥ 좋아하는 열매: ${farmEe.likedFruit || "?"}`, px + 15, descY);
+                ctx.fillText(`♥ 좋아하는 열매: ${farmEe2.likedFruit || "?"}`, px + 15, descY);
                 descY += 18;
                 ctx.fillStyle = "#E53935";
-                ctx.fillText(`💢 싫어하는 열매: ${farmEe.dislikedFruit || "?"}`, px + 15, descY);
+                ctx.fillText(`💢 싫어하는 열매: ${farmEe2.dislikedFruit || "?"}`, px + 15, descY);
                 descY += 18;
             }
 
             // 스킬 정보
-            const skill = SKILLS[evo.id];
+            const skill = evo.id === "eevee" ? Z_SKILL : SKILLS[evo.id];
+            const skillLearnKey = evo.id === "eevee" ? "z_eevee" : evo.id;
             if (skill) {
-                const learned = state.learnedSkills.has(evo.id);
+                const learned = state.learnedSkills.has(skillLearnKey);
                 ctx.strokeStyle = "#444"; ctx.lineWidth = 1;
                 ctx.beginPath(); ctx.moveTo(px + 15, descY); ctx.lineTo(px + pw - 15, descY); ctx.stroke();
                 descY += 14;
@@ -3978,11 +4034,12 @@ function drawDexPanel() {
                 }
                 descY += 16;
                 ctx.fillStyle = learned ? "#ccc" : "#666"; ctx.font = "11px system-ui";
-                ctx.fillText(learned ? skill.desc : "탐색에서 기술머신을 찾아 전달하세요", px + 15, descY);
+                const unlearnMsg = evo.id === "eevee" ? "모든 TM 습득 후 Z기술 획득" : "탐색에서 기술머신을 찾아 전달하세요";
+                ctx.fillText(learned ? skill.desc : unlearnMsg, px + 15, descY);
                 descY += 18;
             }
 
-            if (!farmEe) {
+            if (!farmEe2) {
                 ctx.fillStyle = "#888"; ctx.font = "11px system-ui";
                 ctx.fillText("농장에 없음", px + 15, descY);
                 descY += 22;
@@ -4001,7 +4058,7 @@ function drawDexPanel() {
             descY += 20;
 
             // 열매/TM 전달 버튼
-            if (farmEe) {
+            if (farmEe2) {
                 const dexItems = [];
                 // 열매 + 조각
                 for (const f of [...FRUITS, "태양조각", "달조각"]) { if (hasItem(f)) dexItems.push(f); }
@@ -4731,7 +4788,7 @@ function drawMonster() {
     const m = state.monster;
     const mScr = worldToScreen(state.monster.wx, state.monster.wy);
     const mx = mScr.sx, my = mScr.sy;
-    const monSize = m.isRaidBoss ? 135 : m.isBoss ? 90 : 72;
+    const monSize = (m.isRaidBoss && m.isPhase2) ? 170 : m.isRaidBoss ? 135 : m.isBoss ? 90 : 72;
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
 
     // 등장 연출 (하늘에서 떨어짐)
@@ -5252,6 +5309,10 @@ function handleInput() {
                                 const skillName = SKILLS[targetId] ? SKILLS[targetId].name : itemName;
                                 const targetEvo = EVOS.find(ev => ev.id === targetId);
                                 showMessage(`${targetEvo.name}이(가) ${skillName}을(를) 배웠다!`, 150);
+                                if (allTMsLearned() && !hasItem("Z나인이볼부스트")) {
+                                    addItem("Z나인이볼부스트");
+                                    showMessage("모든 기술머신 습득 완료! Z나인이볼부스트 획득!", 250);
+                                }
                                 state.popup = null; state.selectedFarmEevee = null;
                                 saveGame();
                             }
@@ -5638,6 +5699,10 @@ function handleInput() {
                                     const sk = SKILLS[targetId];
                                     const ev = EVOS.find(e => e.id === targetId);
                                     showMessage(`${ev.name}이(가) ${sk.name}을(를) 배웠다!`, 150);
+                                    if (allTMsLearned() && !hasItem("Z나인이볼부스트")) {
+                                        addItem("Z나인이볼부스트");
+                                        showMessage("모든 기술머신 습득 완료! Z나인이볼부스트 획득!", 250);
+                                    }
                                     saveGame();
                                 }
                             } else {
@@ -5658,7 +5723,7 @@ function handleInput() {
             // 그리드 카드 클릭 → 팝업 열기
             if (state._dexGrid) {
                 for (const card of state._dexGrid) {
-                    if (hitBox(x, y, card.x, card.y, card.w, card.h) && state.collected.has(card.id)) {
+                    if (hitBox(x, y, card.x, card.y, card.w, card.h) && (card.id === "eevee" || state.collected.has(card.id))) {
                         state.dexPopup = card.id; return;
                     }
                 }
