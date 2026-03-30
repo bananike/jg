@@ -256,7 +256,7 @@ const partyBuffs = { dps30:0, kbImmune:0, zBoost:0 };
 const Z_SKILL = {
     name:"나인이볼부스트", color:"#FFD54F", chance:0.08, cd:1200, // 20초 쿨
     buffDur:300, // 5초간
-    desc:"전원 이속+DPS 50% 증가 5초",
+    desc:"전원 이속+DPS 2배 5초",
 };
 function allTMsLearned() { return Object.values(TM_TARGET).every(id => state.learnedSkills.has(id)); }
 
@@ -562,7 +562,7 @@ function getEeveeSpeed(e) {
     // 진화 이브이 spd 보너스 (이브이 기본 spd 55 기준, 초과분의 10%를 가산)
     const evo = e.evoId ? EVOS.find(ev => ev.id === e.evoId) : null;
     const spdBonus = evo && evo.spd ? Math.max(0, evo.spd - 55) * 0.00001 : 0;
-    const zMult = partyBuffs.zBoost > 0 ? 1.5 : 1.0; // Z기술: 이속 50% 증가
+    const zMult = partyBuffs.zBoost > 0 ? 2.0 : 1.0; // Z기술: 이속 2배
     return (base + spdBonus) * zMult;
 }
 
@@ -1707,7 +1707,7 @@ function updateFarmBattle() {
 
             // 버프/디버프 적용
             if (partyBuffs.dps30 > 0) eeDps *= 1.3;
-            if (partyBuffs.zBoost > 0) eeDps *= 1.5; // Z기술: DPS 50% 증가
+            if (partyBuffs.zBoost > 0) eeDps *= 2.0; // Z기술: DPS 2배
             if (ee._selfDps2x > 0) { eeDps *= 2; ee._selfDps2x--; }
             if (ee._dps50 > 0) { eeDps *= 0.5; ee._dps50--; }
             if (ee._comboBoost > 0) { ee._comboStacks = Math.min((ee._comboStacks || 0) + 0.10, 25); ee._comboBoost--; }
@@ -4622,6 +4622,10 @@ function drawPopup() {
             const tmName = Object.keys(TM_TARGET).find(tm => TM_TARGET[tm] === evo.id);
             if (tmName && hasItem(tmName) && !state.learnedSkills.has(evo.id)) availItems.push(tmName);
         }
+        // 기본 이브이(evoId null): Z기술 전달 가능
+        if (!evo && hasItem("Z나인이볼부스트") && !state.learnedSkills.has("z_eevee")) {
+            availItems.push("Z나인이볼부스트");
+        }
         if (availItems.length > 0) {
             const cols = 3;
             for (let i = 0; i < availItems.length; i++) {
@@ -5300,7 +5304,16 @@ function handleInput() {
                     const fbx = px + 15 + col * 92, fby = py + 82 + row * 36, fbw = 85, fbh = 30;
                     if (hitBox(x, y, fbx, fby, fbw, fbh)) {
                         const itemName = availItems[i];
-                        if (itemName.startsWith("TM")) {
+                        if (itemName === "Z나인이볼부스트") {
+                            // Z기술 전달
+                            if (!state.learnedSkills.has("z_eevee")) {
+                                removeItem(itemName);
+                                state.learnedSkills.add("z_eevee");
+                                showMessage("이브이가 나인이볼부스트를 배웠다!", 200);
+                                state.popup = null; state.selectedFarmEevee = null;
+                                saveGame();
+                            }
+                        } else if (itemName.startsWith("TM")) {
                             // TM 전달
                             const targetId = TM_TARGET[itemName];
                             if (targetId && !state.learnedSkills.has(targetId)) {
