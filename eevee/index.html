@@ -199,7 +199,7 @@ const EVOS = [
     { id:"gmax",      name:"거다이브",   type:"노멀",   img:"왕이브이.png",    condition:"stone", stone:"다이버섯", postGame:true, spd:55,
       ability:"왕의위엄",  abilityDesc:"전투 시 상성 불리 무시 + 넉백 무효 + 주변 이브이 넉백 50% 감소", abilityTag:"battle_noweakness" },
     { id:"mega",      name:"메가브이",   type:"노멀",   img:"이브이메가.png",  condition:"stone", stone:"이브이나이트", postGame:true, spd:120,
-      ability:"초월",     abilityDesc:"전투 시 모든 상성 유리 적용 (x1.5)", abilityTag:"battle_alladvantage" },
+      ability:"초월",     abilityDesc:"전투 시 상성 불리 무시 + 중립→유리 + 유리 강화(x1.8)", abilityTag:"battle_alladvantage" },
     { id:"fighting",  name:"브레이버",   type:"격투",   img:"이브이격투.png",  condition:"explore_count", postGame:true, spd:85,
       ability:"연속타격",  abilityDesc:"전투 시 공격 적중마다 DPS 2%씩 누적 증가 (최대 +50%)", abilityTag:"battle_combo" },
     { id:"ghost",     name:"레이시아",   type:"고스트", img:"이브이고스트.png", condition:"friendship_zero_night", postGame:true, spd:100,
@@ -1117,6 +1117,7 @@ function saveGame() {
                 lastLocation: state.currentEevee.lastLocation,
                 repeatCount: state.currentEevee.repeatCount,
                 visitedLocations: [...(state.currentEevee.visitedLocations || [])],
+                _tool: state.currentEevee._tool || null,
             } : null,
             farm: state.farm.map(e => ({
                 evoId: e.evoId,
@@ -1230,6 +1231,7 @@ function loadGame() {
                 lastLocation: ce.lastLocation,
                 repeatCount: ce.repeatCount || 0,
                 visitedLocations: new Set(ce.visitedLocations || []),
+                _tool: ce._tool || null,
                 wx: 0.5, wy: 0.5, vx: 0, vy: 0,
                 facing: 1, aiState: "idle", aiTimer: 80,
             };
@@ -1609,7 +1611,7 @@ function calcEeveeDPS(eevee, targetMon) {
     if (mon && mon.types) {
         let mult = calcTypeMultVsMonster(type, mon.types);
         if (tag === "battle_noweakness" && mult < 1) mult = 1.0;
-        if (tag === "battle_alladvantage") mult = Math.max(mult, 1.5);
+        if (tag === "battle_alladvantage") { if (mult < 1) mult = 1.0; else if (mult <= 1) mult = 1.4; else mult *= 1.8 / 1.4; } // 불리무시 + 중립→유리 + 유리→강화
         // 달인의띠: 상성 유리 강화
         if (toolEff === "expertBelt" && mult > 1) mult *= 1.7 / 1.4;
         // 박식안경: 상성 불리 경감
@@ -2258,6 +2260,7 @@ function sendExpedition(locId, eeveeRefs) {
         members: members.map(m => ({ ref: m.ref, type: m.type, tag: m.tag, img: m.evo ? m.evo.img : "이브이.png", name: m.evo ? m.evo.name : "이브이" })),
         startTime: Date.now(),
         duration: Math.floor(duration),
+        wasNight: state.timeOfDay === "night",
         eeveeName: names.join("+"),
     });
 
@@ -2313,13 +2316,13 @@ function resolveExpedition(exp) {
         }
         return true;
     });
-    const isNight = state.timeOfDay === "night";
+    const wasNight = exp.wasNight || false; // 출발 시점 밤/낮
     let itemChance = 0.35;
     // 타입 매치: 파티 중 지역 타입과 같은 이브이가 있으면 +0.20
     if (members.some(m => loc.attr === m.type)) itemChance += 0.20;
-    // 에브이: 낮에 +0.20 / 블래키: 밤에 +0.20
-    if (members.some(m => m.tag === "explore_day") && !isNight) itemChance += 0.20;
-    if (members.some(m => m.tag === "explore_night") && isNight) itemChance += 0.20;
+    // 에브이: 출발 시 낮 +0.20 / 블래키: 출발 시 밤 +0.20
+    if (members.some(m => m.tag === "explore_day") && !wasNight) itemChance += 0.20;
+    if (members.some(m => m.tag === "explore_night") && wasNight) itemChance += 0.20;
     itemChance = Math.min(itemChance, 1.0);
 
     if (itemPool.length > 0 && Math.random() < itemChance) {
@@ -2342,7 +2345,7 @@ function resolveExpedition(exp) {
 
     // 도구 드롭 (5% 확률, 미보유 도구만)
     if (Math.random() < 0.05) {
-        const unowned = TOOL_NAMES.filter(t => !hasItem(t));
+        const unowned = TOOL_NAMES.filter(t => !hasItem(t) && !state.farm.some(e => e._tool === t) && !(state.currentEevee && state.currentEevee._tool === t));
         if (unowned.length > 0) {
             allDrops.push({ name: unowned[Math.floor(Math.random() * unowned.length)], type: "tool" });
         }
@@ -4316,7 +4319,7 @@ function drawDexPanel() {
                 }
                 descY += 22;
                 // 도구 장착/해제 버튼
-                const ownedTools = TOOL_NAMES.filter(t => hasItem(t) && t !== curTool);
+                const ownedTools = TOOL_NAMES.filter(t => (hasItem(t) || state.farm.some(e => e._tool === t) || (state.currentEevee && state.currentEevee._tool === t)) && t !== curTool);
                 if (curTool || ownedTools.length > 0) {
                     if (!state._dexToolBtns) state._dexToolBtns = [];
                     state._dexToolBtns = [];
@@ -4496,7 +4499,7 @@ function _drawDexTool(py) {
     ctx.restore();
     ctx.textAlign = "center";
     ctx.fillStyle = "#888"; ctx.font = "11px system-ui";
-    const ownedCount = TOOL_NAMES.filter(t => hasItem(t) || state.farm.some(e => e._tool === t)).length;
+    const ownedCount = TOOL_NAMES.filter(t => hasItem(t) || state.farm.some(e => e._tool === t) || (state.currentEevee && state.currentEevee._tool === t)).length;
     ctx.fillText(`${ownedCount} / ${TOOL_NAMES.length}`, CW / 2, CH - 10);
 }
 
@@ -5057,7 +5060,7 @@ function drawPopup() {
             ctx.fillStyle = "#FFD54F"; ctx.font = "bold 10px system-ui"; ctx.textAlign = "center";
             ctx.fillText(curTool ? `🔧 ${curTool} 장착 중` : "🔧 도구 없음", px + pw / 2, toolY);
             // 보유 도구 버튼
-            const ownedTools = TOOL_NAMES.filter(t => hasItem(t) || t === curTool);
+            const ownedTools = TOOL_NAMES.filter(t => hasItem(t) || state.farm.some(e => e._tool === t) || (state.currentEevee && state.currentEevee._tool === t));
             if (ownedTools.length > 0 || curTool) {
                 state._toolBtns = [];
                 const tCols = 3;
@@ -5827,12 +5830,16 @@ function handleInput() {
                             // 해제: 도구를 인벤으로 반환
                             if (e._tool) { addItem(e._tool); e._tool = null; }
                         } else {
-                            // 장착: 기존 도구 반환 후 새 도구 장착
+                            // 장착: 기존 도구 반환, 다른 이브이에서 뺏기
                             if (e._tool) addItem(e._tool);
-                            removeItem(tb.name);
+                            if (hasItem(tb.name)) { removeItem(tb.name); }
+                            else {
+                                const donor = state.farm.find(f => f._tool === tb.name) || (state.currentEevee && state.currentEevee._tool === tb.name ? state.currentEevee : null);
+                                if (donor) donor._tool = null;
+                            }
                             e._tool = tb.name;
                         }
-                        showMessage(e._tool ? `${TOOLS[e._tool].emoji} ${e._tool} 장착!` : "도구 해제!", 90);
+                        showMessage(e._tool ? `${e._tool} 장착!` : "도구 해제!", 90);
                         state._toolBtns = null;
                         saveGame();
                         return;
@@ -6222,7 +6229,11 @@ function handleInput() {
                                     if (fe._tool) { addItem(fe._tool); fe._tool = null; }
                                 } else {
                                     if (fe._tool) addItem(fe._tool);
-                                    removeItem(tb.name);
+                                    if (hasItem(tb.name)) { removeItem(tb.name); }
+                                    else {
+                                        const donor = state.farm.find(f => f._tool === tb.name) || (state.currentEevee && state.currentEevee._tool === tb.name ? state.currentEevee : null);
+                                        if (donor) donor._tool = null;
+                                    }
                                     fe._tool = tb.name;
                                 }
                                 showMessage(fe._tool ? `${fe._tool} 장착!` : "도구 해제!", 90);
