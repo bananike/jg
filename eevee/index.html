@@ -233,7 +233,7 @@ const SKILLS = {
     gmax:      { name:"거대충격",       type:"노멀",   color:"#FFFFFF", chance:0.08, cd:900,  dmgMult:4.0, buff:"partyKbImmune", buffDur:180, desc:"DPS 400% + 전원 3초 넉백 무효" },
     mega:      { name:"극한돌파",       type:"노멀",   color:"#FFFFFF", chance:0.10, cd:720,  dmgMult:5.0, desc:"DPS 500% 즉발" },
     fighting:  { name:"인파이트",       type:"격투",   color:"#FF8A65", chance:0.10, cd:720,  buff:"comboBoost", buffDur:300, desc:"5초간 공속+콤보 2배" },
-    ghost:     { name:"섀도볼",         type:"고스트", color:"#7E57C2", chance:0.10, cd:720,  debuff:"dmgTaken15", debuffDur:120, desc:"2초간 받는 데미지 1.5배" },
+    ghost:     { name:"섀도볼",         type:"고스트", color:"#7E57C2", chance:0.10, cd:600,  debuff:"dmgTaken2x", debuffDur:180, desc:"3초간 받는 데미지 2배" },
     dragon:    { name:"용성군",         type:"드래곤", color:"#42A5F5", chance:0.12, cd:600,  dmgMult:3.5, selfDebuff:"dps50", selfDebuffDur:180, desc:"DPS 350% + 자신 3초 DPS -50%" },
     ground:    { name:"지진",           type:"땅",     color:"#A1887F", chance:0.12, cd:600,  dmgMult:3.0, stun:90,  desc:"DPS 300% + 1.5초 이동정지" },
     rock:      { name:"스톤엣지",       type:"바위",   color:"#8D6E63", chance:0.10, cd:720,  dmgMult:3.0, buff:"partyKbImmune", buffDur:180, desc:"DPS 300% + 전원 3초 넉백 무효" },
