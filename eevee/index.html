@@ -247,8 +247,8 @@ const SKILLS = {
 const skillParticles = [];
 // 스킬 텍스트 팝업 배열
 const skillTexts = [];
-// 몬스터 디버프 상태
-const monsterDebuffs = { stun:0, slow70:0, slow80:0, kbReduce:0, dmgTaken2x:0, dmgTaken15:0, dot2:0 };
+// 몬스터 디버프 초기값 생성 (per-monster)
+function makeMonsterDebuffs() { return { stun:0, slow70:0, slow80:0, kbReduce:0, dmgTaken2x:0, dmgTaken15:0, dot2:0 }; }
 // 파티 버프 상태
 const partyBuffs = { dps30:0, kbImmune:0, zBoost:0 };
 
@@ -412,7 +412,8 @@ const state = {
     leaderboardTimer: 0,      // 조회 쿨다운
 
     // 농장 몬스터 (상시 전투)
-    monster: null,            // { type, name, hp, maxHp, stage }
+    monster: null,            // 호환용 getter → monsters[0]
+    monsters: [],             // 몬스터 배열 (다중 지원)
     monsterStage: 0,          // 현재 몬스터 스테이지
     monsterMaxStage: 0,       // 최고 클리어 스테이지
     maxDps: 0,                // 최고 DPS 기록
@@ -612,11 +613,13 @@ function updateEeveeAI(e, isNight, isFighting) {
         return;
     }
 
-    // 전투 중이면 몬스터를 향해 돌진
-    if (isFighting && state.monster && state.monster.hp > 0) {
+    // 전투 중이면 가장 가까운 살아있는 몬스터를 향해 돌진
+    const _targetMon = isFighting ? nearestAliveMonster(e) : null;
+    if (_targetMon) {
+        e._targetMon = _targetMon; // 현재 타겟 몬스터 저장 (DPS 등에 활용)
         e.aiState = "walk";
-        const dx = state.monster.wx - e.wx;
-        const dy = state.monster.wy - e.wy;
+        const dx = _targetMon.wx - e.wx;
+        const dy = _targetMon.wy - e.wy;
         const dist = Math.sqrt(dx * dx + dy * dy);
         const attackRange = 0.12; // 공격 사거리
 
@@ -1109,6 +1112,13 @@ function saveGame() {
             gameSpeed: state.gameSpeed || 1,
             monsterStage: state.monsterStage || 0,
             monster: state.monster || null,
+            monsters: (state.monsters || []).map(m => ({
+                name: m.name, img: m.img, types: m.types,
+                stage: m.stage, maxHp: m.maxHp, hp: m.hp,
+                isBoss: m.isBoss, isRaidBoss: m.isRaidBoss, isPhase2: m.isPhase2 || false,
+                spd: m.spd, wx: m.wx, wy: m.wy,
+                _debuffs: m._debuffs || makeMonsterDebuffs(),
+            })),
             unlockedByBattle: [...(state.unlockedByBattle || [])],
             expeditions: (state.expeditions || []).map(e => ({ ...e })),
             // expeditionSlots는 getExpSlots()로 동적 계산
@@ -1140,7 +1150,32 @@ function loadGame() {
         state.maxDps = data.maxDps || 0;
         state.gameSpeed = data.gameSpeed || 1;
         state.monsterStage = data.monsterStage || data.monsterMaxStage || 0;
-        state.monster = data.monster || null;
+        // 몬스터 배열 복원
+        if (data.monsters && data.monsters.length > 0) {
+            state.monsters = data.monsters.map(m => ({
+                name: m.name, img: m.img, types: m.types,
+                stage: m.stage, maxHp: m.maxHp, hp: m.hp,
+                isBoss: m.isBoss || false, isRaidBoss: m.isRaidBoss || false,
+                isPhase2: m.isPhase2 || false,
+                spd: m.spd || 60,
+                wx: m.wx || 0.5, wy: m.wy || 0.3,
+                targetItem: null, _slowTimer: 0, _pushCooldown: 0,
+                _debuffs: m._debuffs || makeMonsterDebuffs(),
+                _hitAnim: 0, _killAnim: 0, _spawnAnim: 0,
+            }));
+            state.monster = state.monsters[0];
+        } else if (data.monster) {
+            // 하위호환: 구 세이브에 monsters 없는 경우
+            const m = data.monster;
+            m._debuffs = m._debuffs || makeMonsterDebuffs();
+            m._hitAnim = 0; m._killAnim = 0; m._spawnAnim = 0;
+            m._slowTimer = m._slowTimer || 0; m._pushCooldown = m._pushCooldown || 0;
+            state.monsters = [m];
+            state.monster = m;
+        } else {
+            state.monsters = [];
+            state.monster = null;
+        }
         // 몬스터 타이머 리셋 (로드 시 제한시간 새로 부여)
         if (state.monster) {
             state.monsterTimer = Date.now();
@@ -1249,7 +1284,7 @@ function deleteSave() {
     state.eeSelectScroll = 0; state.expScroll = 0;
     state.message = null; state.feedbackAnim = null;
     state.playerName = ""; state.playerId = "";
-    state.monster = null; state.monsterStage = 0; state.monsterMaxStage = 0;
+    state.monster = null; state.monsters = []; state.monsterStage = 0; state.monsterMaxStage = 0;
     state.monsterHitAnim = 0; state.monsterKillAnim = 0; state.monsterSpawnAnim = 0;
     state.monsterReward = null; state.monsterTimer = 0; state.monsterTimeLimit = 0;
     state.gameOverAnim = 0;
@@ -1387,23 +1422,23 @@ const TYPE_ADVANTAGE = {
 // 울트라비스트 (일반 몬스터) - spd: 원작 스피드 비례 이동속도
 // 체력 낮고 속도 낮은 순으로 배치 (초반 4종 해금, 보스 클리어마다 +1종)
 const UB_MONSTERS = [
-    { name:"차곡차곡", img:"mon/차곡차곡.png", types:["바위","강철"], spd:13 },
-    { name:"악식킹",   img:"mon/악식킹.png",   types:["악","드래곤"], spd:43 },
-    { name:"철화구야", img:"mon/철화구야.png", types:["강철","비행"], spd:61 },
-    { name:"매시붕",   img:"mon/매시붕.png",   types:["벌레","격투"], spd:79 },
-    { name:"전수목",   img:"mon/전수목.png",   types:["전기"],       spd:83 },
-    { name:"텅비드",   img:"mon/텅비드.png",   types:["바위","독"],   spd:103 },
-    { name:"두파팡",   img:"mon/두파팡.png",   types:["불","고스트"], spd:107 },
-    { name:"종이신도", img:"mon/종이신도.png", types:["풀","강철"],   spd:109 },
-    { name:"페로코체", img:"mon/페로코체.png", types:["벌레","격투"], spd:151 },
+    { name:"차곡차곡", img:"mon/차곡차곡.png", types:["바위","강철"], spd:13,  dur:0.7 },  // 147
+    { name:"악식킹",   img:"mon/악식킹.png",   types:["악","드래곤"], spd:43,  dur:1.3 },  // 315
+    { name:"철화구야", img:"mon/철화구야.png", types:["강철","비행"], spd:61,  dur:1.2 },  // 301
+    { name:"매시붕",   img:"mon/매시붕.png",   types:["벌레","격투"], spd:79,  dur:1.1 },  // 283
+    { name:"전수목",   img:"mon/전수목.png",   types:["전기"],       spd:83,  dur:0.75 }, // 169
+    { name:"텅비드",   img:"mon/텅비드.png",   types:["바위","독"],   spd:103, dur:0.9 },  // 213
+    { name:"두파팡",   img:"mon/두파팡.png",   types:["불","고스트"], spd:107, dur:0.75 }, // 159
+    { name:"종이신도", img:"mon/종이신도.png", types:["풀","강철"],   spd:109, dur:1.2 },  // 293
+    { name:"페로코체", img:"mon/페로코체.png", types:["벌레","격투"], spd:151, dur:0.7 },  // 145
 ];
 
 // 재앙의보물 (10스테이지마다 보스)
 const BOSS_MONSTERS = [
-    { name:"총지엔",   img:"mon/총지엔.png",   types:["악","풀"],    spd:85 },
-    { name:"파오젠",   img:"mon/파오젠.png",   types:["악","얼음"],  spd:135 },
-    { name:"딩루",     img:"mon/딩루.png",     types:["악","땅"],    spd:45 },
-    { name:"위유이",   img:"mon/위유이.png",   types:["악","불"],    spd:100 },
+    { name:"총지엔",   img:"mon/총지엔.png",   types:["악","풀"],    spd:85,  dur:1.3 },  // 320
+    { name:"파오젠",   img:"mon/파오젠.png",   types:["악","얼음"],  spd:135, dur:1.2 },  // 295
+    { name:"딩루",     img:"mon/딩루.png",     types:["악","땅"],    spd:45,  dur:1.4 },  // 345
+    { name:"위유이",   img:"mon/위유이.png",   types:["악","불"],    spd:100, dur:1.0 },  // 255
 ];
 
 // 100레벨 단위 레이드 보스 (2페이즈)
@@ -1415,47 +1450,93 @@ const RAID_BOSSES = [
 ];
 
 // 몬스터 생성
+// 몬스터 1마리 데이터 생성 (배열에 push하기 위한 헬퍼)
+function _createMonsterObj(monData, stage, hpMult, isBoss, isRaidBoss, xOffset) {
+    const durMult = monData.dur || 1.0;
+    const maxHp = Math.floor((30 + stage * 25 + Math.pow(stage, 1.6) * 5) * hpMult * durMult);
+    return {
+        name: monData.name, img: monData.img, types: monData.types,
+        stage, maxHp, hp: maxHp, isBoss,
+        isRaidBoss,
+        spd: monData.spd || 60,
+        wx: clamp(0.2 + Math.random() * 0.6 + (xOffset || 0), 0.08, 0.92),
+        wy: 0.15 + Math.random() * 0.5,
+        targetItem: null,
+        _slowTimer: 0, _pushCooldown: 0,
+        _debuffs: makeMonsterDebuffs(),
+        _hitAnim: 0,       // per-monster 피격 애니메이션
+        _killAnim: 0,       // per-monster 처치 애니메이션
+        _spawnAnim: 90,     // per-monster 등장 애니메이션
+    };
+}
+
 function spawnMonster(stage) {
     const isBoss = stage % 10 === 0;
     const isRaidBoss = stage % 100 === 0 && stage > 0;
-    let mon;
     const prevName = state.monster ? state.monster.name : "";
 
+    // --- 주 몬스터 선택 ---
+    let monData;
     if (isRaidBoss) {
-        // 100레벨 단위 레이드 보스
         const raidIdx = ((stage / 100) - 1) % RAID_BOSSES.length;
         const raid = RAID_BOSSES[raidIdx];
-        mon = raid.phase1;
-        state._raidPhase2 = raid.phase2; // 2페이즈 데이터 저장
+        monData = raid.phase1;
+        state._raidPhase2 = raid.phase2;
     } else if (isBoss) {
         const pool = BOSS_MONSTERS.filter(m => m.name !== prevName);
-        mon = pool[Math.floor(Math.random() * pool.length)];
+        monData = pool[Math.floor(Math.random() * pool.length)];
     } else {
         const bossClears = Math.floor((state.monsterMaxStage || 0) / 10);
         const unlocked = Math.min(4 + bossClears, UB_MONSTERS.length);
         const available = UB_MONSTERS.slice(0, unlocked);
         const pool = available.filter(m => m.name !== prevName);
-        mon = pool[Math.floor(Math.random() * pool.length)];
+        monData = pool[Math.floor(Math.random() * pool.length)];
     }
+    if (!isRaidBoss) state._raidPhase2 = null;
 
     const hpMult = isRaidBoss ? 3.0 : isBoss ? 3.0 : 1.0;
-    const maxHp = Math.floor((30 + stage * 25 + Math.pow(stage, 1.6) * 5) * hpMult);
-    state.monster = {
-        name: mon.name, img: mon.img, types: mon.types,
-        stage, maxHp, hp: maxHp, isBoss,
-        isRaidBoss,
-        spd: mon.spd || 60,
-        wx: 0.2 + Math.random() * 0.6,
-        wy: 0.15 + Math.random() * 0.5,
-        targetItem: null,
-        _slowTimer: 0, _pushCooldown: 0,
-    };
-    if (!isRaidBoss) state._raidPhase2 = null;
+
+    // 배열 초기화
+    state.monsters = [];
+    const mainMon = _createMonsterObj(monData, stage, hpMult, isBoss, isRaidBoss, 0);
+    state.monsters.push(mainMon);
+
+    // --- 스테이지 200+ : 추가 몬스터 (100마다 +1마리) ---
+    if (stage >= 200) {
+        const extraCount = Math.floor(stage / 100) - 1; // 200=1, 300=2, 400=3...
+        const usedNames = [monData.name];
+
+        for (let ei = 0; ei < extraCount; ei++) {
+            if (isRaidBoss && ei === 0) {
+                // 레이드보스 첫 추가는 일반보스
+                const bossPool = BOSS_MONSTERS.filter(m => !usedNames.includes(m.name));
+                const extraBoss = bossPool[Math.floor(Math.random() * bossPool.length)];
+                if (extraBoss) {
+                    const extraMon = _createMonsterObj(extraBoss, stage, 3.0, true, false, 0.15 + ei * 0.15);
+                    state.monsters.push(extraMon);
+                    usedNames.push(extraBoss.name);
+                }
+            } else {
+                // UB 몬스터 추가
+                const bossClears2 = Math.floor((state.monsterMaxStage || 0) / 10);
+                const unlocked2 = Math.min(4 + bossClears2, UB_MONSTERS.length);
+                const pool2 = UB_MONSTERS.slice(0, unlocked2).filter(m => !usedNames.includes(m.name));
+                const extraData = pool2[Math.floor(Math.random() * pool2.length)];
+                if (extraData) {
+                    const extraMon = _createMonsterObj(extraData, stage, 1.0, false, false, 0.15 + ei * 0.15);
+                    state.monsters.push(extraMon);
+                    usedNames.push(extraData.name);
+                }
+            }
+        }
+    }
+
+    // 호환용: state.monster = monsters[0]
+    state.monster = state.monsters[0];
     state.monsterStage = stage;
     state.monsterSpawnAnim = 90;
-    // 디버프/버프 초기화
-    monsterDebuffs.stun = 0; monsterDebuffs.slow70 = 0; monsterDebuffs.slow80 = 0; monsterDebuffs.kbReduce = 0;
-    monsterDebuffs.dmgTaken2x = 0; monsterDebuffs.dmgTaken15 = 0; monsterDebuffs.dot2 = 0;
+
+    // 파티 버프 초기화
     partyBuffs.dps30 = 0; partyBuffs.kbImmune = 0; partyBuffs.zBoost = 0;
     skillParticles.length = 0; skillTexts.length = 0;
     state.monsterTimer = Date.now();
@@ -1479,7 +1560,8 @@ function calcTypeMultVsMonster(attackType, monsterTypes) {
 const _evoCache = {};
 function _getEvo(id) { return _evoCache[id] || (_evoCache[id] = EVOS.find(e => e.id === id) || null); }
 
-function calcEeveeDPS(eevee) {
+function calcEeveeDPS(eevee, targetMon) {
+    const mon = targetMon || state.monster; // 대상 몬스터 (기본: monsters[0])
     const evo = _getEvo(eevee.evoId);
     const type = evo ? evo.type : "무";
     const tag = evo ? evo.abilityTag : "";
@@ -1496,8 +1578,8 @@ function calcEeveeDPS(eevee) {
     let dps = basePower + act * 0.3;
 
     // 상성 보정 (다중 타입)
-    if (state.monster && state.monster.types) {
-        let mult = calcTypeMultVsMonster(type, state.monster.types);
+    if (mon && mon.types) {
+        let mult = calcTypeMultVsMonster(type, mon.types);
         if (tag === "battle_noweakness" && mult < 1) mult = 1.0;
         if (tag === "battle_alladvantage") mult = Math.max(mult, 1.5);
         dps *= mult;
@@ -1510,13 +1592,25 @@ function calcEeveeDPS(eevee) {
     if (tag === "battle_fixed") dps += 2;
     // maxHp 비례 능력: 상한 캡 (기본 DPS의 3배까지)
     const hpCap = dps * 3;
-    if (tag === "battle_curse" && state.monster) dps += Math.min(state.monster.maxHp * 0.005, hpCap);
-    if (tag === "leafeon" && state.monster) dps += Math.min(state.monster.maxHp * 0.003, hpCap);
+    if (tag === "battle_curse" && mon) dps += Math.min(mon.maxHp * 0.005, hpCap);
+    if (tag === "leafeon" && mon) dps += Math.min(mon.maxHp * 0.003, hpCap);
     if (tag === "sylveon") dps *= 1.2;
-    if (tag === "battle_dot" && state.monster) dps += Math.min(state.monster.maxHp * 0.01, hpCap); // 바이퍼스: 매초 최대HP 1%
+    if (tag === "battle_dot" && mon) dps += Math.min(mon.maxHp * 0.01, hpCap); // 바이퍼스: 매초 최대HP 1%
     if (tag === "battle_swarm") dps *= 1 + getFighterCount() * 0.05; // 하이버: 마리당 +5%
 
     return dps;
+}
+
+// 이브이에게 가장 가까운 살아있는 몬스터 찾기
+function nearestAliveMonster(ee) {
+    let best = null, bestDist = Infinity;
+    for (const m of state.monsters) {
+        if (m.hp <= 0 || m._killAnim > 0) continue;
+        const dx = m.wx - ee.wx, dy = m.wy - ee.wy;
+        const d = dx * dx + dy * dy;
+        if (d < bestDist) { bestDist = d; best = m; }
+    }
+    return best;
 }
 
 function typeMultiplier(attackType, defendType) {
@@ -1527,31 +1621,20 @@ function typeMultiplier(attackType, defendType) {
     return 1.0;
 }
 
-// 농장 전투 업데이트 (매 프레임 호출)
+// 농장 전투 업데이트 (매 프레임 호출) - 다중 몬스터 지원
 function updateFarmBattle() {
     // 게임오버 연출 중
     if (state.gameOverAnim > 0) {
         state.gameOverAnim--;
         if (state.gameOverAnim <= 0) {
-            // 리셋 후 재시작 (마지막 보스 클리어 이후부터)
             spawnMonster((state.monsterMaxStage || 0) + 1);
         }
         return;
     }
-    if (!state.monster) {
-        spawnMonster((state.monsterMaxStage || 0) + 1);
-        return;
-    }
-    // 등장 애니메이션 중
-    if (state.monsterSpawnAnim > 0) {
-        state.monsterSpawnAnim--;
-        return;
-    }
-    // 처치 연출 중
+    // 처치 연출 중 (글로벌 killAnim - 모든 몬스터가 죽었을 때만 발동)
     if (state.monsterKillAnim > 0) {
         state.monsterKillAnim--;
         if (state.monsterKillAnim <= 0) {
-            // 처치 연출 완료 → 다음 몬스터
             if (state.monsterReward) {
                 showMessage(`🎉 ${state.monsterReward}`, 180);
                 state.monsterReward = null;
@@ -1561,348 +1644,398 @@ function updateFarmBattle() {
         }
         return;
     }
-
-    const mon = state.monster;
-    const mw = mon.wx, mh = mon.wy;
-
-    // ── 몬스터 AI: 가장 가까운 열매를 향해 이동 ──
-    // 스턴 중이면 이동 불가
-    if (monsterDebuffs.stun > 0) {
-        // 스턴 중에도 DPS 계산은 진행 (아래로 넘어감)
+    if (!state.monsters || state.monsters.length === 0) {
+        spawnMonster((state.monsterMaxStage || 0) + 1);
+        return;
     }
-    const stageBonus = 1 + Math.min(mon.stage * 0.01, 0.5);
-    const slow80Mult = (monsterDebuffs.slow80 > 0) ? 0.2 : 1.0; // 냉동빔 80% 감속
-    const slow70Mult = (monsterDebuffs.slow70 > 0) ? 0.3 : slow80Mult; // 글레이시아 패시브 or 냉동빔
-    const slowMult = (mon._slowTimer > 0) ? 0.4 : slow70Mult; // 글레이시아 패시브 슬로우
-    const stunMult = (monsterDebuffs.stun > 0) ? 0 : 1.0; // 스턴 시 이동 정지
-    // 리피아 포자: 근처에 있으면 이속 15% 감소 (중첩)
-    let sporeMult = 1.0;
-    const allEeSpore = [];
-    if (state.currentEevee && !isOnExpedition("current")) allEeSpore.push(state.currentEevee);
-    state.farm.forEach((e, i) => { if (!isOnExpedition(i)) allEeSpore.push(e); });
-    for (const ee of allEeSpore) {
-        const evo = _getEvo(ee.evoId);
-        if (evo && evo.abilityTag === "leafeon") {
-            const dx = ee.wx - mon.wx, dy = ee.wy - mon.wy;
-            if (dx*dx + dy*dy < 0.04) sporeMult *= 0.85; // 반경 0.2 내 15% 감소
-        }
-    }
-    const monSpeed = (mon.spd / 80000) * 1.2 * stageBonus * (mon.isBoss ? 0.7 : 1.0) * slowMult * stunMult * sporeMult;
-    let targetX = 0.5, targetY = 0.5;
-    let foundFruit = false;
-    if (state.farmItems.length > 0) {
-        let minDist = Infinity;
-        for (const item of state.farmItems) {
-            if (!mon.isRaidBoss && !FRUITS.includes(item.name)) continue;
-            const d = Math.sqrt((item.wx - mw) ** 2 + (item.wy - mh) ** 2);
-            if (d < minDist) { minDist = d; targetX = item.wx; targetY = item.wy; foundFruit = true; }
-        }
-    }
-    if (!foundFruit) {
-        targetX = 0.5 + Math.sin(frame * 0.003 + mon.stage * 7) * 0.35;
-        targetY = 0.4 + Math.cos(frame * 0.004 + mon.stage * 5) * 0.25;
-    }
-    const mdx = targetX - mw, mdy = targetY - mh;
-    const mDist = Math.sqrt(mdx * mdx + mdy * mdy);
-    // 타겟 추적 시 거리에 따라 감속 (가까울수록 느려짐, 직선 돌진 방지)
-    const chaseMult = foundFruit ? Math.min(mDist * 3, 0.6) : 1.0;
-    if (mDist > 0.01) {
-        mon.wx += (mdx / mDist) * monSpeed * chaseMult;
-        mon.wy += (mdy / mDist) * monSpeed * chaseMult * 0.7;
-    }
-    mon.wx = clamp(mon.wx, 0.08, 0.92);
-    mon.wy = clamp(mon.wy, 0.08, 0.85);
-
-    // 몬스터와 아이템 충돌 = 공격
-    for (let fi = state.farmItems.length - 1; fi >= 0; fi--) {
-        const item = state.farmItems[fi];
-        const isFruitItem = FRUITS.includes(item.name);
-        // 일반 몬스터: 열매만 공격 / 레이드 보스: 모든 아이템 공격
-        if (!isFruitItem && !mon.isRaidBoss) continue;
-        const fdx = item.wx - mon.wx, fdy = item.wy - mon.wy;
-        const d = Math.sqrt(fdx * fdx + fdy * fdy);
-        if (d < 0.05) {
-            if (item.hp == null) item.hp = mon.isRaidBoss ? 1 : 2; // 레이드: 1회 제거
-            if (item._hitCooldown == null) item._hitCooldown = 0;
-            if (item._hitCooldown > 0) { item._hitCooldown--; }
-            if (d > 0.001) {
-                const pushF = 0.02;
-                item.vx += (fdx / d) * pushF;
-                item.vy += (fdy / d) * pushF;
-            }
-            if (item._hitCooldown <= 0) {
-                item.hp -= 1;
-                item._hitCooldown = mon.isRaidBoss ? 20 : 45;
-                item.damaged = true;
-                if (item.hp <= 0) {
-                    const scr = worldToScreen(item.wx, item.wy);
-                    if (!state.fruitDestroyFx) state.fruitDestroyFx = [];
-                    state.fruitDestroyFx.push({ x: scr.sx, y: scr.sy, timer: 45, emoji: itemEmoji(item.name) });
-                    state.farmItems.splice(fi, 1);
-                    if (isFruitItem) mon.hp = Math.min(mon.hp + mon.maxHp * 0.1, mon.maxHp);
-                }
-            }
-        }
+    // 등장 애니메이션 중
+    if (state.monsterSpawnAnim > 0) {
+        state.monsterSpawnAnim--;
+        for (const m of state.monsters) { if (m._spawnAnim > 0) m._spawnAnim--; }
+        return;
     }
 
-    // ── 몬스터가 이브이를 밀어냄 (넉백, 쿨다운 있음) ──
+    // 전투 이브이 목록
     const allEe = [];
     if (state.currentEevee && !isOnExpedition("current")) allEe.push(state.currentEevee);
     state.farm.forEach((e, i) => { if (!isOnExpedition(i)) allEe.push(e); });
 
-    if (!mon._pushCooldown) mon._pushCooldown = 0;
-    if (mon._pushCooldown > 0) {
-        mon._pushCooldown--;
-    } else {
-        const pushRadius = 0.14;
-        let pushed = false;
-        for (const ee of allEe) {
-            if (ee._knockback > 0) continue;
-            const evo = _getEvo(ee.evoId);
-            const eeTag = evo ? evo.abilityTag : "";
-            // 록키온: 넉백 무효 / 거다이브: 넉백 무효 / 파티 넉백 무효 버프
-            if (eeTag === "battle_sturdy" || eeTag === "battle_noweakness" || partyBuffs.kbImmune > 0) continue;
-            const edx = ee.wx - mon.wx, edy = ee.wy - mon.wy;
-            const eDist = Math.sqrt(edx * edx + edy * edy);
-            if (eDist < pushRadius && eDist > 0.001) {
-                let kbPower = mon.isRaidBoss ? 0.105 : 0.07; // 레이드 보스 넉백 1.5배
-                // 거다이브 근처 이브이: 넉백 50% 감소
-                const gmaxEe = allEe.find(g => { const gEvo = _getEvo(g.evoId); return gEvo && gEvo.abilityTag === "battle_noweakness"; });
-                if (gmaxEe) {
-                    const gdx = ee.wx - gmaxEe.wx, gdy = ee.wy - gmaxEe.wy;
-                    if (Math.sqrt(gdx*gdx + gdy*gdy) < 0.2) kbPower *= 0.5;
-                }
-                ee._kbVx = (edx / eDist) * kbPower;
-                ee._kbVy = (edy / eDist) * kbPower * 0.7;
-                ee._knockback = 30;
-                pushed = true;
-            }
-        }
-        if (pushed) mon._pushCooldown = mon.isBoss ? 180 : 120;
-    }
-
-    // ── 디버프/버프 타이머 갱신 ──
-    if (monsterDebuffs.stun > 0) monsterDebuffs.stun--;
-    if (monsterDebuffs.slow70 > 0) monsterDebuffs.slow70--;
-    if (monsterDebuffs.slow80 > 0) monsterDebuffs.slow80--;
-    if (monsterDebuffs.dmgTaken15 > 0) monsterDebuffs.dmgTaken15--;
-    if (monsterDebuffs.kbReduce > 0) monsterDebuffs.kbReduce--;
-    if (monsterDebuffs.dmgTaken2x > 0) monsterDebuffs.dmgTaken2x--;
-    if (monsterDebuffs.dot2 > 0) {
-        monsterDebuffs.dot2--;
-        if (frame % 60 === 0 && mon.maxHp) mon.hp -= mon.maxHp * 0.02; // 매초 2% DOT
-    }
+    // ── 파티 버프 타이머 갱신 (글로벌) ──
     if (partyBuffs.dps30 > 0) partyBuffs.dps30--;
     if (partyBuffs.kbImmune > 0) partyBuffs.kbImmune--;
     if (partyBuffs.zBoost > 0) partyBuffs.zBoost--;
 
-    // ── 근접 이브이만 DPS 계산 ──
-    const atkRange = 0.15;
-    let totalDPS = 0;
-    let hasGlaceon = false;
-    for (const ee of allEe) {
-        const edx = ee.wx - mon.wx, edy = ee.wy - mon.wy;
-        const inRange = edx * edx + edy * edy < atkRange * atkRange;
-        if (inRange) {
-            let eeDps = calcEeveeDPS(ee);
+    let totalDPSAll = 0; // 전체 DPS (표시용)
+
+    // ══ 각 몬스터에 대해 업데이트 ══
+    for (let mi = state.monsters.length - 1; mi >= 0; mi--) {
+        const mon = state.monsters[mi];
+        if (!mon._debuffs) mon._debuffs = makeMonsterDebuffs();
+
+        // 개별 등장 애니메이션 중이면 스킵
+        if (mon._spawnAnim > 0) { mon._spawnAnim--; continue; }
+        // 이미 처치 연출 중인 몬스터 스킵
+        if (mon._killAnim > 0) { mon._killAnim--; continue; }
+        // 이미 죽은 몬스터 스킵
+        if (mon.hp <= 0) continue;
+
+        const db = mon._debuffs;
+        const mw = mon.wx, mh = mon.wy;
+
+        // ── 몬스터 AI: 가장 가까운 열매를 향해 이동 ──
+        const stageBonus = 1 + Math.min(mon.stage * 0.01, 0.5);
+        const slow80Mult = (db.slow80 > 0) ? 0.2 : 1.0;
+        const slow70Mult = (db.slow70 > 0) ? 0.3 : slow80Mult;
+        const slowMult = (mon._slowTimer > 0) ? 0.4 : slow70Mult;
+        const stunMult = (db.stun > 0) ? 0 : 1.0;
+        // 리피아 포자
+        let sporeMult = 1.0;
+        for (const ee of allEe) {
             const evo = _getEvo(ee.evoId);
-            const eeTag = evo ? evo.abilityTag : "";
+            if (evo && evo.abilityTag === "leafeon") {
+                const dx = ee.wx - mon.wx, dy = ee.wy - mon.wy;
+                if (dx*dx + dy*dy < 0.04) sporeMult *= 0.85;
+            }
+        }
+        const monSpeed = (mon.spd / 80000) * 1.2 * stageBonus * (mon.isBoss ? 0.7 : 1.0) * slowMult * stunMult * sporeMult;
+        let targetX = 0.5, targetY = 0.5;
+        let foundFruit = false;
+        if (state.farmItems.length > 0) {
+            let minDist = Infinity;
+            for (const item of state.farmItems) {
+                if (!mon.isRaidBoss && !FRUITS.includes(item.name)) continue;
+                const d = Math.sqrt((item.wx - mw) ** 2 + (item.wy - mh) ** 2);
+                if (d < minDist) { minDist = d; targetX = item.wx; targetY = item.wy; foundFruit = true; }
+            }
+        }
+        if (!foundFruit) {
+            // 각 몬스터마다 다른 패턴으로 배회 (mi로 오프셋)
+            targetX = 0.5 + Math.sin(frame * 0.003 + mon.stage * 7 + mi * 3) * 0.35;
+            targetY = 0.4 + Math.cos(frame * 0.004 + mon.stage * 5 + mi * 2) * 0.25;
+        }
+        const mdx = targetX - mw, mdy = targetY - mh;
+        const mDist = Math.sqrt(mdx * mdx + mdy * mdy);
+        const chaseMult = foundFruit ? Math.min(mDist * 3, 0.6) : 1.0;
+        if (mDist > 0.01) {
+            mon.wx += (mdx / mDist) * monSpeed * chaseMult;
+            mon.wy += (mdy / mDist) * monSpeed * chaseMult * 0.7;
+        }
+        mon.wx = clamp(mon.wx, 0.08, 0.92);
+        mon.wy = clamp(mon.wy, 0.08, 0.85);
 
-            // 버프/디버프 적용
-            if (partyBuffs.dps30 > 0) eeDps *= 1.3;
-            if (partyBuffs.zBoost > 0) eeDps *= 2.0; // Z기술: DPS 2배
-            if (ee._selfDps2x > 0) { eeDps *= 2; ee._selfDps2x--; }
-            if (ee._dps50 > 0) { eeDps *= 0.5; ee._dps50--; }
-            if (ee._comboBoost > 0) { ee._comboStacks = Math.min((ee._comboStacks || 0) + 0.10, 25); ee._comboBoost--; }
-
-            // 몬스터 받는 데미지 2배
-            if (monsterDebuffs.dmgTaken2x > 0) eeDps *= 2;
-            if (monsterDebuffs.dmgTaken15 > 0) eeDps *= 1.5;
-
-            totalDPS += eeDps;
-
-            // 브레이버: 콤보 누적
-            if (eeTag === "battle_combo") ee._comboStacks = Math.min((ee._comboStacks || 0) + 0.05, 25);
-            // 글레이시아: 슬로우 체크
-            if (eeTag === "battle_slow") hasGlaceon = true;
-
-            // ── Z기술: 기본 이브이 나인이볼부스트 ──
-            if (!evo && state.learnedSkills.has("z_eevee") && (ee.activity || 0) >= 50) {
-                if (!ee._skillCd) ee._skillCd = 0;
-                if (ee._skillCd > 0) { ee._skillCd--; }
-                else if (Math.random() < Z_SKILL.chance / 60) {
-                    ee._skillCd = Z_SKILL.cd;
-                    // 전원 이속+DPS 50% 버프
-                    partyBuffs.zBoost = Z_SKILL.buffDur;
-                    const scr = worldToScreen(ee.wx, ee.wy);
-                    skillTexts.push({ text: Z_SKILL.name, x: scr.sx, y: scr.sy - 40, color: Z_SKILL.color, timer: 90 });
-                    for (let p = 0; p < 12; p++) {
-                        const angle = Math.random() * Math.PI * 2;
-                        const speed = 1.5 + Math.random() * 2.5;
-                        skillParticles.push({
-                            x: scr.sx, y: scr.sy - 20,
-                            vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - 1.5,
-                            color: Z_SKILL.color, life: 40 + Math.random() * 20, maxLife: 60,
-                            size: 4 + Math.random() * 4,
-                        });
+        // 몬스터와 아이템 충돌 = 공격
+        for (let fi = state.farmItems.length - 1; fi >= 0; fi--) {
+            const item = state.farmItems[fi];
+            const isFruitItem = FRUITS.includes(item.name);
+            if (!isFruitItem && !mon.isRaidBoss) continue;
+            const fdx = item.wx - mon.wx, fdy = item.wy - mon.wy;
+            const d = Math.sqrt(fdx * fdx + fdy * fdy);
+            if (d < 0.05) {
+                if (item.hp == null) item.hp = mon.isRaidBoss ? 1 : 2;
+                if (item._hitCooldown == null) item._hitCooldown = 0;
+                if (item._hitCooldown > 0) { item._hitCooldown--; }
+                if (d > 0.001) {
+                    const pushF = 0.02;
+                    item.vx += (fdx / d) * pushF;
+                    item.vy += (fdy / d) * pushF;
+                }
+                if (item._hitCooldown <= 0) {
+                    item.hp -= 1;
+                    item._hitCooldown = mon.isRaidBoss ? 20 : 45;
+                    item.damaged = true;
+                    if (item.hp <= 0) {
+                        const scr = worldToScreen(item.wx, item.wy);
+                        if (!state.fruitDestroyFx) state.fruitDestroyFx = [];
+                        state.fruitDestroyFx.push({ x: scr.sx, y: scr.sy, timer: 45, emoji: itemEmoji(item.name) });
+                        state.farmItems.splice(fi, 1);
+                        if (isFruitItem) mon.hp = Math.min(mon.hp + mon.maxHp * 0.1, mon.maxHp);
                     }
                 }
             }
-            // ── 스킬 발동 판정 (습득 완료 + 활동성 50 이상, 쿨타임 중 아님) ──
-            if (evo && SKILLS[evo.id] && state.learnedSkills.has(evo.id) && (ee.activity || 0) >= 50) {
-                const skill = SKILLS[evo.id];
-                if (!ee._skillCd) ee._skillCd = 0;
-                if (ee._skillCd > 0) { ee._skillCd--; }
-                else if (Math.random() < skill.chance / 60) { // 초당 chance 확률 → 프레임당
-                    ee._skillCd = skill.cd;
+        }
 
-                    // 스킬 데미지 (타입 상성 적용)
-                    if (skill.dmgMult) {
-                        let sklDmg = calcEeveeDPS(ee) * skill.dmgMult;
-                        // 스킬 타입 vs 몬스터 타입 상성
-                        if (mon.types) sklDmg *= calcTypeMultVsMonster(skill.type, mon.types);
-                        if (monsterDebuffs.dmgTaken2x > 0) sklDmg *= 2;
-                        if (monsterDebuffs.dmgTaken15 > 0) sklDmg *= 1.5;
-                        // 하이버: 이브이 수 보정
-                        if (skill.swarmScale) sklDmg *= 1 + getFighterCount() * 0.1;
-                        mon.hp -= sklDmg / 60; // 즉발 데미지 (1프레임)
+        // ── 몬스터가 이브이를 밀어냄 (넉백, 각 몬스터 독립) ──
+        if (!mon._pushCooldown) mon._pushCooldown = 0;
+        if (mon._pushCooldown > 0) {
+            mon._pushCooldown--;
+        } else {
+            const pushRadius = 0.14;
+            let pushed = false;
+            for (const ee of allEe) {
+                if (ee._knockback > 0) continue;
+                const evo = _getEvo(ee.evoId);
+                const eeTag = evo ? evo.abilityTag : "";
+                if (eeTag === "battle_sturdy" || eeTag === "battle_noweakness" || partyBuffs.kbImmune > 0) continue;
+                const edx = ee.wx - mon.wx, edy = ee.wy - mon.wy;
+                const eDist = Math.sqrt(edx * edx + edy * edy);
+                if (eDist < pushRadius && eDist > 0.001) {
+                    let kbPower = mon.isRaidBoss ? 0.105 : 0.07;
+                    const gmaxEe = allEe.find(g => { const gEvo = _getEvo(g.evoId); return gEvo && gEvo.abilityTag === "battle_noweakness"; });
+                    if (gmaxEe) {
+                        const gdx = ee.wx - gmaxEe.wx, gdy = ee.wy - gmaxEe.wy;
+                        if (Math.sqrt(gdx*gdx + gdy*gdy) < 0.2) kbPower *= 0.5;
                     }
+                    ee._kbVx = (edx / eDist) * kbPower;
+                    ee._kbVy = (edy / eDist) * kbPower * 0.7;
+                    ee._knockback = 30;
+                    pushed = true;
+                }
+            }
+            if (pushed) mon._pushCooldown = mon.isBoss ? 180 : 120;
+        }
 
-                    // 스턴 (이동정지)
-                    if (skill.stun) {
-                        monsterDebuffs.stun = Math.max(monsterDebuffs.stun, skill.stun);
-                        // 사이코키네시스: 스턴 중 넉백도 차단 (쿨다운 리셋)
-                        if (skill.stunResetKb && mon._pushCooldown !== undefined) mon._pushCooldown = skill.stun;
-                    }
+        // ── per-monster 디버프 타이머 갱신 ──
+        if (db.stun > 0) db.stun--;
+        if (db.slow70 > 0) db.slow70--;
+        if (db.slow80 > 0) db.slow80--;
+        if (db.dmgTaken15 > 0) db.dmgTaken15--;
+        if (db.kbReduce > 0) db.kbReduce--;
+        if (db.dmgTaken2x > 0) db.dmgTaken2x--;
+        if (db.dot2 > 0) {
+            db.dot2--;
+            if (frame % 60 === 0 && mon.maxHp) mon.hp -= mon.maxHp * 0.02;
+        }
 
-                    // 디버프
-                    if (skill.debuff === "slow70") monsterDebuffs.slow70 = Math.max(monsterDebuffs.slow70, skill.debuffDur);
-                    if (skill.debuff === "slow80") monsterDebuffs.slow80 = Math.max(monsterDebuffs.slow80, skill.debuffDur);
-                    if (skill.debuff === "kbReduce") monsterDebuffs.kbReduce = Math.max(monsterDebuffs.kbReduce, skill.debuffDur);
-                    if (skill.debuff === "dmgTaken2x") monsterDebuffs.dmgTaken2x = Math.max(monsterDebuffs.dmgTaken2x, skill.debuffDur);
-                    if (skill.debuff === "dmgTaken15") monsterDebuffs.dmgTaken15 = Math.max(monsterDebuffs.dmgTaken15, skill.debuffDur);
-                    if (skill.debuff === "dot2") monsterDebuffs.dot2 = Math.max(monsterDebuffs.dot2, skill.debuffDur);
+        // ── 이브이 → 이 몬스터 DPS 계산 (각 이브이는 가장 가까운 몬스터만 공격) ──
+        const atkRange = 0.15;
+        let monDPS = 0;
+        let hasGlaceon = false;
+        for (const ee of allEe) {
+            // 이 이브이의 타겟 몬스터가 이 mon이 아니면 스킵
+            const tgt = nearestAliveMonster(ee);
+            if (tgt !== mon) continue;
 
-                    // 버프
-                    if (skill.buff === "selfDps2x") ee._selfDps2x = skill.buffDur;
-                    if (skill.buff === "partyDps30") partyBuffs.dps30 = Math.max(partyBuffs.dps30, skill.buffDur);
-                    if (skill.buff === "partyKbImmune") partyBuffs.kbImmune = Math.max(partyBuffs.kbImmune, skill.buffDur);
-                    if (skill.buff === "comboBoost") ee._comboBoost = skill.buffDur;
-                    if (skill.buff === "selfMinroll90") ee._minroll90 = skill.buffDur;
+            const edx = ee.wx - mon.wx, edy = ee.wy - mon.wy;
+            const inRange = edx * edx + edy * edy < atkRange * atkRange;
+            if (inRange) {
+                let eeDps = calcEeveeDPS(ee, mon);
+                const evo = _getEvo(ee.evoId);
+                const eeTag = evo ? evo.abilityTag : "";
 
-                    // 셀프 디버프 (용성군)
-                    if (skill.selfDebuff === "dps50") ee._dps50 = skill.selfDebuffDur;
+                // 버프/디버프 적용
+                if (partyBuffs.dps30 > 0) eeDps *= 1.3;
+                if (partyBuffs.zBoost > 0) eeDps *= 2.0;
+                if (ee._selfDps2x > 0) { eeDps *= 2; ee._selfDps2x--; }
+                if (ee._dps50 > 0) { eeDps *= 0.5; ee._dps50--; }
+                if (ee._comboBoost > 0) { ee._comboStacks = Math.min((ee._comboStacks || 0) + 0.10, 25); ee._comboBoost--; }
 
-                    // 힐
-                    // 힐: 본인 + 주변 이브이
-                    if (skill.heal) {
-                        ee.activity = Math.min(getActivityMax(), (ee.activity || 0) + skill.heal);
-                        for (const other of allEe) {
-                            if (other === ee) continue;
-                            const hdx = other.wx - ee.wx, hdy = other.wy - ee.wy;
-                            if (hdx*hdx + hdy*hdy < 0.04) { // 반경 0.2
-                                other.activity = Math.min(getActivityMax(), (other.activity || 0) + skill.heal);
-                            }
-                        }
-                    }
+                // 몬스터 받는 데미지 디버프 (per-monster)
+                if (db.dmgTaken2x > 0) eeDps *= 2;
+                if (db.dmgTaken15 > 0) eeDps *= 1.5;
 
-                    // 이펙트: 텍스트 팝업
-                    const scr = worldToScreen(ee.wx, ee.wy);
-                    skillTexts.push({ text: skill.name, x: scr.sx, y: scr.sy - 40, color: skill.color, timer: 60 });
+                monDPS += eeDps;
 
-                    // 이펙트: 파티클
-                    for (let p = 0; p < 8; p++) {
-                        const angle = Math.random() * Math.PI * 2;
-                        const speed = 1 + Math.random() * 2;
-                        skillParticles.push({
-                            x: scr.sx, y: scr.sy - 20,
-                            vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - 1,
-                            color: skill.color, life: 30 + Math.random() * 20, maxLife: 50,
-                            size: 3 + Math.random() * 3,
-                        });
-                    }
+                // 브레이버: 콤보 누적
+                if (eeTag === "battle_combo") ee._comboStacks = Math.min((ee._comboStacks || 0) + 0.05, 25);
+                // 글레이시아: 슬로우 체크
+                if (eeTag === "battle_slow") hasGlaceon = true;
 
-                    // 디버프 스킬이면 몬스터에도 파티클
-                    if (skill.debuff || skill.stun) {
-                        const mscr = worldToScreen(mon.wx, mon.wy);
-                        for (let p = 0; p < 6; p++) {
+                // ── Z기술: 기본 이브이 나인이볼부스트 ──
+                if (!evo && state.learnedSkills.has("z_eevee") && (ee.activity || 0) >= 50) {
+                    if (!ee._skillCd) ee._skillCd = 0;
+                    if (ee._skillCd > 0) { ee._skillCd--; }
+                    else if (Math.random() < Z_SKILL.chance / 60) {
+                        ee._skillCd = Z_SKILL.cd;
+                        partyBuffs.zBoost = Z_SKILL.buffDur;
+                        const scr = worldToScreen(ee.wx, ee.wy);
+                        skillTexts.push({ text: Z_SKILL.name, x: scr.sx, y: scr.sy - 40, color: Z_SKILL.color, timer: 90 });
+                        for (let p = 0; p < 12; p++) {
                             const angle = Math.random() * Math.PI * 2;
+                            const speed = 1.5 + Math.random() * 2.5;
                             skillParticles.push({
-                                x: mscr.sx, y: mscr.sy - 20,
-                                vx: Math.cos(angle) * 1.5, vy: Math.sin(angle) * 1.5 - 0.5,
-                                color: skill.color, life: 40, maxLife: 40,
-                                size: 4 + Math.random() * 3,
+                                x: scr.sx, y: scr.sy - 20,
+                                vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - 1.5,
+                                color: Z_SKILL.color, life: 40 + Math.random() * 20, maxLife: 60,
+                                size: 4 + Math.random() * 4,
                             });
                         }
                     }
                 }
-            }
-        } else {
-            // 범위 밖이면 콤보 리셋
-            const evo = _getEvo(ee.evoId);
-            if (evo && evo.abilityTag === "battle_combo") ee._comboStacks = 0;
-        }
-    }
-    // 글레이시아 절대영도: 15% 확률로 보스 이동속도 감소 (매 초)
-    if (hasGlaceon && frame % 60 === 0 && Math.random() < 0.15) {
-        mon._slowTimer = 120; // 2초간 감속
-    }
-    if (mon._slowTimer > 0) mon._slowTimer--;
+                // ── 스킬 발동 판정 ──
+                if (evo && SKILLS[evo.id] && state.learnedSkills.has(evo.id) && (ee.activity || 0) >= 50) {
+                    const skill = SKILLS[evo.id];
+                    if (!ee._skillCd) ee._skillCd = 0;
+                    if (ee._skillCd > 0) { ee._skillCd--; }
+                    else if (Math.random() < skill.chance / 60) {
+                        ee._skillCd = skill.cd;
 
-    // 몬스터 생존 타이머
+                        // 스킬 데미지 (타입 상성 적용)
+                        if (skill.dmgMult) {
+                            let sklDmg = calcEeveeDPS(ee, mon) * skill.dmgMult;
+                            if (mon.types) sklDmg *= calcTypeMultVsMonster(skill.type, mon.types);
+                            if (db.dmgTaken2x > 0) sklDmg *= 2;
+                            if (db.dmgTaken15 > 0) sklDmg *= 1.5;
+                            if (skill.swarmScale) sklDmg *= 1 + getFighterCount() * 0.1;
+                            mon.hp -= sklDmg / 60;
+                        }
+
+                        // 스턴
+                        if (skill.stun) {
+                            db.stun = Math.max(db.stun, skill.stun);
+                            if (skill.stunResetKb && mon._pushCooldown !== undefined) mon._pushCooldown = skill.stun;
+                        }
+
+                        // 디버프 (per-monster)
+                        if (skill.debuff === "slow70") db.slow70 = Math.max(db.slow70, skill.debuffDur);
+                        if (skill.debuff === "slow80") db.slow80 = Math.max(db.slow80, skill.debuffDur);
+                        if (skill.debuff === "kbReduce") db.kbReduce = Math.max(db.kbReduce, skill.debuffDur);
+                        if (skill.debuff === "dmgTaken2x") db.dmgTaken2x = Math.max(db.dmgTaken2x, skill.debuffDur);
+                        if (skill.debuff === "dmgTaken15") db.dmgTaken15 = Math.max(db.dmgTaken15, skill.debuffDur);
+                        if (skill.debuff === "dot2") db.dot2 = Math.max(db.dot2, skill.debuffDur);
+
+                        // 버프 (글로벌)
+                        if (skill.buff === "selfDps2x") ee._selfDps2x = skill.buffDur;
+                        if (skill.buff === "partyDps30") partyBuffs.dps30 = Math.max(partyBuffs.dps30, skill.buffDur);
+                        if (skill.buff === "partyKbImmune") partyBuffs.kbImmune = Math.max(partyBuffs.kbImmune, skill.buffDur);
+                        if (skill.buff === "comboBoost") ee._comboBoost = skill.buffDur;
+                        if (skill.buff === "selfMinroll90") ee._minroll90 = skill.buffDur;
+
+                        // 셀프 디버프
+                        if (skill.selfDebuff === "dps50") ee._dps50 = skill.selfDebuffDur;
+
+                        // 힐
+                        if (skill.heal) {
+                            ee.activity = Math.min(getActivityMax(), (ee.activity || 0) + skill.heal);
+                            for (const other of allEe) {
+                                if (other === ee) continue;
+                                const hdx = other.wx - ee.wx, hdy = other.wy - ee.wy;
+                                if (hdx*hdx + hdy*hdy < 0.04) {
+                                    other.activity = Math.min(getActivityMax(), (other.activity || 0) + skill.heal);
+                                }
+                            }
+                        }
+
+                        // 이펙트: 텍스트 팝업 (타겟 몬스터 위치)
+                        const mscr = worldToScreen(mon.wx, mon.wy);
+                        skillTexts.push({ text: skill.name, x: mscr.sx, y: mscr.sy - 40, color: skill.color, timer: 60 });
+
+                        // 이펙트: 파티클
+                        const scr = worldToScreen(ee.wx, ee.wy);
+                        for (let p = 0; p < 8; p++) {
+                            const angle = Math.random() * Math.PI * 2;
+                            const speed = 1 + Math.random() * 2;
+                            skillParticles.push({
+                                x: scr.sx, y: scr.sy - 20,
+                                vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - 1,
+                                color: skill.color, life: 30 + Math.random() * 20, maxLife: 50,
+                                size: 3 + Math.random() * 3,
+                            });
+                        }
+
+                        // 디버프 스킬이면 몬스터에도 파티클
+                        if (skill.debuff || skill.stun) {
+                            for (let p = 0; p < 6; p++) {
+                                const angle = Math.random() * Math.PI * 2;
+                                skillParticles.push({
+                                    x: mscr.sx, y: mscr.sy - 20,
+                                    vx: Math.cos(angle) * 1.5, vy: Math.sin(angle) * 1.5 - 0.5,
+                                    color: skill.color, life: 40, maxLife: 40,
+                                    size: 4 + Math.random() * 3,
+                                });
+                            }
+                        }
+                    }
+                }
+            } else {
+                // 범위 밖이면 콤보 리셋
+                const evo = _getEvo(ee.evoId);
+                if (evo && evo.abilityTag === "battle_combo") ee._comboStacks = 0;
+            }
+        }
+
+        // 글레이시아 절대영도
+        if (hasGlaceon && frame % 60 === 0 && Math.random() < 0.15) {
+            mon._slowTimer = 120;
+        }
+        if (mon._slowTimer > 0) mon._slowTimer--;
+
+        totalDPSAll += monDPS;
+
+        // DPS 적용
+        if (monDPS > 0) {
+            const dmgPerFrame = monDPS / 60;
+            mon.hp -= dmgPerFrame;
+            if (frame % 30 === 0) mon._hitAnim = 8;
+        }
+        if (mon._hitAnim > 0) mon._hitAnim--;
+
+        // ── 개별 몬스터 처치 체크 ──
+        if (mon.hp <= 0) {
+            mon.hp = 0;
+
+            // 레이드 보스 2페이즈 전환 (주 몬스터만)
+            if (mon.isRaidBoss && state._raidPhase2) {
+                const p2 = state._raidPhase2;
+                const stage = mon.stage;
+                const baseHp = Math.floor((30 + stage * 25 + Math.pow(stage, 1.6) * 5) * 3.0);
+                const p2Hp = Math.floor(baseHp * 1.5);
+                const newMon = {
+                    name: p2.name, img: p2.img, types: p2.types,
+                    stage, maxHp: p2Hp, hp: p2Hp, isBoss: true,
+                    isRaidBoss: true, isPhase2: true,
+                    spd: Math.floor((p2.spd || 120) * 1.5),
+                    wx: mon.wx, wy: mon.wy,
+                    targetItem: null, _slowTimer: 0, _pushCooldown: 0,
+                    _debuffs: makeMonsterDebuffs(),
+                    _hitAnim: 0, _killAnim: 0, _spawnAnim: 60,
+                };
+                state.monsters[mi] = newMon;
+                state.monster = state.monsters[0];
+                state._raidPhase2 = null;
+                state.monsterTimer = Date.now();
+                state.monsterTimeLimit = 180 * 1000;
+                state.monsterSpawnAnim = 60;
+                partyBuffs.dps30 = 0; partyBuffs.kbImmune = 0; partyBuffs.zBoost = 0;
+                showMessage(`⚠ ${p2.name} 등장! 2페이즈 시작!`, 180);
+                continue;
+            }
+
+            // 개별 몬스터 보상 적용 (각 몬스터마다 드롭)
+            const rewardMsg = applyMonsterReward(mon.stage, mon);
+            // 주 몬스터(보스 등) 보상 메시지를 저장
+            if (mon.isBoss || mon.isRaidBoss || !state._pendingRewardMsg) {
+                state._pendingRewardMsg = rewardMsg;
+            }
+            // killAnim 시간 기록
+            if (!state._pendingKillAnimDur || (mon.isBoss || mon.isRaidBoss)) {
+                state._pendingKillAnimDur = mon.isRaidBoss ? 900 : mon.isBoss ? 600 : 420;
+            }
+
+            // 처치 연출용으로 마지막 죽은 몬스터 정보 저장
+            state._lastDeadMonster = { name: mon.name, img: mon.img, wx: mon.wx, wy: mon.wy, isBoss: mon.isBoss, isRaidBoss: mon.isRaidBoss, isPhase2: mon.isPhase2 };
+
+            // 배열에서 제거
+            state.monsters.splice(mi, 1);
+            state.monster = state.monsters.length > 0 ? state.monsters[0] : null;
+        }
+    } // end for each monster
+
+    // ── 모든 몬스터 처치 확인 ──
+    if (state.monsters.length === 0) {
+        // 모든 몬스터 처치 → 스테이지 클리어
+        state.monsterMaxStage = state.monsterStage;
+        state.exploreRefresh = Math.min(getRefreshMax(), (state.exploreRefresh || 0) + 1);
+        state.monsterReward = state._pendingRewardMsg || null;
+        const killDur = state._pendingKillAnimDur || 420;
+        state.monsterKillAnim = killDur;
+        state._pendingKillAnimTotal = killDur; // for skip button & drawKillAnim
+        state._pendingRewardMsg = null;
+        state._pendingKillAnimDur = null;
+        submitScore();
+        saveGame();
+        return;
+    }
+
+    // 몬스터 생존 타이머 (ANY 몬스터의 제한시간)
     const monsterElapsed = Date.now() - state.monsterTimer;
     if (monsterElapsed >= state.monsterTimeLimit) {
-        // 게임오버!
         triggerGameOver();
         return;
     }
 
-    if (totalDPS > state.maxDps) state.maxDps = totalDPS;
-    if (totalDPS <= 0) return;
-
-    const dmgPerFrame = totalDPS / 60;
-    mon.hp -= dmgPerFrame;
-
-    if (frame % 30 === 0 && totalDPS > 0) state.monsterHitAnim = 8;
-    if (state.monsterHitAnim > 0) state.monsterHitAnim--;
-
-    // 몬스터 처치
-    if (state.monster.hp <= 0) {
-        state.monster.hp = 0;
-
-        // 레이드 보스 2페이즈 전환
-        if (state.monster.isRaidBoss && state._raidPhase2) {
-            const p2 = state._raidPhase2;
-            const stage = state.monster.stage;
-            const baseHp = Math.floor((30 + stage * 25 + Math.pow(stage, 1.6) * 5) * 3.0);
-            const p2Hp = Math.floor(baseHp * 1.5); // 2페이즈 체력 1.5배
-            state.monster = {
-                name: p2.name, img: p2.img, types: p2.types,
-                stage, maxHp: p2Hp, hp: p2Hp, isBoss: true,
-                isRaidBoss: true, isPhase2: true,
-                spd: Math.floor((p2.spd || 120) * 1.5), // 이속 1.5배
-                wx: state.monster.wx, wy: state.monster.wy,
-                targetItem: null, _slowTimer: 0, _pushCooldown: 0,
-            };
-            state._raidPhase2 = null; // 2페이즈 데이터 소모
-            state.monsterTimer = Date.now(); // 제한시간 초기화
-            state.monsterTimeLimit = 180 * 1000;
-            state.monsterSpawnAnim = 60;
-            // 디버프 초기화
-            monsterDebuffs.stun = 0; monsterDebuffs.slow70 = 0; monsterDebuffs.kbReduce = 0;
-            monsterDebuffs.dmgTaken2x = 0; monsterDebuffs.dot2 = 0;
-            partyBuffs.dps30 = 0; partyBuffs.kbImmune = 0; partyBuffs.zBoost = 0;
-            showMessage(`⚠ ${p2.name} 등장! 2페이즈 시작!`, 180);
-            return;
-        }
-
-        state.monsterMaxStage = state.monsterStage;
-        state.exploreRefresh = Math.min(getRefreshMax(), (state.exploreRefresh || 0) + 1);
-        state.monsterReward = applyMonsterReward(state.monsterStage);
-        state.monsterKillAnim = state.monster.isRaidBoss ? 900 : state.monster.isBoss ? 600 : 420;
-        submitScore();
-        saveGame();
-    }
+    if (totalDPSAll > state.maxDps) state.maxDps = totalDPSAll;
+    // 호환용: monsterHitAnim
+    state.monsterHitAnim = (state.monsters[0] && state.monsters[0]._hitAnim) || 0;
 }
 
 // 처치 연출 끝 → 다음 몬스터
@@ -1911,8 +2044,8 @@ function updateFarmBattle() {
 const STAGE_REWARDS = {
 };
 
-function applyMonsterReward(stage) {
-    const mon = state.monster;
+function applyMonsterReward(stage, monParam) {
+    const mon = monParam || state.monster;
     const dropX = mon ? mon.wx : 0.5, dropY = mon ? mon.wy : 0.5;
 
     // 가속장치: 보스클리어마다 +1%, 몬스터 최대 50%, 보스 최대 75%
@@ -1989,23 +2122,24 @@ function triggerGameOver() {
     state.monsterMaxStage = lastBossClear;
     state.monsterStage = lastBossClear;
     state.monster = null;
+    state.monsters = [];
     // 이브이는 유지, 해금된 탐색지/슬롯도 유지
     saveGame();
 }
 
 function getTotalDPS() {
-    if (!state.monster) return 0;
+    if (!state.monsters || state.monsters.length === 0) return 0;
     const r = 0.15;
     let total = 0;
-    if (state.currentEevee && !isOnExpedition("current")) {
-        const dx = state.currentEevee.wx - state.monster.wx, dy = state.currentEevee.wy - state.monster.wy;
-        if (dx*dx+dy*dy < r*r) total += calcEeveeDPS(state.currentEevee);
+    const allEe = [];
+    if (state.currentEevee && !isOnExpedition("current")) allEe.push(state.currentEevee);
+    state.farm.forEach((e, i) => { if (!isOnExpedition(i)) allEe.push(e); });
+    for (const ee of allEe) {
+        const tgt = nearestAliveMonster(ee);
+        if (!tgt) continue;
+        const dx = ee.wx - tgt.wx, dy = ee.wy - tgt.wy;
+        if (dx*dx+dy*dy < r*r) total += calcEeveeDPS(ee, tgt);
     }
-    state.farm.forEach((e, i) => {
-        if (isOnExpedition(i)) return;
-        const dx = e.wx - state.monster.wx, dy = e.wy - state.monster.wy;
-        if (dx*dx+dy*dy < r*r) total += calcEeveeDPS(e);
-    });
     return total;
 }
 function getFighterCount() {
@@ -4799,114 +4933,74 @@ function drawMonster() {
         }
         return;
     }
-    if (!state.monster) return;
-    const m = state.monster;
-    const mScr = worldToScreen(state.monster.wx, state.monster.wy);
-    const mx = mScr.sx, my = mScr.sy;
-    const monSize = (m.isRaidBoss && m.isPhase2) ? 170 : m.isRaidBoss ? 135 : m.isBoss ? 90 : 72;
-    ctx.textAlign = "center"; ctx.textBaseline = "middle";
-
-    // 등장 연출 (하늘에서 떨어짐)
-    if (state.monsterSpawnAnim > 0) {
-        const t = 60 - state.monsterSpawnAnim;
-        const dropY = t < 30 ? lerp(-80, my - monSize / 2, t / 30) : my - monSize / 2;
-        const img = images[m.img];
-        if (img && img.complete) {
-            ctx.drawImage(img, mx - monSize / 2, dropY, monSize, monSize);
-        }
-        // 착지 이펙트
-        if (t >= 28 && t < 40) {
-            const et = t - 28;
-            ctx.globalAlpha = Math.max(0, 1 - et / 12);
-            // 먼지 구름
-            ctx.fillStyle = "rgba(200,180,150,0.6)";
-            for (let i = 0; i < 6; i++) {
-                const ex = mx - 40 + i * 16 + Math.sin(i * 3 + et) * 5;
-                const ey = my + 5 + et * 1.5;
-                ctx.beginPath(); ctx.arc(ex, ey, 8 + et * 0.5, 0, Math.PI * 2); ctx.fill();
-            }
-            ctx.globalAlpha = 1;
-            // 화면 흔들림 효과 (간접)
-            ctx.fillStyle = "#fff";
-            ctx.globalAlpha = Math.max(0, 0.3 - et * 0.03);
-            ctx.fillRect(0, 0, CW, CH);
-            ctx.globalAlpha = 1;
-        }
-        // 이름 표시
-        if (t > 35) {
-            ctx.globalAlpha = clamp((t - 35) / 10, 0, 1);
-            ctx.strokeStyle = "#000"; ctx.lineWidth = 3;
-            ctx.fillStyle = m.isBoss ? "#FFD54F" : "#FF5722";
-            ctx.font = `bold ${m.isBoss ? 16 : 13}px system-ui`;
-            ctx.strokeText(`${m.isBoss ? "⚠ BOSS " : ""}Lv.${m.stage} ${m.name}`, mx, my - monSize / 2 - 15);
-            ctx.fillText(`${m.isBoss ? "⚠ BOSS " : ""}Lv.${m.stage} ${m.name}`, mx, my - monSize / 2 - 15);
-            ctx.globalAlpha = 1;
+    if (!state.monsters || state.monsters.length === 0) {
+        // 처치 연출 (모든 몬스터 처치 후 대기)
+        if (state.monsterKillAnim > 0) {
+            _drawKillAnim(state._lastDeadMonster || state.monster);
         }
         return;
     }
 
-    // 처치 연출 (전체 시간 중 처음 90프레임만 연출, 이후 대기)
-    if (state.monsterKillAnim > 0) {
-        const totalKill = m.isBoss ? 600 : 420;
-        const elapsed = totalKill - state.monsterKillAnim; // 0부터 증가
-
-        if (elapsed < 60) {
-            // 페이드아웃 + 낙하
+    // 등장 연출 (첫 몬스터 기준)
+    if (state.monsterSpawnAnim > 0) {
+        for (const m of state.monsters) {
+            const mScr = worldToScreen(m.wx, m.wy);
+            const mx = mScr.sx, my = mScr.sy;
+            const monSize = (m.isRaidBoss && m.isPhase2) ? 170 : m.isRaidBoss ? 135 : m.isBoss ? 90 : 72;
+            ctx.textAlign = "center"; ctx.textBaseline = "middle";
+            const t = 60 - state.monsterSpawnAnim;
+            const dropY = t < 30 ? lerp(-80, my - monSize / 2, t / 30) : my - monSize / 2;
             const img = images[m.img];
-            ctx.globalAlpha = Math.max(0, 1 - elapsed / 30);
             if (img && img.complete) {
-                ctx.drawImage(img, mx - monSize / 2, my - monSize / 2 + elapsed * 0.5, monSize, monSize);
+                ctx.drawImage(img, mx - monSize / 2, dropY, monSize, monSize);
             }
-            ctx.globalAlpha = 1;
-
-            // 폭발 파티클
-            if (elapsed < 30) {
-                for (let i = 0; i < 8; i++) {
-                    const a = (i / 8) * Math.PI * 2 + elapsed * 0.1;
-                    const r = elapsed * 3;
-                    ctx.fillStyle = ["#FF5722","#FFD54F","#FF9800","#fff"][i % 4];
-                    ctx.globalAlpha = Math.max(0, 1 - elapsed / 30);
-                    ctx.beginPath(); ctx.arc(mx + Math.cos(a) * r, my + Math.sin(a) * r, 5, 0, Math.PI * 2); ctx.fill();
+            if (t >= 28 && t < 40) {
+                const et = t - 28;
+                ctx.globalAlpha = Math.max(0, 1 - et / 12);
+                ctx.fillStyle = "rgba(200,180,150,0.6)";
+                for (let i = 0; i < 6; i++) {
+                    const ex = mx - 40 + i * 16 + Math.sin(i * 3 + et) * 5;
+                    const ey = my + 5 + et * 1.5;
+                    ctx.beginPath(); ctx.arc(ex, ey, 8 + et * 0.5, 0, Math.PI * 2); ctx.fill();
                 }
                 ctx.globalAlpha = 1;
-            }
-        }
-
-        // 처치 텍스트 (계속 표시)
-        if (elapsed > 15) {
-            ctx.globalAlpha = clamp((elapsed - 15) / 15, 0, 1);
-            ctx.fillStyle = "#FFD54F"; ctx.font = "bold 22px system-ui";
-            ctx.strokeStyle = "#000"; ctx.lineWidth = 3;
-            ctx.strokeText("처치!", mx, my - 20);
-            ctx.fillText("처치!", mx, my - 20);
-            if (elapsed > 40) {
-                ctx.strokeStyle = "#000"; ctx.lineWidth = 3;
-                ctx.fillStyle = "#ddd"; ctx.font = "13px system-ui";
-                const dots = ".".repeat(Math.floor((elapsed - 40) / 30) % 4);
-                ctx.strokeText(`다음 몬스터 대기 중${dots}`, mx, my + 10);
-                ctx.fillText(`다음 몬스터 대기 중${dots}`, mx, my + 10);
-                // 스킵 버튼 (버튼바 위)
-                const skipW = 140, skipH = 34;
-                const skipX = CW / 2 - skipW / 2, skipY = BTN_Y - 86;
-                const pulse = 0.8 + Math.sin(frame * 0.1) * 0.2;
-                ctx.globalAlpha = pulse;
-                ctx.fillStyle = "rgba(50,50,90,0.9)";
-                ctx.strokeStyle = "#7B73FF"; ctx.lineWidth = 2;
-                roundRect(skipX, skipY, skipW, skipH, 8); ctx.fill(); ctx.stroke();
-                ctx.fillStyle = "#fff"; ctx.font = "bold 13px system-ui";
-                ctx.fillText("▶ 바로 소환", CW / 2, skipY + skipH / 2);
+                ctx.fillStyle = "#fff";
+                ctx.globalAlpha = Math.max(0, 0.3 - et * 0.03);
+                ctx.fillRect(0, 0, CW, CH);
                 ctx.globalAlpha = 1;
             }
-            ctx.globalAlpha = 1;
+            if (t > 35) {
+                ctx.globalAlpha = clamp((t - 35) / 10, 0, 1);
+                ctx.strokeStyle = "#000"; ctx.lineWidth = 3;
+                ctx.fillStyle = m.isBoss ? "#FFD54F" : "#FF5722";
+                ctx.font = `bold ${m.isBoss ? 16 : 13}px system-ui`;
+                ctx.strokeText(`${m.isBoss ? "⚠ BOSS " : ""}Lv.${m.stage} ${m.name}`, mx, my - monSize / 2 - 15);
+                ctx.fillText(`${m.isBoss ? "⚠ BOSS " : ""}Lv.${m.stage} ${m.name}`, mx, my - monSize / 2 - 15);
+                ctx.globalAlpha = 1;
+            }
         }
         return;
     }
 
-    // 전투 중 이펙트 (간헐적 불꽃)
+    // 처치 연출 (모든 몬스터 처치 후 대기)
+    if (state.monsterKillAnim > 0) {
+        _drawKillAnim(state._lastDeadMonster || state.monster);
+        return;
+    }
+
     const dps = getTotalDPS();
-    if (dps > 0) {
-        // 간헐적 불꽃/충격파
-        if (frame % 45 < 8) {
+
+    // ── 각 몬스터 렌더링 ──
+    for (const m of state.monsters) {
+        if (m.hp <= 0) continue;
+        const mScr = worldToScreen(m.wx, m.wy);
+        const mx = mScr.sx, my = mScr.sy;
+        const monSize = (m.isRaidBoss && m.isPhase2) ? 170 : m.isRaidBoss ? 135 : m.isBoss ? 90 : 72;
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        const db = m._debuffs || {};
+
+        // 전투 중 이펙트
+        if (dps > 0 && frame % 45 < 8) {
             const sparkT = frame % 45;
             ctx.globalAlpha = Math.max(0, 1 - sparkT / 8);
             ctx.fillStyle = "#FFD54F";
@@ -4916,97 +5010,176 @@ function drawMonster() {
             ctx.fillText("✦", spx, spy);
             ctx.globalAlpha = 1;
         }
-    }
 
-    // 그림자
-    ctx.fillStyle = "rgba(0,0,0,0.25)";
-    ctx.beginPath();
-    ctx.ellipse(mx, my + monSize / 2 - 5, monSize * 0.4, monSize * 0.12, 0, 0, Math.PI * 2);
-    ctx.fill();
+        // 그림자
+        ctx.fillStyle = "rgba(0,0,0,0.25)";
+        ctx.beginPath();
+        ctx.ellipse(mx, my + monSize / 2 - 5, monSize * 0.4, monSize * 0.12, 0, 0, Math.PI * 2);
+        ctx.fill();
 
-    // 몬스터 스프라이트
-    const shake = state.monsterHitAnim > 0 ? Math.sin(state.monsterHitAnim * 2) * 5 : 0;
-    const breathe = Math.sin(frame * 0.03) * 2;
-    const img = images[m.img];
-    if (img && img.complete) {
-        ctx.drawImage(img, mx - monSize / 2 + shake, my - monSize / 2 + breathe, monSize, monSize);
-    }
-
-    // 디버프 이펙트 (몬스터에 오버레이)
-    if (monsterDebuffs.stun > 0) {
-        ctx.globalAlpha = 0.3 + Math.sin(frame * 0.2) * 0.1;
-        ctx.fillStyle = "#CE93D8";
-        ctx.beginPath(); ctx.arc(mx + shake, my + breathe, monSize / 2, 0, Math.PI * 2); ctx.fill();
-        ctx.globalAlpha = 1;
-    }
-    if (monsterDebuffs.slow80 > 0 || monsterDebuffs.slow70 > 0) {
-        ctx.globalAlpha = monsterDebuffs.slow80 > 0 ? 0.35 : 0.25;
-        ctx.fillStyle = "#B3E5FC";
-        ctx.beginPath(); ctx.arc(mx + shake, my + breathe, monSize / 2 + 4, 0, Math.PI * 2); ctx.fill();
-        ctx.globalAlpha = 1;
-    }
-    if (monsterDebuffs.dmgTaken2x > 0 || monsterDebuffs.dmgTaken15 > 0) {
-        ctx.globalAlpha = 0.2 + Math.sin(frame * 0.15) * 0.1;
-        ctx.fillStyle = "#7E57C2";
-        ctx.beginPath(); ctx.arc(mx + shake, my + breathe, monSize / 2 + 2, 0, Math.PI * 2); ctx.fill();
-        ctx.globalAlpha = 1;
-    }
-    if (monsterDebuffs.dot2 > 0) {
-        ctx.globalAlpha = 0.3;
-        ctx.fillStyle = "#AB47BC";
-        for (let di = 0; di < 3; di++) {
-            const dx = mx + Math.sin(frame * 0.05 + di * 2) * monSize * 0.3;
-            const dy = my - monSize * 0.2 + Math.cos(frame * 0.04 + di) * monSize * 0.2;
-            ctx.beginPath(); ctx.arc(dx, dy, 4, 0, Math.PI * 2); ctx.fill();
+        // 스프라이트
+        const shake = (m._hitAnim || 0) > 0 ? Math.sin(m._hitAnim * 2) * 5 : 0;
+        const breathe = Math.sin(frame * 0.03) * 2;
+        const img = images[m.img];
+        if (img && img.complete) {
+            ctx.drawImage(img, mx - monSize / 2 + shake, my - monSize / 2 + breathe, monSize, monSize);
         }
-        ctx.globalAlpha = 1;
+
+        // 디버프 이펙트 (per-monster)
+        if (db.stun > 0) {
+            ctx.globalAlpha = 0.3 + Math.sin(frame * 0.2) * 0.1;
+            ctx.fillStyle = "#CE93D8";
+            ctx.beginPath(); ctx.arc(mx + shake, my + breathe, monSize / 2, 0, Math.PI * 2); ctx.fill();
+            ctx.globalAlpha = 1;
+        }
+        if (db.slow80 > 0 || db.slow70 > 0) {
+            ctx.globalAlpha = db.slow80 > 0 ? 0.35 : 0.25;
+            ctx.fillStyle = "#B3E5FC";
+            ctx.beginPath(); ctx.arc(mx + shake, my + breathe, monSize / 2 + 4, 0, Math.PI * 2); ctx.fill();
+            ctx.globalAlpha = 1;
+        }
+        if (db.dmgTaken2x > 0 || db.dmgTaken15 > 0) {
+            ctx.globalAlpha = 0.2 + Math.sin(frame * 0.15) * 0.1;
+            ctx.fillStyle = "#7E57C2";
+            ctx.beginPath(); ctx.arc(mx + shake, my + breathe, monSize / 2 + 2, 0, Math.PI * 2); ctx.fill();
+            ctx.globalAlpha = 1;
+        }
+        if (db.dot2 > 0) {
+            ctx.globalAlpha = 0.3;
+            ctx.fillStyle = "#AB47BC";
+            for (let di = 0; di < 3; di++) {
+                const dx = mx + Math.sin(frame * 0.05 + di * 2) * monSize * 0.3;
+                const dy = my - monSize * 0.2 + Math.cos(frame * 0.04 + di) * monSize * 0.2;
+                ctx.beginPath(); ctx.arc(dx, dy, 4, 0, Math.PI * 2); ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+        }
+
+        // 보스 아우라
+        if (m.isBoss) {
+            ctx.strokeStyle = `rgba(255,87,34,${0.3 + Math.sin(frame * 0.05) * 0.15})`;
+            ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.arc(mx, my, monSize / 2 + 8 + Math.sin(frame * 0.04) * 3, 0, Math.PI * 2); ctx.stroke();
+        }
+
+        // HP 바
+        const hpRatio = Math.max(0, m.hp / m.maxHp);
+        const barW = 110, barH = 10, barX = mx - barW / 2, barY = my - monSize / 2 - 20;
+        ctx.fillStyle = "#222"; roundRect(barX, barY, barW, barH, 4); ctx.fill();
+        ctx.fillStyle = hpRatio > 0.5 ? "#4CAF50" : hpRatio > 0.2 ? "#FF9800" : "#F44336";
+        roundRect(barX, barY, barW * hpRatio, barH, 4); ctx.fill();
+        ctx.strokeStyle = "#555"; ctx.lineWidth = 0.5;
+        roundRect(barX, barY, barW, barH, 4); ctx.stroke();
+        ctx.fillStyle = "#fff"; ctx.font = "bold 9px system-ui";
+        ctx.fillText(`${Math.ceil(m.hp)}/${m.maxHp}`, mx, barY + barH / 2);
+
+        // Lv + 이름 + 타입
+        ctx.strokeStyle = "#000"; ctx.lineWidth = 3;
+        ctx.fillStyle = m.isBoss ? "#FFD54F" : "#FF5722";
+        ctx.font = `bold ${m.isBoss ? 11 : 10}px system-ui`;
+        ctx.strokeText(`${m.isBoss ? "⚠" : ""}Lv.${m.stage} ${m.name}`, mx, barY - 22);
+        ctx.fillText(`${m.isBoss ? "⚠" : ""}Lv.${m.stage} ${m.name}`, mx, barY - 22);
+        ctx.fillStyle = "#aaa"; ctx.font = "9px system-ui";
+        ctx.strokeText(m.types.join("/"), mx, barY - 10);
+        ctx.fillText(m.types.join("/"), mx, barY - 10);
     }
 
-    // 보스 아우라
-    if (m.isBoss) {
-        ctx.strokeStyle = `rgba(255,87,34,${0.3 + Math.sin(frame * 0.05) * 0.15})`;
-        ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.arc(mx, my, monSize / 2 + 8 + Math.sin(frame * 0.04) * 3, 0, Math.PI * 2); ctx.stroke();
+    // DPS (몬스터별 개별 표시)
+    for (const m of state.monsters) {
+        if (m.hp <= 0) continue;
+        const mScr = worldToScreen(m.wx, m.wy);
+        const mSz = (m.isRaidBoss && m.isPhase2) ? 170 : m.isRaidBoss ? 135 : m.isBoss ? 90 : 72;
+        // 이 몬스터를 타겟하는 이브이들의 DPS 합산
+        let monDps = 0;
+        const allEeDps = [];
+        if (state.currentEevee && !isOnExpedition("current")) allEeDps.push(state.currentEevee);
+        state.farm.forEach((e, i) => { if (!isOnExpedition(i)) allEeDps.push(e); });
+        for (const ee of allEeDps) {
+            if (ee._targetMon === m) monDps += calcEeveeDPS(ee, m);
+        }
+        if (monDps > 0) {
+            ctx.textAlign = "center"; ctx.textBaseline = "middle";
+            ctx.fillStyle = "#FF5722"; ctx.font = "bold 9px system-ui";
+            ctx.fillText(`DPS ${monDps.toFixed(1)}`, mScr.sx, mScr.sy + mSz / 2 + 10);
+        }
     }
 
-    // HP 바
-    const hpRatio = Math.max(0, m.hp / m.maxHp);
-    const barW = 110, barH = 10, barX = mx - barW / 2, barY = my - monSize / 2 - 20;
-    ctx.fillStyle = "#222"; roundRect(barX, barY, barW, barH, 4); ctx.fill();
-    ctx.fillStyle = hpRatio > 0.5 ? "#4CAF50" : hpRatio > 0.2 ? "#FF9800" : "#F44336";
-    roundRect(barX, barY, barW * hpRatio, barH, 4); ctx.fill();
-    ctx.strokeStyle = "#555"; ctx.lineWidth = 0.5;
-    roundRect(barX, barY, barW, barH, 4); ctx.stroke();
-    ctx.fillStyle = "#fff"; ctx.font = "bold 9px system-ui";
-    ctx.fillText(`${Math.ceil(m.hp)}/${m.maxHp}`, mx, barY + barH / 2);
-
-    // Lv + 이름 + 타입 (아웃라인)
-    ctx.strokeStyle = "#000"; ctx.lineWidth = 3;
-    ctx.fillStyle = m.isBoss ? "#FFD54F" : "#FF5722";
-    ctx.font = `bold ${m.isBoss ? 11 : 10}px system-ui`;
-    ctx.strokeText(`${m.isBoss ? "⚠" : ""}Lv.${m.stage} ${m.name}`, mx, barY - 22);
-    ctx.fillText(`${m.isBoss ? "⚠" : ""}Lv.${m.stage} ${m.name}`, mx, barY - 22);
-    ctx.fillStyle = "#aaa"; ctx.font = "9px system-ui";
-    ctx.strokeText(m.types.join("/"), mx, barY - 10);
-    ctx.fillText(m.types.join("/"), mx, barY - 10);
-
-    // DPS
-    if (dps > 0) {
-        ctx.fillStyle = "#FF5722"; ctx.font = "bold 9px system-ui";
-        ctx.fillText(`DPS ${dps.toFixed(1)}`, mx, my + monSize / 2 + 10);
-    }
-
-    // 남은 시간 표시
-    if (state.monsterTimeLimit > 0) {
+    // 남은 시간 (상단 고정)
+    if (state.monsterTimeLimit > 0 && state.monsters.length > 0) {
         const elapsed = Date.now() - state.monsterTimer;
         const remain = Math.max(0, Math.ceil((state.monsterTimeLimit - elapsed) / 1000));
         const ratio = elapsed / state.monsterTimeLimit;
         const urgent = ratio > 0.8;
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
         ctx.fillStyle = urgent ? "#FF1744" : ratio > 0.5 ? "#FFD54F" : "#fff";
         ctx.font = `bold ${urgent ? 14 : 11}px system-ui`;
         ctx.strokeStyle = "#000"; ctx.lineWidth = 3;
-        ctx.strokeText(`⏱${remain}초`, mx, my + monSize / 2 + 22);
-        ctx.fillText(`⏱${remain}초`, mx, my + monSize / 2 + 22);
+        ctx.strokeText(`⏱${remain}초`, CW / 2, 62);
+        ctx.fillText(`⏱${remain}초`, CW / 2, 62);
+    }
+}
+
+// 처치 연출 헬퍼 (스테이지 클리어 시)
+function _drawKillAnim(lastMon) {
+    if (!lastMon) {
+        // 몬스터 정보 없으면 화면 중앙에 텍스트만
+        const cx = CW / 2, cy = CH / 2;
+        _drawKillAnimAt(cx, cy, 72);
+        return;
+    }
+    const mScr = worldToScreen(lastMon.wx || 0.5, lastMon.wy || 0.3);
+    const monSize = (lastMon.isRaidBoss && lastMon.isPhase2) ? 170 : lastMon.isRaidBoss ? 135 : lastMon.isBoss ? 90 : 72;
+    _drawKillAnimAt(mScr.sx, mScr.sy, monSize, lastMon);
+}
+
+function _drawKillAnimAt(mx, my, monSize, m) {
+    const totalKill = state._pendingKillAnimTotal || ((m && m.isBoss) ? 600 : 420);
+    const elapsed = totalKill - state.monsterKillAnim;
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+
+    if (elapsed < 60 && m) {
+        const img = images[m.img];
+        ctx.globalAlpha = Math.max(0, 1 - elapsed / 30);
+        if (img && img.complete) {
+            ctx.drawImage(img, mx - monSize / 2, my - monSize / 2 + elapsed * 0.5, monSize, monSize);
+        }
+        ctx.globalAlpha = 1;
+        if (elapsed < 30) {
+            for (let i = 0; i < 8; i++) {
+                const a = (i / 8) * Math.PI * 2 + elapsed * 0.1;
+                const r = elapsed * 3;
+                ctx.fillStyle = ["#FF5722","#FFD54F","#FF9800","#fff"][i % 4];
+                ctx.globalAlpha = Math.max(0, 1 - elapsed / 30);
+                ctx.beginPath(); ctx.arc(mx + Math.cos(a) * r, my + Math.sin(a) * r, 5, 0, Math.PI * 2); ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+        }
+    }
+
+    if (elapsed > 15) {
+        ctx.globalAlpha = clamp((elapsed - 15) / 15, 0, 1);
+        ctx.fillStyle = "#FFD54F"; ctx.font = "bold 22px system-ui";
+        ctx.strokeStyle = "#000"; ctx.lineWidth = 3;
+        ctx.strokeText("처치!", mx, my - 20);
+        ctx.fillText("처치!", mx, my - 20);
+        if (elapsed > 40) {
+            ctx.strokeStyle = "#000"; ctx.lineWidth = 3;
+            ctx.fillStyle = "#ddd"; ctx.font = "13px system-ui";
+            const dots = ".".repeat(Math.floor((elapsed - 40) / 30) % 4);
+            ctx.strokeText(`다음 몬스터 대기 중${dots}`, mx, my + 10);
+            ctx.fillText(`다음 몬스터 대기 중${dots}`, mx, my + 10);
+            const skipW = 140, skipH = 34;
+            const skipX = CW / 2 - skipW / 2, skipY = BTN_Y - 86;
+            const pulse = 0.8 + Math.sin(frame * 0.1) * 0.2;
+            ctx.globalAlpha = pulse;
+            ctx.fillStyle = "rgba(50,50,90,0.9)";
+            ctx.strokeStyle = "#7B73FF"; ctx.lineWidth = 2;
+            roundRect(skipX, skipY, skipW, skipH, 8); ctx.fill(); ctx.stroke();
+            ctx.fillStyle = "#fff"; ctx.font = "bold 13px system-ui";
+            ctx.fillText("▶ 바로 소환", CW / 2, skipY + skipH / 2);
+            ctx.globalAlpha = 1;
+        }
+        ctx.globalAlpha = 1;
     }
 }
 
@@ -5238,8 +5411,8 @@ function handleInput() {
     const { x, y } = click;
 
     // 처치 대기 중 스킵 버튼 (버튼바 위)
-    if (state.monsterKillAnim > 0 && state.monster) {
-        const totalKill = state.monster.isBoss ? 600 : 420;
+    if (state.monsterKillAnim > 0) {
+        const totalKill = state._pendingKillAnimTotal || 420;
         const elapsed = totalKill - state.monsterKillAnim;
         if (elapsed > 40) {
             const skipW = 140, skipH = 34;
