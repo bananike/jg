@@ -181,43 +181,43 @@ function spriteSize(wy) {
 /* ── 진화 데이터 ── */
 const EVOS = [
     { id:"vaporeon",  name:"샤미드",     type:"물",     img:"샤미드.png",      condition:"stone", stone:"물의돌", spd:65,
-      ability:"수의장막",  abilityDesc:"탐색 시 열매 드롭 2개로 증가", abilityTag:"explore_fruit2" },
+      ability:"수의장막",  abilityDesc:"탐색: 열매 드롭 2개 / 전투: 주변 이브이 넉백 복귀 +50%", abilityTag:"explore_fruit2" },
     { id:"jolteon",   name:"쥬피썬더",   type:"전기",   img:"쥬피썬더.png",    condition:"stone", stone:"천둥의돌", spd:130,
-      ability:"전광석화",  abilityDesc:"탐색 시간 50% 단축", abilityTag:"explore_speed" },
+      ability:"전광석화",  abilityDesc:"탐색: 시간 50% 단축 / 전투: DPS +20%", abilityTag:"explore_speed" },
     { id:"flareon",   name:"부스터",     type:"불",     img:"부스터.png",      condition:"stone", stone:"불꽃의돌", spd:65,
-      ability:"화염투지",  abilityDesc:"전투 시 데미지 +30%", abilityTag:"battle_dmg" },
+      ability:"화염투지",  abilityDesc:"전투: DPS +30% / 탐색: 좋아하는 열매 확률 2배", abilityTag:"battle_dmg" },
     { id:"espeon",    name:"에브이",     type:"에스퍼", img:"에브이.png",      condition:"friendship_day", spd:110,
-      ability:"예지",     abilityDesc:"낮에 탐색 시 아이템 드롭률 증가", abilityTag:"explore_day" },
+      ability:"예지",     abilityDesc:"탐색: 낮 드롭률↑ / 전투: 스킬 발동 시 주변 쿨타임 감소", abilityTag:"explore_day" },
     { id:"umbreon",   name:"블래키",     type:"악",     img:"블래키.png",      condition:"friendship_night", spd:65,
-      ability:"야행성",   abilityDesc:"밤에 탐색 시 아이템 드롭률 증가", abilityTag:"explore_night" },
+      ability:"야행성",   abilityDesc:"탐색: 밤 드롭률↑ / 전투: 밤에 DPS +20%", abilityTag:"explore_night" },
     { id:"leafeon",   name:"리피아",     type:"풀",     img:"리피아.png",      condition:"craft", craft:"이끼바위", spd:95,
       ability:"포자",     abilityDesc:"전투:근처 몬스터 이속 15% 감소 (중첩) / 탐색:열매 드롭 확률↑", abilityTag:"leafeon" },
     { id:"glaceon",   name:"글레이시아", type:"얼음",   img:"글레이시아.png",  condition:"craft", craft:"얼음바위", spd:65,
-      ability:"절대영도",  abilityDesc:"전투 시 15% 확률로 보스 이동속도 감소", abilityTag:"battle_slow" },
+      ability:"절대영도",  abilityDesc:"전투: 보스 이속 감소 / 탐색: 시간 20% 단축", abilityTag:"battle_slow" },
     { id:"sylveon",   name:"님피아",     type:"페어리", img:"님피아.png",      condition:"friendship_item", item:"리본", spd:60,
       ability:"매력",     abilityDesc:"탐색:귀환 시 활동성 2배 회복 / 전투:데미지 +20%", abilityTag:"sylveon" },
     { id:"gmax",      name:"거다이브",   type:"노멀",   img:"왕이브이.png",    condition:"stone", stone:"다이버섯", postGame:true, spd:55,
-      ability:"왕의위엄",  abilityDesc:"전투 시 상성 불리 무시 + 넉백 무효 + 주변 이브이 넉백 50% 감소", abilityTag:"battle_noweakness" },
+      ability:"왕의위엄",  abilityDesc:"전투: 넉백무효+보호 / 탐색: 활동성 소모 경감", abilityTag:"battle_noweakness" },
     { id:"mega",      name:"메가브이",   type:"노멀",   img:"이브이메가.png",  condition:"stone", stone:"이브이나이트", postGame:true, spd:120,
-      ability:"초월",     abilityDesc:"전투 시 상성 불리 무시 + 중립→유리 + 유리 강화(x1.8)", abilityTag:"battle_alladvantage" },
+      ability:"초월",     abilityDesc:"전투: 불리무시+유효강화 / 탐색: 추가 아이템 30%", abilityTag:"battle_alladvantage" },
     { id:"fighting",  name:"브레이버",   type:"격투",   img:"이브이격투.png",  condition:"explore_count", postGame:true, spd:85,
-      ability:"연속타격",  abilityDesc:"전투 시 공격 적중마다 DPS 2%씩 누적 증가 (최대 +50%)", abilityTag:"battle_combo" },
+      ability:"연속타격",  abilityDesc:"전투: 콤보 DPS / 탐색: 탐색 횟수 2배", abilityTag:"battle_combo" },
     { id:"ghost",     name:"레이시아",   type:"고스트", img:"이브이고스트.png", condition:"friendship_zero_night", postGame:true, spd:100,
-      ability:"저주",     abilityDesc:"전투 시 보스 최대HP의 5% 추가 데미지", abilityTag:"battle_curse" },
+      ability:"저주",     abilityDesc:"전투: HP 5% 추가딜 / 탐색: 밤 TM/도구 2배", abilityTag:"battle_curse" },
     { id:"dragon",    name:"드라키온",   type:"드래곤", img:"이브이드래곤.png", condition:"dragon", postGame:true, spd:90,
-      ability:"용의분노",  abilityDesc:"전투 시 고정 데미지 20 추가", abilityTag:"battle_fixed" },
+      ability:"용의분노",  abilityDesc:"전투: 고정딜 20 / 탐색: 드롭률 +10%", abilityTag:"battle_fixed" },
     { id:"ground",    name:"샌디온",     type:"땅",     img:"이브이땅.png",    condition:"ground_stone", postGame:true, spd:50,
-      ability:"발굴",     abilityDesc:"탐색 시 열매 추가 1개 드롭", abilityTag:"explore_extra" },
+      ability:"발굴",     abilityDesc:"탐색: 열매 추가 1개 / 전투: 주변 이브이 넉백 -30%", abilityTag:"explore_extra" },
     { id:"rock",      name:"록키온",     type:"바위",   img:"이브이바위.png",  condition:"rock_craft", postGame:true, spd:40,
-      ability:"견고",     abilityDesc:"전투 시 받는 넉백 무효 + DPS +15%", abilityTag:"battle_sturdy" },
+      ability:"견고",     abilityDesc:"전투: 넉백무효+DPS15% / 탐색: 연속 탐색 보너스", abilityTag:"battle_sturdy" },
     { id:"flying",    name:"플라이비",   type:"비행",   img:"이브이비행.png",  condition:"flying_feather", postGame:true, spd:115,
-      ability:"질풍",     abilityDesc:"탐색 시간 60% 단축 (최고) / 진화: 친밀도MAX+바람깃털+모든 지역 방문(전체)", abilityTag:"explore_fastest" },
+      ability:"질풍",     abilityDesc:"탐색 시간 60% 단축 (최고) / 전투: 다른 이브이와 충돌 무시", abilityTag:"explore_fastest" },
     { id:"steel",     name:"메탈리아",   type:"강철",   img:"이브이강철.png",  condition:"four_stones", postGame:true, spd:45,
-      ability:"강철방어",  abilityDesc:"전투 시 데미지 하한 보장 (최소 기본의 80%)", abilityTag:"battle_minroll" },
+      ability:"강철방어",  abilityDesc:"전투: 하한 80% / 탐색: 도구 드롭률 2배", abilityTag:"battle_minroll" },
     { id:"poison",    name:"바이퍼스",     type:"독",     img:"이브이독.png",   condition:"poison_evo", postGame:true, spd:75,
-      ability:"맹독",     abilityDesc:"전투 시 매초 보스 최대HP 1% 지속 데미지", abilityTag:"battle_dot" },
+      ability:"맹독",     abilityDesc:"전투: DOT 1%/초 / 탐색: 독안개늪 시간 최소화", abilityTag:"battle_dot" },
     { id:"bug",       name:"하이버",     type:"벌레",   img:"이브이벌레.png", condition:"bug_evo", postGame:true, spd:70,
-      ability:"군체",     abilityDesc:"농장 이브이 수가 많을수록 DPS 증가 (+마리당 5%)", abilityTag:"battle_swarm" },
+      ability:"군체",     abilityDesc:"전투: 이브이 수 DPS↑ / 탐색: 파티원당 시간 -5%", abilityTag:"battle_swarm" },
 ];
 
 /* ── 액티브 스킬 데이터 ── */
@@ -606,15 +606,31 @@ function updateEeveeAI(e, isNight, isFighting) {
 
     // 넉백 상태: 밀려나는 중에는 AI 무시, 관성으로 날아감
     if (e._knockback > 0) {
-        e._knockback--;
+        // 샤미드(explore_fruit2): 주변에 있으면 넉백 복귀 +50% (2씩 감소)
+        let kbReduce = 1;
+        const kbCheckAll = [];
+        if (state.currentEevee && !isOnExpedition("current")) kbCheckAll.push(state.currentEevee);
+        state.farm.forEach((f, fi) => { if (!isOnExpedition(fi)) kbCheckAll.push(f); });
+        for (const other of kbCheckAll) {
+            if (other === e) continue;
+            const oEvo = _getEvo(other.evoId);
+            if (oEvo && oEvo.abilityTag === "explore_fruit2") {
+                const vdx = e.wx - other.wx, vdy = e.wy - other.wy;
+                if (Math.sqrt(vdx*vdx + vdy*vdy) < 0.2) { kbReduce = 2; break; }
+            }
+        }
+        e._knockback = Math.max(0, e._knockback - kbReduce);
         e.wx += e._kbVx || 0;
         e.wy += e._kbVy || 0;
-        // 넉백 중 다른 이브이도 밀어냄
+        // 넉백 중 다른 이브이도 밀어냄 (플라이비: 충돌 무시)
         const kbAll = [];
         if (state.currentEevee && !isOnExpedition("current")) kbAll.push(state.currentEevee);
         state.farm.forEach((f, i) => { if (!isOnExpedition(i)) kbAll.push(f); });
+        const eEvo = _getEvo(e.evoId);
         for (const other of kbAll) {
             if (other === e) continue;
+            const otherEvo = _getEvo(other.evoId);
+            if ((eEvo && eEvo.abilityTag === "explore_fastest") || (otherEvo && otherEvo.abilityTag === "explore_fastest")) continue;
             const odx = e.wx - other.wx, ody = e.wy - other.wy;
             const od = Math.sqrt(odx * odx + ody * ody);
             if (od < 0.08 && od > 0.001) {
@@ -662,12 +678,14 @@ function updateEeveeAI(e, isNight, isFighting) {
             e.facing = dx > 0 ? 1 : -1;
         }
 
-        // 이브이끼리 충돌 밀어내기 (강화)
+        // 이브이끼리 충돌 밀어내기 (플라이비: 충돌 무시)
         const allFighters = [];
         if (state.currentEevee && !isOnExpedition("current")) allFighters.push(state.currentEevee);
         state.farm.forEach((f, i) => { if (!isOnExpedition(i)) allFighters.push(f); });
+        const eEvo2 = _getEvo(e.evoId);
         for (const other of allFighters) {
             if (other === e) continue;
+            if (eEvo2 && eEvo2.abilityTag === "explore_fastest") continue;
             const odx = e.wx - other.wx;
             const ody = e.wy - other.wy;
             const oDist = Math.sqrt(odx * odx + ody * ody);
@@ -1620,6 +1638,8 @@ function calcEeveeDPS(eevee, targetMon) {
     }
 
     // 고유 능력
+    if (tag === "explore_speed") dps *= 1.2; // 쥬피썬더: 전투 DPS +20%
+    if (tag === "explore_night" && state.timeOfDay === "night") dps *= 1.2; // 블래키: 밤 DPS +20%
     if (tag === "battle_dmg") dps *= 1.3;
     if (tag === "battle_combo") dps *= 1 + Math.min((eevee._comboStacks || 0) * 0.02, 0.5);
     if (tag === "battle_sturdy") dps *= 1.15;
@@ -1811,6 +1831,12 @@ function updateFarmBattle() {
                         const gdx = ee.wx - gmaxEe.wx, gdy = ee.wy - gmaxEe.wy;
                         if (Math.sqrt(gdx*gdx + gdy*gdy) < 0.2) kbPower *= 0.5;
                     }
+                    // 샌디온(explore_extra): 주변에 있으면 넉백 거리 -30%
+                    const sandyEe = allEe.find(g => { const gEvo = _getEvo(g.evoId); return gEvo && gEvo.abilityTag === "explore_extra"; });
+                    if (sandyEe) {
+                        const sdx = ee.wx - sandyEe.wx, sdy = ee.wy - sandyEe.wy;
+                        if (Math.sqrt(sdx*sdx + sdy*sdy) < 0.2) kbPower *= 0.7;
+                    }
                     ee._kbVx = (edx / eDist) * kbPower;
                     ee._kbVy = (edy / eDist) * kbPower * 0.7;
                     ee._knockback = 30;
@@ -1986,6 +2012,19 @@ function updateFarmBattle() {
                                     color: skill.color, life: 40, maxLife: 40,
                                     size: 4 + Math.random() * 3,
                                 });
+                            }
+                        }
+
+                        // 에브이(explore_day): 스킬 발동 시 주변 이브이 쿨타임 -60프레임(1초)
+                        for (const espCheck of allEe) {
+                            if (espCheck === ee) continue;
+                            const espEvo = _getEvo(espCheck.evoId);
+                            if (espEvo && espEvo.abilityTag === "explore_day") {
+                                const esdx = ee.wx - espCheck.wx, esdy = ee.wy - espCheck.wy;
+                                if (Math.sqrt(esdx*esdx + esdy*esdy) < 0.2) {
+                                    if (ee._skillCd > 0) ee._skillCd = Math.max(0, ee._skillCd - 60);
+                                    break;
+                                }
                             }
                         }
                     }
@@ -2228,14 +2267,19 @@ function sendExpedition(locId, eeveeRefs) {
 
     // 시간 계산 (가장 빠른 능력 적용 + 협동 보너스)
     const stageMult = 1 + (state.monsterStage || 0) * 0.06;
-    let duration = (loc.dur || 30) * 1000 * stageMult;
+    // 바이퍼스(battle_dot): 독안개늪 시간 최소화 (dur=5)
+    const baseDur = (members.some(m => m.tag === "battle_dot") && locId === "swamp") ? 5 : (loc.dur || 30);
+    let duration = baseDur * 1000 * stageMult;
 
     // 각 이브이 시간단축 능력 중첩 적용
     let speedMult = 1.0;
     for (const m of members) {
         if (m.tag === "explore_fastest") speedMult *= 0.4;
         else if (m.tag === "explore_speed") speedMult *= 0.5;
+        if (m.tag === "battle_slow") speedMult *= 0.8; // 글레이시아: 탐색 시간 20% 단축
     }
+    // 하이버(battle_swarm): 파티원당 시간 -5%
+    if (members.some(m => m.tag === "battle_swarm")) speedMult *= Math.pow(0.95, members.length);
     duration *= speedMult;
 
     // 최고 활동성 기반 단축
@@ -2257,7 +2301,7 @@ function sendExpedition(locId, eeveeRefs) {
     state.expeditions.push({
         locId,
         eeveeRefs: eeveeRefs, // 배열
-        members: members.map(m => ({ ref: m.ref, type: m.type, tag: m.tag, img: m.evo ? m.evo.img : "이브이.png", name: m.evo ? m.evo.name : "이브이" })),
+        members: members.map(m => ({ ref: m.ref, type: m.type, tag: m.tag, img: m.evo ? m.evo.img : "이브이.png", name: m.evo ? m.evo.name : "이브이", likedFruit: m.eevee.likedFruit || "" })),
         startTime: Date.now(),
         duration: Math.floor(duration),
         wasNight: state.timeOfDay === "night",
@@ -2266,7 +2310,9 @@ function sendExpedition(locId, eeveeRefs) {
 
     // 각 이브이 탐색 카운터 + 활동성 소모
     for (const m of members) {
-        state.totalExplores++;
+        // 브레이버(battle_combo): 탐색 횟수 2배
+        if (m.tag === "battle_combo") state.totalExplores += 2;
+        else state.totalExplores++;
         if (m.eevee.visitedLocations) m.eevee.visitedLocations.add(locId);
         if (m.eevee.exploreCount !== undefined) m.eevee.exploreCount++;
         if (m.eevee.lastLocation === locId && m.eevee.repeatCount !== undefined) m.eevee.repeatCount++;
@@ -2283,10 +2329,12 @@ function sendExpedition(locId, eeveeRefs) {
     state._lastExpRefs = eeveeRefs.slice(); // 최근 탐색 멤버 저장
 
     const hasSylveon = members.some(m => m.tag === "sylveon");
+    const hasGmax = members.some(m => m.tag === "battle_noweakness"); // 거다이브: 활동성 소모 경감
+    const actCost = hasSylveon ? 0 : (hasGmax ? 2 : 3);
     for (const m of members) {
-        // 활동성 소모 (님피아 포함 시 전원 소모 없음)
-        if (m.eevee.activity !== undefined && !hasSylveon) {
-            m.eevee.activity = Math.max(0, m.eevee.activity - 3);
+        // 활동성 소모 (님피아: 0, 거다이브: 2, 기본: 3)
+        if (m.eevee.activity !== undefined && actCost > 0) {
+            m.eevee.activity = Math.max(0, m.eevee.activity - actCost);
         }
     }
 
@@ -2323,9 +2371,26 @@ function resolveExpedition(exp) {
     // 에브이: 출발 시 낮 +0.20 / 블래키: 출발 시 밤 +0.20
     if (members.some(m => m.tag === "explore_day") && !wasNight) itemChance += 0.20;
     if (members.some(m => m.tag === "explore_night") && wasNight) itemChance += 0.20;
+    // 드라키온(battle_fixed): 드롭률 +10%
+    if (members.some(m => m.tag === "battle_fixed")) itemChance += 0.10;
     itemChance = Math.min(itemChance, 1.0);
 
+    // 록키온(battle_sturdy): 같은 탐색지 연속 시 비열매 아이템 weight +20%
+    if (members.some(m => m.tag === "battle_sturdy") && state._lastExpLocation === exp.locId) {
+        for (const it of itemPool) { it.weight *= 1.2; }
+    }
+
+    // 레이시아(battle_curse): 밤 탐색지에서 TM weight 2배
+    if (members.some(m => m.tag === "battle_curse") && isNightLoc) {
+        for (const it of itemPool) { if (it.type === "tm") it.weight *= 2; }
+    }
+
     if (itemPool.length > 0 && Math.random() < itemChance) {
+        allDrops.push(weightedRandom(itemPool));
+    }
+
+    // 메가브이(battle_alladvantage): 추가 아이템 30% 확률
+    if (members.some(m => m.tag === "battle_alladvantage") && itemPool.length > 0 && Math.random() < 0.30) {
         allDrops.push(weightedRandom(itemPool));
     }
 
@@ -2333,18 +2398,29 @@ function resolveExpedition(exp) {
     for (const m of members) {
         const tag = m.tag || "";
 
+        // 부스터(battle_dmg): 좋아하는 열매 확률 2배 (weight 2배)
+        let mFruitPool = fruitPool;
+        if (tag === "battle_dmg" && m.likedFruit) {
+            mFruitPool = fruitPool.map(f => ({...f, weight: f.name === m.likedFruit ? f.weight * 2 : f.weight}));
+        }
+
         const fruitCount = tag === "explore_fruit2" ? 2 : 1;
         const fruitChance = tag === "explore_fruit2" ? 1.0 : (tag === "leafeon" ? 0.75 : 0.45);
         for (let fi = 0; fi < fruitCount; fi++) {
-            if (Math.random() < fruitChance) allDrops.push(weightedRandom(fruitPool));
+            if (Math.random() < fruitChance) allDrops.push(weightedRandom(mFruitPool));
         }
 
         // 샌디온 발굴: 열매 추가 1개
-        if (tag === "explore_extra") allDrops.push(weightedRandom(fruitPool));
+        if (tag === "explore_extra") allDrops.push(weightedRandom(mFruitPool));
     }
 
     // 도구 드롭 (5% 확률, 미보유 도구만)
-    if (Math.random() < 0.05) {
+    // 메탈리아(battle_minroll): 도구 드롭률 2배 (0.10)
+    // 레이시아(battle_curse): 밤 탐색지에서 도구 드롭률 2배
+    let toolChance = 0.05;
+    if (members.some(m => m.tag === "battle_minroll")) toolChance = 0.10;
+    if (members.some(m => m.tag === "battle_curse") && isNightLoc) toolChance *= 2;
+    if (Math.random() < toolChance) {
         const unowned = TOOL_NAMES.filter(t => !hasItem(t) && !state.farm.some(e => e._tool === t) && !(state.currentEevee && state.currentEevee._tool === t));
         if (unowned.length > 0) {
             allDrops.push({ name: unowned[Math.floor(Math.random() * unowned.length)], type: "tool" });
@@ -4461,8 +4537,9 @@ function _drawDexTool(py) {
         const tool = TOOLS[tName];
         const owned = hasItem(tName);
         // 장착된 이브이 찾기
-        const equippedEe = state.farm.find(e => e._tool === tName);
-        const equippedName = equippedEe ? (_getEvo(equippedEe.evoId) || {}).name || "이브이" : null;
+        let equippedEe = state.farm.find(e => e._tool === tName);
+        if (!equippedEe && state.currentEevee && state.currentEevee._tool === tName) equippedEe = state.currentEevee;
+        const equippedName = equippedEe ? (equippedEe === state.currentEevee ? "이브이" : (_getEvo(equippedEe.evoId) || {}).name || "이브이") : null;
         const by = listTop + i * ITEM_H - state.dexScroll;
         if (by + ITEM_H < listTop || by > listBot) continue;
 
@@ -5170,13 +5247,13 @@ function drawPopup() {
                 roundRect(px + 10, ry, pw - 20, 24, 4); ctx.fill();
 
                 ctx.textAlign = "left"; ctx.fillStyle = "#fff"; ctx.font = "bold 12px system-ui";
-                ctx.fillText(`${medal} ${row.name}`, px + 18, ry + 12);
+                ctx.fillText(`${medal} ${row.name}`, px + 18, ry + 8);
                 ctx.textAlign = "right"; ctx.fillStyle = "#4FC3F7"; ctx.font = "bold 11px system-ui";
-                ctx.fillText(`Lv.${row.stage}`, px + pw - 100, ry + 12);
-                ctx.fillStyle = "#FF5722"; ctx.font = "bold 10px system-ui";
-                ctx.fillText(`${row.maxDps || 0}dps`, px + pw - 45, ry + 12);
-                ctx.fillStyle = "#aaa"; ctx.font = "10px system-ui";
-                ctx.fillText(`${row.collected}종`, px + pw - 18, ry + 12);
+                ctx.fillText(`Lv.${row.stage}`, px + pw - 18, ry + 8);
+                ctx.textAlign = "left"; ctx.fillStyle = "#FF5722"; ctx.font = "10px system-ui";
+                ctx.fillText(`${row.maxDps || 0}dps`, px + 18, ry + 20);
+                ctx.textAlign = "right"; ctx.fillStyle = "#aaa"; ctx.font = "10px system-ui";
+                ctx.fillText(`${row.collected}종`, px + pw - 18, ry + 20);
                 ctx.textAlign = "center";
             }
         }
