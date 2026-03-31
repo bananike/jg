@@ -1560,14 +1560,23 @@ function spawnMonster(stage) {
     const mainMon = _createMonsterObj(monData, stage, hpMult, isBoss, isRaidBoss, 0);
     state.monsters.push(mainMon);
 
-    // --- 스테이지 200+ : 추가 몬스터 (100마다 +1마리) ---
-    if (stage >= 200) {
-        const extraCount = Math.floor(stage / 100) - 1; // 200=1, 300=2, 400=3...
+    // --- 추가 몬스터 시스템 ---
+    // 100=레이드, 101~=+1마리, 200=레이드+보스, 201~=+2마리, 300=레이드+보스+몬1 ...
+    if (stage > 100) {
+        const tier = Math.floor(stage / 100); // 1xx=1, 2xx=2, 3xx=3
+        let extraCount;
+        if (isRaidBoss) {
+            extraCount = tier - 1; // 100=0, 200=1(보스), 300=2(보스+몬1)
+        } else if (isBoss) {
+            extraCount = tier - 1; // 110=0, 210=1, 310=2
+        } else {
+            extraCount = tier; // 101=1, 201=2, 301=3
+        }
         const usedNames = [monData.name];
 
         for (let ei = 0; ei < extraCount; ei++) {
-            if (isRaidBoss && ei === 0) {
-                // 레이드보스 첫 추가는 일반보스
+            if (isRaidBoss && ei === 0 && tier >= 2) {
+                // 레이드 스테이지: 첫 추가는 보스
                 const bossPool = BOSS_MONSTERS.filter(m => !usedNames.includes(m.name));
                 const extraBoss = bossPool[Math.floor(Math.random() * bossPool.length)];
                 if (extraBoss) {
