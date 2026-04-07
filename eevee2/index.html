@@ -14,6 +14,7 @@ canvas { display:block; }
 </head>
 <body>
 <canvas id="c"></canvas>
+<input id="nickInput" type="text" maxlength="12" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" style="position:fixed;left:-9999px;top:-9999px;opacity:0;font-size:16px;">
 <script>
 const canvas = document.getElementById("c");
 const ctx = canvas.getContext("2d");
@@ -151,14 +152,19 @@ let tutorialMobSpawned = false;
 let tutorialPrevLevel = 1;
 try { tutorialSeen = localStorage.getItem("eevee2_tutorial_seen") === "1"; } catch(_) {}
 
-// 5단계: 0=탭선택, 1=드래그, 2=공격관찰, 3=레벨업, 4=시작안내
+// 5단계: 0=탭선택, 1=드래그, 2=공격관찰, 3=레벨업, 4=이브이추가
 const TUTORIAL_STEPS = [
     { msg: "이브이를 탭해서 선택해보세요" },
-    { msg: "이브이를 드래그해서 옮겨보세요" },
+    { msg: "이브이를 드래그해서\n표시된 위치로 옮겨보세요" },
     { msg: "이브이는 자동으로 몬스터를 공격합니다" },
     { msg: "좌측 ▲ 레벨업으로 강화하세요" },
-    { msg: "정식 8종 진화 → 팬메이드 11종 + 100라운드 레이드 보스!\n화면을 탭하여 시작" },
+    { msg: "+ 이브이 버튼으로 동료를 영입하세요" },
 ];
+
+// 튜토리얼 드래그 목표 위치 (농장 우측)
+function getTutorialTargetPos() {
+    return { x: FARM_CX + 130, y: FARM_CY };
+}
 
 function startTutorial() {
     tutorialActive = true;
@@ -195,6 +201,43 @@ function endTutorial() {
     spawnEevee("이브이.png", 5, 70, 110, "normal");
     gameState = "wave_interval";
     waveIntervalTimer = 0;
+}
+
+// 닉네임 입력 (HTML input 필드 사용 — iOS Safari 키보드 호환)
+const nickInputEl = document.getElementById("nickInput");
+nickInputEl.addEventListener("input", () => {
+    nicknameInput = nickInputEl.value.slice(0, 12);
+});
+nickInputEl.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+        e.preventDefault();
+        if (nicknameInput.trim()) {
+            const nick = nicknameInput.trim().slice(0, 12);
+            submitScore(nick, wave, countEvolved());
+            scoreSubmitted = true;
+            closeNicknameInput();
+        }
+    } else if (e.key === "Escape") {
+        e.preventDefault();
+        closeNicknameInput();
+    }
+});
+
+function openNicknameInput() {
+    nicknameInputActive = true;
+    nicknameInput = "";
+    nickInputEl.value = "";
+    // 모바일 키보드 띄우기 (사용자 제스처 직후에만 동작)
+    nickInputEl.style.left = "50%";
+    nickInputEl.style.top = "50%";
+    nickInputEl.style.opacity = "0.01";
+    setTimeout(() => nickInputEl.focus(), 0);
+}
+function closeNicknameInput() {
+    nicknameInputActive = false;
+    nickInputEl.blur();
+    nickInputEl.style.left = "-9999px";
+    nickInputEl.style.top = "-9999px";
 }
 
 // 디바이스 ID (같은 닉네임 다른 유저 구분용)
@@ -429,11 +472,11 @@ const SHOP_ITEMS = [
     { id:"ribbon",        name:"리본",     cost:150, type:"ribbon", evoIdx:7, reqFriend:10, sprite:"님피아.png", tier:"base" },
 
     // === 팬메이드 11종 (정식 8종 모두 진화 후 표시) ===
-    { id:"giga_stone",    name:"거대화석", cost:350, type:"stone", evoIdx:8,  reqLevel:20, sprite:"왕이브이.png", tier:"fan" },
-    { id:"mega_stone",    name:"메가스톤", cost:350, type:"stone", evoIdx:9,  reqLevel:20, sprite:"이브이메가.png", tier:"fan" },
-    { id:"metal_rock",    name:"강철바위", cost:300, type:"rock",  evoIdx:10, reqLevel:20, sprite:"이브이강철.png", tier:"fan" },
-    { id:"rock_buddy",    name:"록기파트너", cost:350, type:"buddy", evoIdx:16, reqLevel:20, sprite:"이브이바위.png", tier:"fan", reqBuddySprite:"이브이강철.png" },
-    { id:"dragon_proof",  name:"드래곤증표", cost:320, type:"bossKill", evoIdx:13, reqLevel:20, sprite:"이브이드래곤.png", tier:"fan", reqBossKills:5 },
+    { id:"giga_stone",    name:"거대화석", cost:350, type:"stone", evoIdx:8,  reqLevel:20, reqFriend:15, sprite:"왕이브이.png", tier:"fan" },
+    { id:"mega_stone",    name:"메가스톤", cost:350, type:"stone", evoIdx:9,  reqLevel:20, reqFriend:15, sprite:"이브이메가.png", tier:"fan" },
+    { id:"metal_rock",    name:"강철바위", cost:300, type:"rock",  evoIdx:10, reqLevel:20, reqFriend:15, sprite:"이브이강철.png", tier:"fan" },
+    { id:"rock_buddy",    name:"록기파트너", cost:350, type:"buddy", evoIdx:16, reqLevel:20, reqFriend:15, sprite:"이브이바위.png", tier:"fan", reqBuddySprite:"이브이강철.png" },
+    { id:"dragon_proof",  name:"드래곤증표", cost:320, type:"bossKill", evoIdx:13, reqLevel:20, reqFriend:15, sprite:"이브이드래곤.png", tier:"fan", reqBossKills:5 },
     { id:"shadow_charm",  name:"어둠의부적", cost:280, type:"timed", evoIdx:12, reqLevel:20, reqFriend:15, sprite:"이브이고스트.png", tier:"fan", reqDay:false },
     { id:"sky_charm",     name:"바람의부적", cost:280, type:"timed", evoIdx:18, reqLevel:20, reqFriend:15, sprite:"이브이비행.png", tier:"fan", reqDay:true },
     { id:"fight_belt",    name:"투지의띠", cost:270, type:"killCount", evoIdx:11, reqLevel:20, reqFriend:15, sprite:"이브이격투.png", tier:"fan", reqKills:5 },
@@ -1108,15 +1151,14 @@ function update() {
             eevees[0].wanderTimer = 9999;
             eevees[0].idleTimer = 9999;
         }
-        // Step 3: 시범 몬스터 1마리 (이브이 옆에 등장 + 거의 안 움직임)
+        // Step 3: 시범 몬스터 1마리 (목표 위치 옆에 등장 + 거의 안 움직임)
         if (tutorialStep === 2 && monsters.length === 0 && !tutorialMobSpawned) {
             const m = spawnMonster("차곡차곡", "mon/차곡차곡.png", 20, 0, 0, 0.001, ["normal"], false);
-            // 이브이 사거리 안에 즉시 배치
-            const ee = eevees[0];
-            if (ee && m) {
+            const tg = getTutorialTargetPos();
+            if (m) {
                 m.phase = "orbit";
-                m.x = ee.x + 50;
-                m.y = ee.y;
+                m.x = tg.x + 60;
+                m.y = tg.y;
                 m.orbitAngle = 0;
             }
             tutorialMobSpawned = true;
@@ -1548,17 +1590,18 @@ function update() {
     // 튜토리얼 단계 진행 체크
     if (gameState === "tutorial") {
         // Step 3+ 부터는 이브이가 항상 선택되어 있도록 강제
-        if (tutorialStep >= 2 && eevees[0]) {
+        if (tutorialStep >= 2 && tutorialStep < 4 && eevees[0]) {
             selectedEevee = eevees[0];
             selectedMonster = null; selectedItem = null; selectedRock = null;
         }
         if (tutorialStep === 0 && selectedEevee) tutorialStep = 1;
         else if (tutorialStep === 1) {
-            // 드래그로 일정 거리 이동했는지 (드래그 시작 위치 필요)
-            if (eevees[0] && tutorialDragStart) {
-                const dx = eevees[0].x - tutorialDragStart.x;
-                const dy = eevees[0].y - tutorialDragStart.y;
-                if (dx * dx + dy * dy > 30 * 30) tutorialStep = 2;
+            // 목표 위치 50px 이내 도달 시
+            const tg = getTutorialTargetPos();
+            if (eevees[0]) {
+                const dx = eevees[0].x - tg.x;
+                const dy = eevees[0].y - tg.y;
+                if (dx * dx + dy * dy < 50 * 50) tutorialStep = 2;
             }
         }
         else if (tutorialStep === 2 && tutorialMobSpawned && monsters.length === 0) {
@@ -1566,7 +1609,17 @@ function update() {
             coins = Math.max(coins, 100); // 레벨업 자금 확보
         }
         else if (tutorialStep === 3) {
-            if (eevees[0] && eevees[0].level > tutorialPrevLevel) tutorialStep = 4;
+            if (eevees[0] && eevees[0].level > tutorialPrevLevel) {
+                tutorialStep = 4;
+                coins = Math.max(coins, 50); // 이브이 추가 자금 확보
+                selectedEevee = null; // 선택 해제 (BUY_BTN 강조 잘 보이게)
+            }
+        }
+        else if (tutorialStep === 4) {
+            if (eevees.length > 1) {
+                // 튜토리얼 완료 → 정식 게임 시작
+                endTutorial();
+            }
         }
     }
 
@@ -3369,7 +3422,7 @@ function drawTutorialOverlay() {
     const pulse = 0.5 + 0.5 * Math.sin(frame * 0.1);
 
     // 단계별 강조 위치
-    if (tutorialStep === 0 || tutorialStep === 1) {
+    if (tutorialStep === 0) {
         // 이브이 강조
         const ee = eevees[0];
         if (ee) {
@@ -3381,13 +3434,77 @@ function drawTutorialOverlay() {
             ctx.stroke();
             ctx.restore();
         }
+    } else if (tutorialStep === 1) {
+        // 이브이 강조 + 목표 위치 강조 + 화살표
+        const ee = eevees[0];
+        const tg = getTutorialTargetPos();
+        if (ee) {
+            ctx.save();
+            // 이브이
+            ctx.strokeStyle = `rgba(255,215,0,${0.5 + pulse * 0.3})`;
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            ctx.arc(ee.x, ee.y, 26, 0, Math.PI * 2);
+            ctx.stroke();
+            // 목표 지점 (펄스 원형)
+            ctx.fillStyle = `rgba(76,175,80,${0.2 + pulse * 0.2})`;
+            ctx.beginPath();
+            ctx.ellipse(tg.x, tg.y, 32 + pulse * 8, 32 * ISO_Y + pulse * 4, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = `rgba(76,175,80,${0.7 + pulse * 0.3})`;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.ellipse(tg.x, tg.y, 32, 32 * ISO_Y, 0, 0, Math.PI * 2);
+            ctx.stroke();
+            // 가운데 +
+            ctx.fillStyle = `rgba(255,255,255,${0.7 + pulse * 0.3})`;
+            ctx.font = "bold 22px system-ui";
+            ctx.textAlign = "center"; ctx.textBaseline = "middle";
+            ctx.fillText("◎", tg.x, tg.y);
+            // 화살표 (이브이 → 목표)
+            const dx = tg.x - ee.x, dy = tg.y - ee.y;
+            const d = Math.sqrt(dx * dx + dy * dy);
+            if (d > 50) {
+                const ang = Math.atan2(dy, dx);
+                const sx2 = ee.x + Math.cos(ang) * 28;
+                const sy2 = ee.y + Math.sin(ang) * 28;
+                const ex2 = tg.x - Math.cos(ang) * 36;
+                const ey2 = tg.y - Math.sin(ang) * 36;
+                ctx.strokeStyle = `rgba(255,235,59,${0.6 + pulse * 0.3})`;
+                ctx.lineWidth = 3;
+                ctx.setLineDash([8, 6]);
+                ctx.beginPath();
+                ctx.moveTo(sx2, sy2);
+                ctx.lineTo(ex2, ey2);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                // 화살촉
+                ctx.fillStyle = `rgba(255,235,59,${0.8 + pulse * 0.2})`;
+                ctx.beginPath();
+                ctx.moveTo(ex2, ey2);
+                ctx.lineTo(ex2 - Math.cos(ang - 0.5) * 12, ey2 - Math.sin(ang - 0.5) * 12);
+                ctx.lineTo(ex2 - Math.cos(ang + 0.5) * 12, ey2 - Math.sin(ang + 0.5) * 12);
+                ctx.closePath();
+                ctx.fill();
+            }
+            ctx.restore();
+        }
     } else if (tutorialStep === 3) {
-        // 좌측 액션 패널 / 레벨업 버튼 강조
+        // 레벨업 버튼 강조
         ctx.save();
         ctx.strokeStyle = `rgba(255,215,0,${0.6 + pulse * 0.4})`;
         ctx.lineWidth = 3;
         ctx.beginPath();
         ctx.roundRect(LVL_BTN.x - 4, LVL_BTN.y - 4, LVL_BTN.w + 8, LVL_BTN.h + 8, 8);
+        ctx.stroke();
+        ctx.restore();
+    } else if (tutorialStep === 4) {
+        // 이브이 구매 버튼 강조
+        ctx.save();
+        ctx.strokeStyle = `rgba(255,215,0,${0.6 + pulse * 0.4})`;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.roundRect(BUY_BTN.x - 4, BUY_BTN.y - 4, BUY_BTN.w + 8, BUY_BTN.h + 8, 10);
         ctx.stroke();
         ctx.restore();
     }
@@ -3509,7 +3626,7 @@ function drawNicknameInput() {
     ctx.fillStyle = "rgba(0,0,0,0.75)";
     ctx.fillRect(0, 0, CW, CH);
 
-    const popX = CW / 2 - 180, popY = CH / 2 - 100, popW = 360, popH = 200;
+    const popX = CW / 2 - 180, popY = CH / 2 - 130, popW = 360, popH = 260;
     ctx.fillStyle = "rgba(30,30,40,0.98)";
     ctx.beginPath();
     ctx.roundRect(popX, popY, popW, popH, 14);
@@ -3525,23 +3642,46 @@ function drawNicknameInput() {
     ctx.fillText(`Wave ${wave}  ·  진화 ${countEvolved()}`, CW / 2, popY + 58);
 
     ctx.fillStyle = "rgba(255,255,255,0.5)"; ctx.font = "11px system-ui";
-    ctx.fillText("닉네임 입력 후 Enter", CW / 2, popY + 82);
+    ctx.fillText("닉네임 입력", CW / 2, popY + 82);
 
     // 입력 필드
-    const inX = popX + 60, inY = popY + 100, inW = popW - 120, inH = 40;
+    const inX = popX + 60, inY = popY + 100, inW = popW - 120, inH = 44;
     ctx.fillStyle = "rgba(255,255,255,0.1)";
     ctx.beginPath();
     ctx.roundRect(inX, inY, inW, inH, 6);
     ctx.fill();
     ctx.strokeStyle = "#FFD700"; ctx.lineWidth = 2;
     ctx.stroke();
-    // 입력 텍스트
     ctx.fillStyle = "#fff"; ctx.font = "bold 18px system-ui";
     const cursor = Math.floor(frame / 30) % 2 === 0 ? "|" : "";
-    ctx.fillText(nicknameInput + cursor, CW / 2, inY + inH / 2);
+    const placeholder = nicknameInput || "여기를 탭";
+    if (!nicknameInput) ctx.fillStyle = "rgba(255,255,255,0.4)";
+    ctx.fillText(nicknameInput ? (nicknameInput + cursor) : placeholder, CW / 2, inY + inH / 2);
+
+    // 확인 / 취소 버튼
+    const btnY = popY + 170, btnH = 40;
+    // 확인
+    const okValid = nicknameInput.trim().length > 0;
+    ctx.fillStyle = okValid ? "rgba(76,175,80,0.85)" : "rgba(80,80,80,0.5)";
+    ctx.beginPath();
+    ctx.roundRect(popX + 60, btnY, 110, btnH, 8);
+    ctx.fill();
+    ctx.strokeStyle = okValid ? "#66BB6A" : "#555"; ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.fillStyle = okValid ? "#fff" : "#888"; ctx.font = "bold 15px system-ui";
+    ctx.fillText("확인", popX + 115, btnY + btnH / 2);
+    // 취소
+    ctx.fillStyle = "rgba(120,120,120,0.7)";
+    ctx.beginPath();
+    ctx.roundRect(popX + 190, btnY, 110, btnH, 8);
+    ctx.fill();
+    ctx.strokeStyle = "#888"; ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.fillStyle = "#fff"; ctx.font = "bold 15px system-ui";
+    ctx.fillText("취소", popX + 245, btnY + btnH / 2);
 
     ctx.fillStyle = "rgba(255,255,255,0.4)"; ctx.font = "10px system-ui";
-    ctx.fillText("ESC: 취소  ·  최대 12자", CW / 2, popY + popH - 18);
+    ctx.fillText("최대 12자", CW / 2, popY + popH - 16);
 }
 
 function draw() {
@@ -3748,8 +3888,37 @@ function onDown(e) {
     const pos = getCanvasPos(e);
     downPos = { x: pos.x, y: pos.y };
 
-    // 닉네임 입력 모달 열려있으면 무시 (키보드만)
-    if (nicknameInputActive) { downPos = null; return; }
+    // 닉네임 입력 모달
+    if (nicknameInputActive) {
+        const popX = CW / 2 - 180, popY = CH / 2 - 130;
+        const inX = popX + 60, inY = popY + 100, inW = 240, inH = 44;
+        const btnY = popY + 170, btnH = 40;
+        // 입력 필드 탭 → input 포커스 (모바일 키보드)
+        if (hitRect(pos, { x: inX, y: inY, w: inW, h: inH })) {
+            nickInputEl.focus();
+            downPos = null;
+            return;
+        }
+        // 확인 버튼
+        if (hitRect(pos, { x: popX + 60, y: btnY, w: 110, h: btnH })) {
+            if (nicknameInput.trim()) {
+                const nick = nicknameInput.trim().slice(0, 12);
+                submitScore(nick, wave, countEvolved());
+                scoreSubmitted = true;
+                closeNicknameInput();
+            }
+            downPos = null;
+            return;
+        }
+        // 취소 버튼
+        if (hitRect(pos, { x: popX + 190, y: btnY, w: 110, h: btnH })) {
+            closeNicknameInput();
+            downPos = null;
+            return;
+        }
+        downPos = null;
+        return;
+    }
 
     // 스플래시 → (튜토리얼 안 봤으면) 인터랙티브 튜토리얼 → 게임 시작
     if (gameState === "splash") {
@@ -3794,8 +3963,7 @@ function onDown(e) {
         if (nicknameInputActive) return;
         // 점수 미제출 시 닉네임 입력 모달 표시
         if (!scoreSubmitted && wave > 0) {
-            nicknameInputActive = true;
-            nicknameInput = "";
+            openNicknameInput();
             return;
         }
         // 재시작
@@ -3808,6 +3976,7 @@ function onDown(e) {
         wave = 0; gameState = "wave_interval"; waveIntervalTimer = WAVE_INTERVAL;
         overflowActive = false; overflowTimer = 0;
         scoreSubmitted = false;
+        closeNicknameInput();
         spawnEevee("이브이.png", 5, 70, 110, "normal");
         return;
     }
@@ -4020,25 +4189,8 @@ canvas.addEventListener("touchend", (e) => { e.preventDefault(); onUp(e); });
 // ═══════════════════════════════════════════
 let cheatBuffer = "";
 window.addEventListener("keydown", (e) => {
-    // 닉네임 입력 모드
-    if (nicknameInputActive) {
-        e.preventDefault();
-        if (e.key === "Enter") {
-            if (nicknameInput.trim()) {
-                const nick = nicknameInput.trim().slice(0, 12);
-                submitScore(nick, wave, countEvolved());
-                scoreSubmitted = true;
-                nicknameInputActive = false;
-            }
-        } else if (e.key === "Escape") {
-            nicknameInputActive = false;
-        } else if (e.key === "Backspace") {
-            nicknameInput = nicknameInput.slice(0, -1);
-        } else if (e.key.length === 1 && nicknameInput.length < 12) {
-            nicknameInput += e.key;
-        }
-        return;
-    }
+    // 닉네임 입력 모드일 때는 input 요소가 직접 처리
+    if (nicknameInputActive) return;
 
     cheatBuffer += e.key.toLowerCase();
     if (cheatBuffer.length > 20) cheatBuffer = cheatBuffer.slice(-20);
