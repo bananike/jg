@@ -3347,6 +3347,17 @@ function drawSplash() {
     ctx.fillStyle = "rgba(255,255,255,0.5)";
     ctx.font = "11px system-ui";
     ctx.fillText(GAME_VERSION, CW / 2, CH - 20);
+
+    // 튜토리얼 다시 보기 버튼 (우측 하단)
+    ctx.fillStyle = "rgba(0,0,0,0.6)";
+    ctx.beginPath();
+    ctx.roundRect(CW - 60, CH - 60, 44, 44, 22);
+    ctx.fill();
+    ctx.strokeStyle = "#FFD700"; ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.fillStyle = "#FFD700"; ctx.font = "bold 22px system-ui";
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText("?", CW - 38, CH - 38);
 }
 
 function drawTutorialOverlay() {
@@ -3574,8 +3585,8 @@ const BUY_BTN = { x: CW / 2 - 65, y: BAR_Y + 12, w: 130, h: 36 };
 const EVO_PANEL_Y = 660, EVO_PANEL_H = 70;
 const EVO_ICON_W = 68;
 // 선택된 이브이 액션 패널 (선택 시 화면 좌측에 표시)
-const ACTION_PANEL = { x: 10, y: 580, w: 120, h: 70 };
-const LVL_BTN = { x: ACTION_PANEL.x + 10, y: ACTION_PANEL.y + 28, w: 100, h: 32 };
+const ACTION_PANEL = { x: 10, y: 568, w: 130, h: 84 };
+const LVL_BTN = { x: ACTION_PANEL.x + 8, y: ACTION_PANEL.y + 36, w: 114, h: 42 };
 const NEXT_BTN = { x: CW / 2 - 130, y: CH / 2 - 40, w: 260, h: 80 };
 // 판매 영역 (드래그 중에만 표시) - 우측 상단
 const SELL_ZONE = { x: CW - 95, y: 50, w: 80, h: 80 };
@@ -3616,8 +3627,12 @@ function isRoundClear() {
 function getCanvasPos(e) {
     const rect = canvas.getBoundingClientRect();
     const scaleX = CW / rect.width, scaleY = CH / rect.height;
-    const touch = e.touches ? e.touches[0] : e;
-    return { x: (touch.clientX - rect.left) * scaleX, y: (touch.clientY - rect.top) * scaleY };
+    // touchend 등은 e.touches가 빈 배열 → changedTouches 우선
+    let pt;
+    if (e.changedTouches && e.changedTouches.length > 0) pt = e.changedTouches[0];
+    else if (e.touches && e.touches.length > 0) pt = e.touches[0];
+    else pt = e;
+    return { x: (pt.clientX - rect.left) * scaleX, y: (pt.clientY - rect.top) * scaleY };
 }
 
 function hitRect(pos, r) {
@@ -3738,6 +3753,14 @@ function onDown(e) {
 
     // 스플래시 → (튜토리얼 안 봤으면) 인터랙티브 튜토리얼 → 게임 시작
     if (gameState === "splash") {
+        // ? 버튼 (튜토리얼 다시 보기)
+        if (hitRect(pos, { x: CW - 60, y: CH - 60, w: 44, h: 44 })) {
+            tutorialSeen = false;
+            try { localStorage.removeItem("eevee2_tutorial_seen"); } catch(_) {}
+            startTutorial();
+            downPos = null;
+            return;
+        }
         if (!tutorialSeen) {
             startTutorial();
             downPos = null;
@@ -3856,11 +3879,7 @@ function onUp(e) {
     dragging = null;
 
     if (!downPos) return;
-    const pos = getCanvasPos(e.changedTouches ? e : e);
-    // 터치엔드는 좌표가 없을 수 있으므로 downPos 활용
-    let upPos;
-    try { upPos = e.changedTouches ? getCanvasPos({ touches: [], clientX: e.changedTouches[0].clientX, clientY: e.changedTouches[0].clientY, touches: [e.changedTouches[0]] }) : pos; }
-    catch(_) { upPos = downPos; }
+    const upPos = getCanvasPos(e);
 
     const moveDist = Math.sqrt((upPos.x - downPos.x) ** 2 + (upPos.y - downPos.y) ** 2);
     downPos = null;
