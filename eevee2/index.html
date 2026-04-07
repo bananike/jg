@@ -994,14 +994,17 @@ function setupWave(w) {
     waveSpawnQueue = [];
 
     // 웨이브별 레벨 디자인
-    // 초반(진화 전): 매우 약함, 중반(진화 시작): 부드럽게, 후반(풀세팅): 가속
     let waveMul;
     if (w <= 7) {
         waveMul = 0.25 + (w - 1) * 0.06;   // W1:0.25 W4:0.43 W7:0.61
     } else if (w <= 15) {
         waveMul = 0.7 + (w - 8) * 0.12;    // W8:0.7 W12:1.18 W15:1.54
+    } else if (w <= 30) {
+        waveMul = 1.7 + (w - 16) * 0.20;   // W16:1.7 W20:2.5 W30:4.5
+    } else if (w <= 50) {
+        waveMul = 4.5 + (w - 30) * 0.35;   // W30:4.5 W40:8 W50:11.5
     } else {
-        waveMul = 1.7 + (w - 16) * 0.20;   // W16:1.7 W20:2.5 W30:4.5 W40:6.5
+        waveMul = 11.5 + (w - 50) * 0.70;  // W50:11.5 W60:18.5 W80:32.5 W100:46.5
     }
     const spdBase = 0.010;
     let count, unlocked;
@@ -1009,15 +1012,17 @@ function setupWave(w) {
     // 몬스터 종류 해금: 1웨이브당 1종씩 (W1: 1종, W2: 2종, ... W9+: 9종)
     unlocked = Math.min(w, monPool.length);
 
-    // 마릿수: 부드럽게 증가
+    // 마릿수
     if (w <= 4) {
         count = 2 + w;                   // W1:3 W2:4 W3:5 W4:6
     } else if (w <= 9) {
         count = 6 + w;                   // W5:11 W9:15
     } else if (w <= 20) {
         count = 10 + w;                  // W10:20 W20:30
+    } else if (w <= 50) {
+        count = 14 + Math.floor(w * 1.2); // W30:50 W50:74
     } else {
-        count = 14 + w;                  // W30:44
+        count = 30 + Math.floor(w * 1.8); // W60:138 W80:174 W100:210
     }
 
     // 레이드 웨이브 (100의 배수) — 페이즈2 변신 보스 단독
@@ -1059,7 +1064,7 @@ function setupWave(w) {
             mDef: Math.floor(m.baseMDef * waveMul * 0.12),
             sDef: Math.floor(m.baseSDef * waveMul * 0.12),
             spd: spdBase * (m.baseSpd / 100) * (0.9 + Math.random() * 0.2),
-            delay: i * 135 + Math.floor(Math.random() * 25) + (w % 10 === 0 ? 90 : 0),
+            delay: i * 45 + Math.floor(Math.random() * 20) + (w % 10 === 0 ? 90 : 0),
         });
     }
     waveTimer = getWaveTime(w);
