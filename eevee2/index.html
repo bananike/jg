@@ -1942,8 +1942,8 @@ function setupWave(w) {
     const spdBase = 0.010;
     let count, unlocked;
 
-    // 몬스터 종류 해금: 5웨이브 구간마다 1종씩 (W1~4: 1종, W5~9: 2종, W10~14: 3종 …)
-    unlocked = Math.min(Math.floor((w - 1) / 5) + 1, monPool.length);
+    // 몬스터 종류 해금: 7웨이브 구간마다 1종씩 (W1~6: 1종, W7~13: 2종, W14~20: 3종 …)
+    unlocked = Math.min(Math.floor((w - 1) / 7) + 1, monPool.length);
 
     // 마릿수
     if (w <= 4) {
