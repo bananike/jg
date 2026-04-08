@@ -2427,6 +2427,26 @@ function update() {
                 p.attackerEe.killNames = p.attackerEe.killNames || {};
                 p.attackerEe.killNames[target.name] = (p.attackerEe.killNames[target.name] || 0) + 1;
             }
+            // 평타 스플래시 (주변 적에게 30% 데미지, 반경 22)
+            const splashR = 22, splashMul = 0.30;
+            for (const m of monsters) {
+                if (m === target || m.hp <= 0) continue;
+                const sdx = m.x - target.x, sdy = (m.y - target.y) / ISO_Y;
+                if (sdx * sdx + sdy * sdy < splashR * splashR) {
+                    const sDef = getMonsterDef(m, p.category === "spec");
+                    const sBase = Math.max(1, p.atk * splashMul - sDef * 0.3);
+                    const sMul = totalTypeMul(p.attackerType, m);
+                    const sDmg = Math.max(1, Math.round(sBase * sMul * dn.mul));
+                    const sWasAlive = m.hp > 0;
+                    m.hp -= sDmg;
+                    m.hitAnim = 5;
+                    if (sWasAlive && m.hp <= 0 && p.attackerEe) {
+                        p.attackerEe.kills = (p.attackerEe.kills || 0) + 1;
+                        p.attackerEe.killNames = p.attackerEe.killNames || {};
+                        p.attackerEe.killNames[m.name] = (p.attackerEe.killNames[m.name] || 0) + 1;
+                    }
+                }
+            }
             // 효과 표시
             if (mul > 1) {
                 coinTexts.push({ x: target.x, y: target.y - 20, text: "효과적!", life: 35, color: "#FFEB3B" });
