@@ -156,7 +156,7 @@ function isoCirclePoints(cx, cy, radius, segments) {
 // ═══════════════════════════════════════════
 // 게임 상태
 // ═══════════════════════════════════════════
-const GAME_VERSION = "v1.10";
+const GAME_VERSION = "v1.67";
 
 // ═══════════════════════════════════════════
 // 랭킹 (Apps Script)
@@ -206,7 +206,7 @@ function startTutorial() {
     coins = 200; eeveesBought = 0; bossKillCount = 0;
     selectedEevee = null; selectedMonster = null; selectedItem = null; selectedRock = null;
     wave = 0;
-    overflowActive = false; overflowTimer = 0;
+    overflowActive = false; overflowTimer = 0; overflowGraceWave = -1;
     gameState = "tutorial";
     spawnEevee("이브이.png", 5, 70, 110, "normal");
 }
@@ -223,7 +223,7 @@ function endTutorial() {
     coins = 50; eeveesBought = 0; bossKillCount = 0;
     selectedEevee = null; selectedMonster = null; selectedItem = null; selectedRock = null;
     wave = 0;
-    overflowActive = false; overflowTimer = 0;
+    overflowActive = false; overflowTimer = 0; overflowGraceWave = -1;
     spawnEevee("이브이.png", 5, 70, 110, "normal");
     gameState = "wave_interval";
     waveIntervalTimer = 0;
@@ -322,10 +322,12 @@ let gameState = "splash"; // splash → wave_interval → playing
 let cutsceneTimer = 0;
 // 침입 카운트다운 (몬스터가 농장에 너무 많이 쌓이면 발동)
 const OVERFLOW_LIMIT = 50;
-const OVERFLOW_COUNTDOWN = 900; // 15초 (60FPS)
+const OVERFLOW_COUNTDOWN = 900; // 15초 (60FPS) — 레거시
 let overflowTimer = 0;
 let overflowActive = false;
 let overflowReason = "overflow"; // "overflow" | "boss"
+// 유예 라운드 시스템: 초과 발생 시 다음 라운드 종료까지 정리하지 못하면 패배
+let overflowGraceWave = -1; // 처음 초과가 발생한 라운드 번호 (-1 = 정상)
 const particles = [];
 const hitEffects = [];
 const coinTexts = []; // 코인 획득 팝업
@@ -485,7 +487,7 @@ function getRockBuffRadius(rockType)  {
 }
 
 function getEeveeCost() { return 30 + eeveesBought * 5; }
-function getEeveeMaxSlots() { return Math.min(20, 2 + Math.floor(wave / 5)); } // 시작 2, 5웨이브당 +1, 최대 20
+function getEeveeMaxSlots() { return Math.min(20, 3 + Math.floor(wave / 3)); } // 시작 3, 3웨이브당 +1, 최대 20
 
 // 팬메이드 진화체 스프라이트 (스킬 해금 레벨 분기용)
 const FAN_SPRITES = new Set([
@@ -659,9 +661,9 @@ const SHOP_ITEMS = [
     { id:"ribbon",        name:"리본",     cost:150, type:"ribbon", evoIdx:7, reqFriend:10, sprite:"님피아.png", tier:"base" },
 
     // === 팬메이드 11종 (정식 8종 모두 진화 후 표시) ===
-    { id:"giga_stone",    name:"거대화석", cost:350, type:"stone", evoIdx:8,  reqLevel:20, reqFriend:15, sprite:"왕이브이.png", tier:"fan" },
-    { id:"mega_stone",    name:"메가스톤", cost:350, type:"stone", evoIdx:9,  reqLevel:20, reqFriend:15, sprite:"이브이메가.png", tier:"fan" },
-    { id:"metal_rock",    name:"강철바위", cost:300, type:"rock",  evoIdx:10, reqLevel:20, reqFriend:15, sprite:"이브이강철.png", tier:"fan" },
+    { id:"giga_stone",    name:"거대화석", cost:350, type:"itemHeld", evoIdx:8,  reqLevel:20, reqFriend:15, sprite:"왕이브이.png", tier:"fan", reqItemId:"clay" },
+    { id:"mega_stone",    name:"메가스톤", cost:350, type:"itemHeld", evoIdx:9,  reqLevel:20, reqFriend:15, sprite:"이브이메가.png", tier:"fan", reqItemId:"glasses" },
+    { id:"metal_rock",    name:"강철바위", cost:300, type:"itemHeld", evoIdx:10, reqLevel:20, reqFriend:15, sprite:"이브이강철.png", tier:"fan", reqItemId:"focus" },
     { id:"rock_buddy",    name:"록기파트너", cost:350, type:"buddy", evoIdx:16, reqLevel:20, reqFriend:15, sprite:"이브이바위.png", tier:"fan", reqBuddySprite:"이브이강철.png" },
     { id:"dragon_proof",  name:"드래곤증표", cost:320, type:"bossKill", evoIdx:13, reqLevel:20, reqFriend:15, sprite:"이브이드래곤.png", tier:"fan", reqBossKills:5 },
     { id:"shadow_charm",  name:"어둠의부적", cost:280, type:"timed", evoIdx:12, reqLevel:20, reqFriend:15, sprite:"이브이고스트.png", tier:"fan", reqDay:false },
@@ -2145,27 +2147,29 @@ function update() {
         }
     }
 
-    // 침입 카운트다운 체크 (몬스터 50+ OR 보스 2+)
+    // 유예 라운드 시스템 (몬스터 50+ OR 보스 2+)
+    // 처음 초과 발생 → 그 라운드 + 다음 라운드까지 정리 못하면 패배
+    // 한 번이라도 정상화되면 리셋
     const aliveMons = monsters.filter(m => m.hp > 0);
     const monsterCount = aliveMons.length;
     const bossCount = aliveMons.filter(m => m.isBoss).length;
     const overflowTriggered = monsterCount >= OVERFLOW_LIMIT || bossCount >= 2;
     if (overflowTriggered) {
-        if (!overflowActive) {
-            overflowActive = true;
-            overflowTimer = OVERFLOW_COUNTDOWN;
+        if (overflowGraceWave === -1) {
+            overflowGraceWave = wave; // 초과 발생한 라운드 기록
             overflowReason = bossCount >= 2 ? "boss" : "overflow";
-        } else {
-            overflowTimer--;
-            if (overflowTimer <= 0) {
-                gameState = "cutscene";
-                cutsceneTimer = 180;
-                return;
-            }
+        }
+        overflowActive = true;
+        // 유예 라운드(=overflowGraceWave + 1) 종료 시점에 여전히 초과 → 게임오버
+        if (wave > overflowGraceWave && waveTimer <= 1) {
+            gameState = "cutscene";
+            cutsceneTimer = 180;
+            return;
         }
     } else {
+        // 한 번이라도 정상화되면 완전 리셋
+        overflowGraceWave = -1;
         overflowActive = false;
-        overflowTimer = 0;
     }
 
     } // end if !tutorial
@@ -3851,7 +3855,10 @@ function drawHUD() {
         ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
         ctx.fillStyle = "#FFD54F"; ctx.font = "bold 14px system-ui";
         let lvText = `Lv.${selectedEevee.level}`;
-        if (selectedEevee.sprite === "이브이.png") lvText += `   ♥${selectedEevee.friendship}`;
+        if (selectedEevee.sprite === "이브이.png") {
+            const mul = getFriendshipSellMul(selectedEevee);
+            lvText += `   ♥${selectedEevee.friendship} (판매×${mul})`;
+        }
         ctx.fillText(lvText, LVL_BTN.x, BAR_Y + 30);
 
         // 레벨업 버튼
@@ -3959,7 +3966,10 @@ function drawHUD() {
                 else if (item.type === "timed") hint = item.reqDay ? "낮" : "밤";
                 else if (item.type === "killCount") hint = `처치${item.reqKills}`;
                 else if (item.type === "specificKill") hint = item.reqKillName;
-                else if (item.type === "itemHeld") hint = "울퉁불퉁멧";
+                else if (item.type === "itemHeld") {
+                    const reqItem = ITEMS.find(it => it.id === item.reqItemId);
+                    hint = reqItem ? reqItem.name : "아이템";
+                }
                 if (hint) {
                     // 배경 작은 박스
                     ctx.font = "bold 10px system-ui";
@@ -4192,25 +4202,32 @@ function drawHUD() {
         ctx.textAlign = "center";
     }
 
-    // === 침입 카운트다운 ===
+    // === 농장 과포화 경고 (유예 라운드) ===
     if (overflowActive) {
-        const sec = Math.max(0, Math.ceil(overflowTimer / 60));
-        // 화면 가장자리 빨간 펄스
+        const isFinalRound = wave > overflowGraceWave; // 유예 라운드 진행 중
         const pulse = 0.3 + 0.2 * Math.sin(frame * 0.2);
-        ctx.fillStyle = `rgba(244,67,54,${pulse * 0.15})`;
+        const tint = isFinalRound ? "rgba(244,67,54," : "rgba(255,152,0,";
+        ctx.fillStyle = tint + (pulse * 0.15) + ")";
         ctx.fillRect(0, 0, CW, CH);
-        // 중앙 카운트다운 (게임 영역 상단)
+        // 중앙 경고 박스
         ctx.fillStyle = "rgba(0,0,0,0.78)";
         ctx.beginPath();
-        ctx.roundRect(CW / 2 - 130, 130, 260, 80, 14);
+        ctx.roundRect(CW / 2 - 150, 130, 300, 78, 14);
         ctx.fill();
-        ctx.strokeStyle = "#F44336"; ctx.lineWidth = 2.5;
+        ctx.strokeStyle = isFinalRound ? "#F44336" : "#FF9800"; ctx.lineWidth = 2.5;
         ctx.stroke();
-        ctx.fillStyle = "#fff"; ctx.font = "bold 16px system-ui";
-        const warnMsg = overflowReason === "boss" ? "보스 다중 침입 경고!" : "농장 과포화 경고!";
+        ctx.fillStyle = "#fff"; ctx.font = "bold 15px system-ui";
+        const warnMsg = overflowReason === "boss" ? "보스 다중 침입!" : "농장 과포화!";
         ctx.fillText(warnMsg, CW / 2, 152);
-        ctx.fillStyle = "#F44336"; ctx.font = "bold 38px system-ui";
-        ctx.fillText(`${sec}`, CW / 2, 188);
+        ctx.fillStyle = isFinalRound ? "#F44336" : "#FFB74D";
+        ctx.font = "bold 13px system-ui";
+        if (isFinalRound) {
+            ctx.fillText(`마지막 기회! 라운드 종료까지 정리하라`, CW / 2, 178);
+        } else {
+            ctx.fillText(`다음 라운드 종료까지 정리해야 한다`, CW / 2, 178);
+        }
+        ctx.fillStyle = "#fff"; ctx.font = "bold 11px system-ui";
+        ctx.fillText(`(한 번이라도 안전 시 해제)`, CW / 2, 196);
     }
 
     // === 컷신 오버레이 ===
@@ -4703,12 +4720,21 @@ const SELL_ZONE = { x: CW - 92, y: 100, w: 80, h: 60 };
 // 리더보드 버튼 (낮밤 배지 옆, 위)
 const LB_BTN = { x: 110, y: 10, w: 40, h: 36 };
 
+// 친밀도 5단위 판매 배수 (기본 이브이만): 1, 5, 10, 15, 20, 25, ...
+// F0~4=×1, F5~9=×5, F10~14=×10, F15~19=×15 ...
+function getFriendshipSellMul(ee) {
+    if (ee.sprite !== "이브이.png") return 1; // 진화체는 적용 X
+    const f = ee.friendship || 0;
+    const tier = Math.floor(f / 5);
+    if (tier === 0) return 1;
+    return tier * 5; // ×5, ×10, ×15, ×20 …
+}
+
 function getSellPrice(ee) {
     // 기본 이브이는 구매가 절반, 진화체는 누적 투자가 일부 환불
     const isEvolved = ee.sprite !== "이브이.png";
     let price = 15; // 기본값 (이브이 30의 절반)
     if (isEvolved) {
-        // 진화 비용 추정 (60~150) + 레벨업 비용 누적
         price = 50;
     }
     // 레벨업 비용 누적 환불 (50%)
@@ -4718,6 +4744,8 @@ function getSellPrice(ee) {
         lvlInvest += getLevelUpCost(tmp);
     }
     price += Math.floor(lvlInvest * 0.5);
+    // 친밀도 배수 (기본 이브이 한정 — 재테크 시스템)
+    price = Math.floor(price * getFriendshipSellMul(ee));
     return price;
 }
 
@@ -4964,7 +4992,7 @@ function onDown(e) {
         coins = 50; eeveesBought = 0; bossKillCount = 0;
         selectedEevee = null; selectedMonster = null; selectedItem = null; selectedRock = null;
         wave = 0; gameState = "wave_interval"; waveIntervalTimer = WAVE_INTERVAL;
-        overflowActive = false; overflowTimer = 0;
+        overflowActive = false; overflowTimer = 0; overflowGraceWave = -1;
         scoreSubmitted = false;
         closeNicknameInput();
         spawnEevee("이브이.png", 5, 70, 110, "normal");
