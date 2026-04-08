@@ -664,12 +664,12 @@ const SHOP_ITEMS = [
     { id:"giga_stone",    name:"거대화석", cost:350, type:"itemHeld", evoIdx:8,  reqLevel:20, reqFriend:15, sprite:"왕이브이.png", tier:"fan", reqItemId:"clay" },
     { id:"mega_stone",    name:"메가스톤", cost:350, type:"itemHeld", evoIdx:9,  reqLevel:20, reqFriend:15, sprite:"이브이메가.png", tier:"fan", reqItemId:"glasses" },
     { id:"metal_rock",    name:"강철바위", cost:300, type:"itemHeld", evoIdx:10, reqLevel:20, reqFriend:15, sprite:"이브이강철.png", tier:"fan", reqItemId:"focus" },
-    { id:"rock_buddy",    name:"록기파트너", cost:350, type:"buddy", evoIdx:16, reqLevel:20, reqFriend:15, sprite:"이브이바위.png", tier:"fan", reqBuddySprite:"이브이강철.png" },
+    { id:"rock_buddy",    name:"록기파트너", cost:350, type:"itemHeld", evoIdx:16, reqLevel:20, reqFriend:15, sprite:"이브이바위.png", tier:"fan", reqItemId:"claw" },
     { id:"dragon_proof",  name:"드래곤증표", cost:320, type:"bossKill", evoIdx:13, reqLevel:20, reqFriend:15, sprite:"이브이드래곤.png", tier:"fan", reqBossKills:5 },
     { id:"shadow_charm",  name:"어둠의부적", cost:280, type:"timed", evoIdx:12, reqLevel:20, reqFriend:15, sprite:"이브이고스트.png", tier:"fan", reqDay:false },
     { id:"sky_charm",     name:"바람의부적", cost:280, type:"timed", evoIdx:18, reqLevel:20, reqFriend:15, sprite:"이브이비행.png", tier:"fan", reqDay:true },
-    { id:"fight_belt",    name:"투지의띠", cost:270, type:"killCount", evoIdx:11, reqLevel:20, reqFriend:15, sprite:"이브이격투.png", tier:"fan", reqKills:5 },
-    { id:"venom_fang",    name:"독니",     cost:270, type:"specificKill", evoIdx:14, reqLevel:20, reqFriend:15, sprite:"이브이독.png", tier:"fan", reqKillName:"매시붕" },
+    { id:"fight_belt",    name:"투지의띠", cost:270, type:"itemHeld", evoIdx:11, reqLevel:20, reqFriend:15, sprite:"이브이격투.png", tier:"fan", reqItemId:"belt" },
+    { id:"venom_fang",    name:"독니",     cost:270, type:"itemHeld", evoIdx:14, reqLevel:20, reqFriend:15, sprite:"이브이독.png", tier:"fan", reqItemId:"fang" },
     { id:"earth_helmet",  name:"대지의투구", cost:270, type:"itemHeld", evoIdx:15, reqLevel:20, reqFriend:15, sprite:"이브이땅.png", tier:"fan", reqItemId:"helmet" },
     { id:"bug_charm",     name:"벌레부적", cost:250, type:"friend2", evoIdx:17, reqLevel:20, reqFriend:20, sprite:"이브이벌레.png", tier:"fan" },
 ];
@@ -4719,14 +4719,14 @@ const SELL_ZONE = { x: CW - 92, y: 100, w: 80, h: 60 };
 // 리더보드 버튼 (낮밤 배지 옆, 위)
 const LB_BTN = { x: 110, y: 10, w: 40, h: 36 };
 
-// 친밀도 5단위 판매 배수 (기본 이브이만): 1, 5, 10, 15, 20, 25, ...
-// F0~4=×1, F5~9=×5, F10~14=×10, F15~19=×15 ...
+// 친밀도 5단위 판매 배수 (기본 이브이만): 1, 3, 6, 9, 12, 15, ...
+// F0~4=×1, F5~9=×3, F10~14=×6, F15~19=×9, F20~24=×12 ...
 function getFriendshipSellMul(ee) {
     if (ee.sprite !== "이브이.png") return 1; // 진화체는 적용 X
     const f = ee.friendship || 0;
     const tier = Math.floor(f / 5);
     if (tier === 0) return 1;
-    return tier * 5; // ×5, ×10, ×15, ×20 …
+    return tier * 3; // ×3, ×6, ×9, ×12 …
 }
 
 function getSellPrice(ee) {
