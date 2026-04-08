@@ -2134,6 +2134,9 @@ function update() {
     if (!testMode && waveTimer <= 0) {
         wave++;
         setupWave(wave);
+        // 라운드 클리어 보상: 진입한 라운드 번호만큼 골드 지급
+        coins += wave;
+        coinTexts.push({ x: CW / 2, y: 220, text: `+${wave}골드 (W${wave})`, life: 70, color: "#FFD700" });
         for (const ee of eevees) {
             if (ee.sprite === "이브이.png") ee.friendship++;
         }
