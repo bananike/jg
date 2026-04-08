@@ -1945,15 +1945,13 @@ function setupWave(w) {
     // 몬스터 종류 해금: 7웨이브 구간마다 1종씩 (W1~6: 1종, W7~13: 2종, W14~20: 3종 …)
     unlocked = Math.min(Math.floor((w - 1) / 7) + 1, monPool.length);
 
-    // 마릿수
+    // 마릿수 (W10 점프 제거 — W5~20을 하나의 곡선으로 통일)
     if (w <= 4) {
         count = 2 + w;                   // W1:3 W2:4 W3:5 W4:6
-    } else if (w <= 9) {
-        count = 6 + w;                   // W5:11 W9:15
     } else if (w <= 20) {
-        count = 10 + w;                  // W10:20 W20:30
+        count = 5 + w;                   // W5:10 W9:14 W10:15 W15:20 W20:25
     } else if (w <= 50) {
-        count = 14 + Math.floor(w * 1.2); // W30:50 W50:74
+        count = 14 + Math.floor(w * 1.2); // W21:39 W30:50 W50:74
     } else {
         count = 30 + Math.floor(w * 1.8); // W60:138 W80:174 W100:210
     }
