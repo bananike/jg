@@ -1947,15 +1947,15 @@ function setupWave(w) {
     // 몬스터 종류 해금: 7웨이브 구간마다 1종씩 (W1~6: 1종, W7~13: 2종, W14~20: 3종 …)
     unlocked = Math.min(Math.floor((w - 1) / 7) + 1, monPool.length);
 
-    // 마릿수 (W10 점프 제거 — W5~20을 하나의 곡선으로 통일)
+    // 마릿수 (W20/W50 점프 제거 — 매 라운드 부드럽게 1마리씩 증가)
     if (w <= 4) {
-        count = 2 + w;                   // W1:3 W2:4 W3:5 W4:6
-    } else if (w <= 20) {
-        count = 5 + w;                   // W5:10 W9:14 W10:15 W15:20 W20:25
-    } else if (w <= 50) {
-        count = 14 + Math.floor(w * 1.2); // W21:39 W30:50 W50:74
+        count = 2 + w;                   // W1:3 W4:6
+    } else if (w <= 30) {
+        count = 5 + w;                   // W5:10 W20:25 W30:35
+    } else if (w <= 60) {
+        count = 5 + Math.floor(w * 1.15); // W31:40 W50:62 W60:74
     } else {
-        count = 30 + Math.floor(w * 1.8); // W60:138 W80:174 W100:210
+        count = 5 + Math.floor(w * 1.5);  // W61:96 W80:125 W100:155
     }
 
     // 레이드 웨이브 (100의 배수) — 페이즈2 변신 보스 단독
@@ -2136,11 +2136,10 @@ function update() {
     if (!testMode && waveTimer <= 0) {
         wave++;
         setupWave(wave);
-        // 라운드 클리어 보상: 진입한 라운드 번호만큼 골드 지급
-        const reward = wave;
+        // 라운드 클리어 보상: 라운드 번호 × 3 골드
+        const reward = wave * 3;
         coins += reward;
         coinTexts.push({ x: CW / 2, y: 200, text: `라운드 보상 +${reward}`, life: 100, color: "#FFD700" });
-        // 코인 아이콘 위치에서도 한 번 더 표시
         coinTexts.push({ x: CW - 80, y: 80, text: `+${reward}`, life: 60, color: "#FFD700" });
         for (const ee of eevees) {
             if (ee.sprite === "이브이.png") ee.friendship++;
@@ -2530,9 +2529,9 @@ function update() {
             if (m.isBoss) bossKillCount++;
             // 코인 보상
             let reward;
-            if (m.isRaid) reward = 150 + wave * 20;
-            else if (m.isBoss) reward = 60 + wave * 12;
-            else reward = 6 + Math.floor(wave * 1.0);
+            if (m.isRaid) reward = 200 + wave * 30;
+            else if (m.isBoss) reward = 80 + wave * 18;
+            else reward = 8 + Math.floor(wave * 1.6);
             coins += reward;
             coinTexts.push({ x: m.x, y: m.y - 15, text: `+${reward}`, life: 50 });
 
