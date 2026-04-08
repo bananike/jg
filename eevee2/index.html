@@ -97,11 +97,11 @@ const FARM_RADIUS = 145;
 const ORBIT_RADIUS = FARM_RADIUS + 50;
 const ISO_Y = 0.7; // 아이소메트릭 Y 압축 비율 (1.0=탑뷰, 0.5=납작)
 const ENTRY_X = CW + 40;
-const WAVE_TIME = 30 * 60;
+const WAVE_TIME = 60 * 60;
 const WAVE_INTERVAL = 3 * 60;
 
 function getWaveTime(w) {
-    return WAVE_TIME; // 모든 라운드 30초 고정
+    return WAVE_TIME; // 모든 라운드 60초 고정
 }
 
 // 불릿 타입별 설정
@@ -5079,9 +5079,11 @@ function onUp(e) {
 
     // 1. 상점 패널 클릭 (선택된 이브이가 기본 이브이일 때)
     if (selectedEevee && selectedEevee.sprite === "이브이.png" && tap.y >= EVO_PANEL_Y && tap.y <= EVO_PANEL_Y + EVO_PANEL_H) {
-        const totalW = currentVisibleShop.length * EVO_ICON_W;
+        // 그리기와 동일한 동적 iconW 사용 (그리기 코드와 일치해야 함)
+        const iconW = Math.min(72, Math.floor((CW - 30) / Math.max(1, currentVisibleShop.length)));
+        const totalW = currentVisibleShop.length * iconW;
         const startX = CW / 2 - totalW / 2;
-        const idx = Math.floor((tap.x - startX) / EVO_ICON_W);
+        const idx = Math.floor((tap.x - startX) / iconW);
         if (idx >= 0 && idx < currentVisibleShop.length) {
             buyShopItem(selectedEevee, currentVisibleShop[idx].id);
             return;
