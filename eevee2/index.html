@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>이브이 타워디펜스</title>
-<link rel="icon" type="image/png" href="../eevee/image/이브이.png">
-<link rel="apple-touch-icon" href="../eevee/image/이브이.png">
+<link rel="icon" type="image/png" href="image/이브이.png">
+<link rel="apple-touch-icon" href="image/이브이.png">
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }
 body { background:#0a0a12; display:flex; justify-content:center; align-items:center; height:100vh; overflow:hidden; }
@@ -18,7 +18,7 @@ canvas { display:block; }
 <script>
 const canvas = document.getElementById("c");
 const ctx = canvas.getContext("2d");
-const CW = 640, CH = 800;
+const CW = 480, CH = 960;
 // 모바일 성능 최적화: DPR 최대 2로 캡 (iPhone DPR 3 → 2)
 const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -53,22 +53,48 @@ const IMAGE_LIST = [
     "왕이브이.png","이브이메가.png","이브이격투.png","이브이고스트.png","이브이드래곤.png",
     "이브이땅.png","이브이바위.png","이브이비행.png","이브이강철.png","이브이독.png","이브이벌레.png",
 ];
-totalImages = IMAGE_LIST.length;
+// 배경 + 울타리
+const LOCAL_IMAGES = ["bg/bg-day.png", "bg/bg-night.png", "bg/fence.png"];
+// 스킬 이펙트 아이콘 (game-icons.net, 흰색 + 투명, 코드에서 틴트)
+const FX_ICONS = [
+    "explosion1","explosion2","fireFang","meteor","iceFang","blizzard",
+    "lightning1","thunderbolt","quickAttack","leafBlade","solarBeam","seedBomb",
+    "poisonFang","venom","toxic","psychic","psychoShock","shadow",
+    "darkPulse","darkBall","sleep","sparkle","heart","waterDrop",
+    "hydroPump","whirlpool","punch","dragonPulse","dig","rockSlide",
+    "scissor","airSlash","metalHead",
+];
+totalImages = IMAGE_LIST.length + LOCAL_IMAGES.length + FX_ICONS.length;
 for (const name of IMAGE_LIST) {
     const img = new Image();
     img.onload = () => { imagesLoaded++; };
     img.onerror = () => { imagesLoaded++; };
-    img.src = `../eevee/image/${name}`;
+    img.src = `image/${name}`;
     images[name] = img;
+}
+for (const name of LOCAL_IMAGES) {
+    const img = new Image();
+    img.onload = () => { imagesLoaded++; };
+    img.onerror = () => { imagesLoaded++; };
+    img.src = `image/${name}`;
+    images[name] = img;
+}
+// FX 아이콘 로드 (icons/{key}.png)
+for (const key of FX_ICONS) {
+    const img = new Image();
+    img.onload = () => { imagesLoaded++; };
+    img.onerror = () => { imagesLoaded++; };
+    img.src = `image/icons/${key}.png`;
+    images[`fx/${key}`] = img;
 }
 
 // ═══════════════════════════════════════════
 // 게임 상수
 // ═══════════════════════════════════════════
 const FARM_CX = CW / 2;
-const FARM_CY = CH / 2 - 20;
-const FARM_RADIUS = 180;
-const ORBIT_RADIUS = FARM_RADIUS + 55;
+const FARM_CY = 480; // 농장 + 몬스터 궤도까지 패널(680) 위로 여유 확보
+const FARM_RADIUS = 145;
+const ORBIT_RADIUS = FARM_RADIUS + 50;
 const ISO_Y = 0.7; // 아이소메트릭 Y 압축 비율 (1.0=탑뷰, 0.5=납작)
 const ENTRY_X = CW + 40;
 const WAVE_TIME = 30 * 60;
@@ -156,14 +182,14 @@ try { tutorialSeen = localStorage.getItem("eevee2_tutorial_seen") === "1"; } cat
 const TUTORIAL_STEPS = [
     { msg: "이브이를 탭해서 선택해보세요" },
     { msg: "이브이를 드래그해서\n표시된 위치로 옮겨보세요" },
-    { msg: "이브이는 자동으로 몬스터를 공격합니다" },
-    { msg: "좌측 ▲ 레벨업으로 강화하세요" },
-    { msg: "+ 이브이 버튼으로 동료를 영입하세요" },
+    { msg: "이브이는 자동으로\n몬스터를 공격합니다" },
+    { msg: "하단 우측 ▲ 레벨업으로\n선택한 이브이를 강화하세요" },
+    { msg: "하단 좌측 + 이브이 버튼으로\n동료를 영입하세요" },
 ];
 
 // 튜토리얼 드래그 목표 위치 (농장 우측)
 function getTutorialTargetPos() {
-    return { x: FARM_CX + 130, y: FARM_CY };
+    return { x: FARM_CX + 100, y: FARM_CY };
 }
 
 function startTutorial() {
@@ -265,10 +291,19 @@ function fetchRanking() {
 }
 
 function submitScore(nickname, waveVal, evolvedVal) {
+    const payload = { action: "eevee2_submit", nickname, wave: waveVal, evolved: evolvedVal, deviceId };
+    console.log("[ranking] submit", payload);
     return fetch(RANKING_URL, {
         method: "POST",
-        body: JSON.stringify({ action: "eevee2_submit", nickname, wave: waveVal, evolved: evolvedVal, deviceId }),
-    }).then(r => r.json()).then(() => fetchRanking());
+        body: JSON.stringify(payload),
+    })
+    .then(r => r.text())
+    .then(t => {
+        console.log("[ranking] response", t);
+        try { return JSON.parse(t); } catch(_) { return null; }
+    })
+    .then(() => fetchRanking())
+    .catch(err => console.error("[ranking] error", err));
 }
 
 function countEvolved() {
@@ -307,6 +342,86 @@ let selectedItem = null;
 let selectedRock = null;
 
 // ═══════════════════════════════════════════
+// 테스트 모드 (스킬 이펙트 디버그용)
+// ═══════════════════════════════════════════
+let testMode = false;
+let testEvoIdx = -1; // -1 = 기본 이브이, 0~18 = EVOLUTIONS 인덱스
+const TEST_TOGGLE_BTN = { x: CW - 100, y: 10, w: 90, h: 28 };
+const TEST_NEXT_BTN   = { x: CW - 100, y: 42, w: 90, h: 28 };
+
+function getTestSpriteName() {
+    if (testEvoIdx === -1) return "이브이.png";
+    return EVOLUTIONS[testEvoIdx].sprite;
+}
+function getTestDisplayName() {
+    if (testEvoIdx === -1) return "이브이";
+    return EVOLUTIONS[testEvoIdx].name;
+}
+
+function setupTestScene() {
+    // 모든 엔티티 클리어
+    eevees.length = 0;
+    monsters.length = 0;
+    projectiles.length = 0;
+    waveSpawnQueue.length = 0;
+    skillEffects.length = 0;
+    particles.length = 0;
+    coinTexts.length = 0;
+    selectedEevee = null;
+    selectedMonster = null;
+
+    // 테스트용 이브이 1마리 생성 → 진화 적용 → Lv50
+    spawnEevee("이브이.png", 5, 70, 110, "normal");
+    const ee = eevees[0];
+    ee.x = FARM_CX - 60;
+    ee.y = FARM_CY + 10;
+    if (testEvoIdx >= 0) {
+        applyEvolution(ee, testEvoIdx);
+    }
+    ee.level = 50;
+    // 스탯 부풀리기 (이펙트 잘 발동되게)
+    ee.atk = 999;
+    ee.spAtk = 999;
+    ee.atkSpeed = 30;
+    ee.range = 250;
+    ee.friendship = 99;
+
+    // 테스트 더미 몬스터 1마리 (고정, HP 거대)
+    const dummy = spawnMonster("테스트더미", "mon/차곡차곡.png", 9999999, 0, 0, 0, ["normal"], false);
+    dummy.x = FARM_CX + 60;
+    dummy.y = FARM_CY + 10;
+    dummy.phase = "orbit";
+    dummy.spd = 0;
+    dummy.isTestDummy = true;
+    dummy.maxHp = 9999999;
+}
+
+function toggleTestMode() {
+    testMode = !testMode;
+    if (testMode) {
+        gameState = "playing";
+        setupTestScene();
+    } else {
+        // 일반 게임으로 복귀: 더미와 강화 이브이 정리하고 새로 시작
+        eevees.length = 0;
+        monsters.length = 0;
+        projectiles.length = 0;
+        waveSpawnQueue.length = 0;
+        skillEffects.length = 0;
+        spawnEevee("이브이.png", 5, 70, 110, "normal");
+        wave = 0;
+        gameState = "wave_interval";
+        waveIntervalTimer = WAVE_INTERVAL;
+    }
+}
+
+function nextTestEevee() {
+    testEvoIdx++;
+    if (testEvoIdx >= EVOLUTIONS.length) testEvoIdx = -1;
+    setupTestScene();
+}
+
+// ═══════════════════════════════════════════
 // 아이템 (글로벌 패시브, 보스 드롭)
 // ═══════════════════════════════════════════
 const ITEMS = [
@@ -328,55 +443,59 @@ function hasItem(id) { return inventory.has(id); }
 
 // 아이템 적용된 effective 스탯
 function getEeveeRange(ee) {
-    let r = ee.range * (hasItem("wide") ? 1.15 : 1);
+    let r = ee.range * (hasItem("wide") ? 1.08 : 1);
     if (ee.boostBuff > 0) r *= 1.3;
+    if (ee.skillBuff && ee.skillBuff.range > 0) r *= 1.20;
+    // 이끼바위 주변 사거리 +20%
+    const mossR = getRockBuffRadius("moss");
+    for (const rk of rocks) {
+        if (rk.type !== "moss") continue;
+        const dx = ee.x - rk.x, dy = (ee.y - rk.y) / ISO_Y;
+        if (dx * dx + dy * dy < mossR * mossR) { r *= 1.20; break; }
+    }
     return r;
 }
 function getEeveeAtkSpeed(ee) {
-    let s = ee.atkSpeed * (hasItem("claw") ? 0.85 : 1);
+    let s = ee.atkSpeed * (hasItem("claw") ? 0.92 : 1);
     if (ee.boostBuff > 0) s *= 0.65;
+    if (ee.skillBuff && ee.skillBuff.spd > 0) s *= 0.75;
     return Math.max(4, Math.floor(s));
 }
 function getEeveeAtk(ee) {
     let v = ee.atk;
     if (ee.boostBuff > 0) v *= 1.5;
-    // 강철바위 주변 +10%
+    if (ee.skillBuff && ee.skillBuff.atk > 0) v *= 1.3;
+    // 강철바위 주변 +6%
     const metalR = getRockBuffRadius("metal");
     for (const r of rocks) {
         if (r.type !== "metal") continue;
         const dx = ee.x - r.x, dy = (ee.y - r.y) / ISO_Y;
-        if (dx * dx + dy * dy < metalR * metalR) { v *= 1.10; break; }
+        if (dx * dx + dy * dy < metalR * metalR) { v *= 1.06; break; }
     }
     return v;
 }
 function getEeveeSpAtk(ee) {
-    let s = (ee.spAtk || 0) * (hasItem("glasses") ? 1.25 : 1);
+    let s = (ee.spAtk || 0) * (hasItem("glasses") ? 1.15 : 1);
     if (ee.boostBuff > 0) s *= 1.5;
+    if (ee.skillBuff && ee.skillBuff.atk > 0) s *= 1.3;
     return s;
 }
-// 바위 종류별 추가 반경 보너스 (리피아 → 이끼, 글레이시아 → 얼음, 메탈리아 → 강철)
-function getRockExtraBonus(rockType) {
-    let bonus = 0;
-    let targetSprite;
-    if (rockType === "moss") targetSprite = "리피아.png";
-    else if (rockType === "ice") targetSprite = "글레이시아.png";
-    else if (rockType === "metal") targetSprite = "이브이강철.png";
-    if (!targetSprite) return 0;
-    for (const ee of eevees) {
-        if (ee.sprite === targetSprite) {
-            bonus += (ee.level - 1) * 0.05;
-        }
-    }
-    return bonus;
-}
 function getRockBuffRadius(rockType)  {
-    let r = ROCK_BUFF_RADIUS * (hasItem("clay") ? 1.5 : 1);
-    if (rockType) r *= (1 + getRockExtraBonus(rockType));
-    return r;
+    return ROCK_BUFF_RADIUS * (hasItem("clay") ? 1.25 : 1);
 }
 
-function getEeveeCost() { return 30; }
+function getEeveeCost() { return 30 + eeveesBought * 5; }
 function getEeveeMaxSlots() { return Math.min(20, 2 + Math.floor(wave / 5)); } // 시작 2, 5웨이브당 +1, 최대 20
+
+// 팬메이드 진화체 스프라이트 (스킬 해금 레벨 분기용)
+const FAN_SPRITES = new Set([
+    "왕이브이.png","이브이메가.png","이브이강철.png","이브이격투.png","이브이고스트.png",
+    "이브이독.png","이브이드래곤.png","이브이땅.png","이브이바위.png","이브이벌레.png","이브이비행.png"
+]);
+function isFanMade(ee) { return FAN_SPRITES.has(ee.sprite); }
+function getSkill1Unlock(ee) { return isFanMade(ee) ? 15 : 5; }
+function getSkill2Unlock(ee) { return isFanMade(ee) ? 25 : 10; }
+function getSkill3Unlock(ee) { return isFanMade(ee) ? 45 : 30; }
 
 // 진화 데이터 (원작 종합 능력치 반영)
 // category: phys = 물리공격(일반공격에 해당), spec = 특수공격(스킬에 해당, 추후 구현)
@@ -436,6 +555,46 @@ const TYPE_CHART = {
     fairy:    { fire:0.5, fighting:2, poison:0.5, dragon:2, dark:2, steel:0.5 },
 };
 
+// 18타입 색상 (포켓몬 공식 컬러)
+const TYPE_COLORS = {
+    normal:   "#A8A878",
+    fighting: "#C03028",
+    flying:   "#A890F0",
+    poison:   "#A040A0",
+    ground:   "#E0C068",
+    rock:     "#B8A038",
+    bug:      "#A8B820",
+    ghost:    "#705898",
+    steel:    "#5A8FB0",
+    fire:     "#F08030",
+    water:    "#6890F0",
+    grass:    "#78C850",
+    electric: "#F8D030",
+    psychic:  "#F85888",
+    ice:      "#98D8D8",
+    dragon:   "#7038F8",
+    dark:     "#705848",
+    fairy:    "#EE99AC",
+};
+function getTypeColor(type) { return TYPE_COLORS[type] || "#888"; }
+
+// 18타입 한글명
+const TYPE_NAMES_KO = {
+    normal:"노말", fighting:"격투", flying:"비행", poison:"독", ground:"땅",
+    rock:"바위", bug:"벌레", ghost:"고스트", steel:"강철", fire:"불꽃",
+    water:"물", grass:"풀", electric:"전기", psychic:"에스퍼", ice:"얼음",
+    dragon:"드래곤", dark:"악", fairy:"페어리",
+};
+function typeNameKo(type) { return TYPE_NAMES_KO[type] || type; }
+
+// 상태이상 한글명
+const STATUS_NAMES_KO = {
+    burn:"화상", poison:"독", freeze:"빙결", paralysis:"마비",
+    sleep:"잠듦", slow:"둔화",
+    defDown:"방어 감소", mDefDown:"물리방어 감소", sDefDown:"특수방어 감소",
+};
+function statusNameKo(key) { return STATUS_NAMES_KO[key] || key; }
+
 function typeMul(atkType, defType) {
     if (!atkType || !defType) return 1;
     if (atkType === "normal" || defType === "normal") return 1; // 노멀은 항상 1배
@@ -443,8 +602,8 @@ function typeMul(atkType, defType) {
     if (!row) return 1;
     const v = row[defType];
     if (v === undefined) return 1;
-    if (v >= 2) return hasItem("belt") ? 1.4 : 1.2;   // 효과적 (달인의띠)
-    if (v <= 0.5) return hasItem("focus") ? 1.0 : 0.8; // 별로 (초점렌즈로 무시)
+    if (v >= 2) return hasItem("belt") ? 1.3 : 1.2;   // 효과적 (달인의띠 +0.1)
+    if (v <= 0.5) return hasItem("focus") ? 0.9 : 0.8; // 별로 (초점렌즈로 완화)
     return 1;
 }
 
@@ -457,6 +616,34 @@ function totalTypeMul(atkType, target) {
         return m;
     }
     return typeMul(atkType, target.type);
+}
+
+// ═══════════════════════════════════════════
+// 밤낮 보너스 (타입 패시브 + 스킬 오버라이드)
+// ═══════════════════════════════════════════
+const DAY_TYPES = new Set(["fire","grass","normal","rock","ground","bug","flying"]);
+const NIGHT_TYPES = new Set(["dark","ghost","ice","psychic","poison","fairy","dragon"]);
+const DAY_TYPE_BONUS = 1.2;
+const NIGHT_TYPE_BONUS = 1.2;
+
+// 스킬에 dayMul/nightMul이 있으면 그걸 우선, 없으면 타입 패시브 적용
+// 반환: { mul, isDay, isBoosted }
+function getDayNightMul(atkType, skill) {
+    const day = isDayWave();
+    if (skill) {
+        if (day && skill.dayMul !== undefined) return { mul: skill.dayMul, isDay: true, isBoosted: skill.dayMul > 1.05 };
+        if (!day && skill.nightMul !== undefined) return { mul: skill.nightMul, isDay: false, isBoosted: skill.nightMul > 1.05 };
+        // 반대 조건일 때 페널티가 정의돼 있으면 적용 (예: 솔라빔은 밤에 약함)
+        if (day && skill.nightMul !== undefined && skill.dayMul === undefined && skill.nightMul > 1.05) {
+            // 밤 강화 스킬은 낮엔 평범 (페널티 없음)
+        }
+        if (!day && skill.dayMul !== undefined && skill.nightMul === undefined && skill.dayMul > 1.05) {
+            // 낮 강화 스킬은 밤엔 평범
+        }
+    }
+    if (day && DAY_TYPES.has(atkType)) return { mul: DAY_TYPE_BONUS, isDay: true, isBoosted: true };
+    if (!day && NIGHT_TYPES.has(atkType)) return { mul: NIGHT_TYPE_BONUS, isDay: false, isBoosted: true };
+    return { mul: 1, isDay: day, isBoosted: false };
 }
 
 // 상점 아이템 (이브이 탭 시 표시)
@@ -494,83 +681,295 @@ const SHOP_ITEMS = [
 // ═══════════════════════════════════════════
 const SKILLS = {
     "샤미드.png": {
-        phys: { name:"물기",         effect:"melee",  mul:1.8, cd:240, color:"#4FC3F7", status:"defDown", statusChance:0.30, statusDur:180 },
-        spec: { name:"하이드로펌프", effect:"single", mul:2.6, cd:380, color:"#0288D1", status:"defDown", statusChance:0.45, statusDur:240 },
+        phys: { name:"물기",         effect:"melee",  mul:1.8, cd:240, color:"#4FC3F7", status:"slow", statusChance:0.30, statusDur:180, fx:"waterDrop" },
+        spec: { name:"하이드로펌프", effect:"pierce", mul:2.4, cd:380, color:"#0288D1", fx:"hydroPump", fxScale:1.5 },
+        ult:  { name:"소용돌이",     effect:"field",  mul:0.8, cd:480, color:"#01579B", fieldRadius:75, fieldDur:180, fx:"whirlpool", fxScale:1.6 },
     },
     "쥬피썬더.png": {
-        phys: { name:"전광석화",     effect:"dash",   mul:1.5, cd:180, color:"#FFEB3B", status:"paralysis", statusChance:0.25, statusDur:90 },
-        spec: { name:"10만볼트",     effect:"chain",  mul:1.6, cd:300, color:"#FFEB3B", chainRange:90, chainCount:3, status:"paralysis", statusChance:0.35, statusDur:120 },
+        phys: { name:"전광석화",     effect:"dash",   mul:1.5, cd:180, color:"#FFEB3B", status:"paralysis", statusChance:0.25, statusDur:90, fx:"quickAttack" },
+        spec: { name:"10만볼트",     effect:"chain",  mul:1.6, cd:300, color:"#FFEB3B", chainRange:90, chainCount:3, status:"paralysis", statusChance:0.35, statusDur:120, fx:"thunderbolt", fxScale:1.4 },
+        ult:  { name:"번개",         effect:"single", mul:3.0, cd:480, color:"#FFC107", status:"paralysis", statusChance:1.0, statusDur:60, fx:"lightning1", fxScale:1.7 },
     },
     "부스터.png": {
-        phys: { name:"불꽃엄니",     effect:"melee",  mul:2.0, cd:240, color:"#FF7043", status:"burn", statusChance:0.30, statusDur:180, statusDmg:3 },
-        spec: { name:"오버히트",     effect:"aoe",    mul:1.6, cd:380, color:"#FF5722", aoeRadius:70, status:"burn", statusChance:0.50, statusDur:240, statusDmg:5 },
+        phys: { name:"불꽃엄니",     effect:"melee",  mul:2.0, cd:240, color:"#FF7043", status:"burn", statusChance:0.30, statusDur:180, statusDmg:3, fx:"fireFang" },
+        // 오버히트/대폭발: 낮(태양)에 강화
+        spec: { name:"오버히트",     effect:"aoe",    mul:1.6, cd:380, color:"#FF5722", aoeRadius:70, status:"burn", statusChance:0.50, statusDur:240, statusDmg:5, fx:"explosion1", fxScale:1.6, dayMul:1.35 },
+        ult:  { name:"대폭발",       effect:"aoe",    mul:2.5, cd:600, color:"#BF360C", aoeRadius:110, status:"burn", statusChance:0.80, statusDur:240, statusDmg:6, fx:"meteor", fxImpact:"explosion2", fxScale:2.0, dayMul:1.4 },
     },
     "에브이.png": {
-        phys: { name:"이판사판",     effect:"dash",   mul:1.7, cd:240, color:"#CE93D8", status:"sleep", statusChance:0.20, statusDur:120 },
-        spec: { name:"사이코쇼크",   effect:"single", mul:2.7, cd:380, color:"#AB47BC", status:"sleep", statusChance:0.30, statusDur:180 },
+        phys: { name:"염동력",       effect:"single", mul:1.7, cd:240, color:"#CE93D8", status:"sDefDown", statusChance:0.30, statusDur:240, fx:"psychic" },
+        spec: { name:"사이코쇼크",   effect:"single", mul:2.7, cd:380, color:"#AB47BC", status:"sDefDown", statusChance:0.50, statusDur:300, fx:"psychoShock", fxScale:1.5 },
+        // 미래예지: 밤(달)에 강화
+        ult:  { name:"미래예지",     effect:"delayed",mul:3.5, cd:540, color:"#7B1FA2", aoeRadius:90, delay:120, fx:"psychoShock", fxScale:1.8, nightMul:1.4 },
     },
     "블래키.png": {
-        phys: { name:"깨물어부수기", effect:"melee",  mul:2.0, cd:240, color:"#7986CB", status:"defDown", statusChance:0.35, statusDur:240 },
-        spec: { name:"악의파동",     effect:"aoe",    mul:1.5, cd:380, color:"#5C6BC0", aoeRadius:75, status:"defDown", statusChance:0.50, statusDur:300 },
+        phys: { name:"깨물어부수기", effect:"melee",  mul:2.0, cd:240, color:"#7986CB", status:"mDefDown", statusChance:0.35, statusDur:240, fx:"shadow" },
+        // 악의파동: 밤(어둠)에 강화
+        spec: { name:"악의파동",     effect:"aoe",    mul:1.5, cd:380, color:"#5C6BC0", aoeRadius:75, status:"mDefDown", statusChance:0.50, statusDur:300, fx:"darkPulse", fxScale:1.6, nightMul:1.4 },
+        ult:  { name:"나쁜음모",     effect:"buff",   mul:0,   cd:480, color:"#3F51B5", buffType:"atk", buffRadius:90, buffDur:480, fx:"darkBall", fxScale:1.4 },
     },
     "리피아.png": {
-        phys: { name:"잎날",         effect:"single", mul:1.8, cd:220, color:"#66BB6A", status:"poison", statusChance:0.30, statusDur:240, statusDmg:2 },
-        spec: { name:"솔라빔",       effect:"single", mul:2.4, cd:380, color:"#9CCC65", status:"poison", statusChance:0.45, statusDur:300, statusDmg:4 },
+        phys: { name:"잎날",         effect:"single", mul:1.8, cd:220, color:"#66BB6A", status:"slow", statusChance:0.30, statusDur:180, fx:"leafBlade" },
+        // 솔라빔: 낮 ×1.6 / 밤 ×0.6 (원작 매커닉)
+        spec: { name:"솔라빔",       effect:"pierce", mul:2.5, cd:380, color:"#9CCC65", fx:"solarBeam", fxScale:1.5, dayMul:1.6, nightMul:0.6 },
+        ult:  { name:"씨폭탄",       effect:"aoe",    mul:1.7, cd:480, color:"#388E3C", aoeRadius:80, status:"slow", statusChance:0.60, statusDur:240, fx:"seedBomb", fxScale:1.7, dayMul:1.35 },
     },
     "글레이시아.png": {
-        phys: { name:"얼음엄니",     effect:"melee",  mul:1.7, cd:240, color:"#B3E5FC", status:"freeze", statusChance:0.25, statusDur:120 },
-        spec: { name:"눈보라",       effect:"aoe",    mul:1.7, cd:380, color:"#81D4FA", aoeRadius:80, status:"freeze", statusChance:0.40, statusDur:180 },
+        phys: { name:"얼음엄니",     effect:"melee",  mul:1.7, cd:240, color:"#B3E5FC", status:"freeze", statusChance:0.25, statusDur:120, fx:"iceFang" },
+        // 눈보라/블리자드: 밤에 강력 (얼음 패시브)
+        spec: { name:"눈보라",       effect:"aoe",    mul:1.7, cd:380, color:"#81D4FA", aoeRadius:80, status:"freeze", statusChance:0.40, statusDur:180, fx:"blizzard", fxScale:1.6, nightMul:1.35 },
+        ult:  { name:"블리자드",     effect:"aoe",    mul:2.2, cd:540, color:"#0277BD", aoeRadius:110, status:"freeze", statusChance:0.70, statusDur:240, fx:"blizzard", fxScale:2.0, nightMul:1.45 },
     },
     "님피아.png": {
-        phys: { name:"매혹의보이스", effect:"single", mul:1.6, cd:240, color:"#F48FB1", status:"defDown", statusChance:0.30, statusDur:240 },
-        spec: { name:"문포스",       effect:"single", mul:2.6, cd:380, color:"#EC407A", status:"defDown", statusChance:0.50, statusDur:300 },
+        phys: { name:"매혹의보이스", effect:"single", mul:1.6, cd:240, color:"#F48FB1", status:"sleep", statusChance:0.30, statusDur:120, fx:"heart" },
+        spec: { name:"요정의바람",   effect:"buff",   mul:0,   cd:420, color:"#EC407A", buffType:"atk", buffRadius:100, buffDur:360, fx:"sparkle", fxScale:1.5 },
+        ult:  { name:"천사의키스",   effect:"buff",   mul:0,   cd:600, color:"#AD1457", buffType:"all", buffRadius:130, buffDur:480, fx:"sparkle", fxScale:1.8 },
     },
     // 팬메이드 진화 스킬
     "왕이브이.png": {
-        phys: { name:"다이맥스슬램", effect:"single", mul:2.0, cd:240, color:"#FFB74D" },
-        spec: { name:"거대화",       effect:"aoe",    mul:1.7, cd:380, color:"#FF6F00", aoeRadius:80 },
+        // 한방 딜러
+        phys: { name:"다이맥스슬램", effect:"single", mul:3.0, cd:480, color:"#FFB74D", fx:"explosion2", fxScale:1.4 },
+        spec: { name:"거다이맥스",   effect:"aoe",    mul:2.5, cd:720, color:"#FF6F00", aoeRadius:90, fx:"meteor", fxScale:1.7 },
+        ult:  { name:"결정타",       effect:"single", mul:5.0, cd:900, color:"#E65100", fx:"explosion2", fxScale:2.0 },
     },
     "이브이메가.png": {
-        phys: { name:"차징",         effect:"single", mul:1.7, cd:220, color:"#CE93D8" },
-        spec: { name:"메가펀치",     effect:"aoe",    mul:1.8, cd:360, color:"#9C27B0", aoeRadius:70 },
+        // 꾸준한 DPS (잦은 발동)
+        phys: { name:"트라이어택",   effect:"chain",  mul:1.4, cd:150, color:"#CE93D8", chainRange:80, chainCount:3, fx:"psychic" },
+        spec: { name:"스피드스타",   effect:"chain",  mul:1.3, cd:240, color:"#9C27B0", chainRange:90, chainCount:5, fx:"sparkle" },
+        ult:  { name:"하이퍼빔",     effect:"pierce", mul:2.2, cd:360, color:"#6A1B9A", fx:"psychoShock", fxScale:1.6 },
     },
     "이브이강철.png": {
-        phys: { name:"아이언헤드",   effect:"melee",  mul:2.0, cd:240, color:"#90A4AE", status:"paralysis", statusChance:0.30, statusDur:90 },
-        spec: { name:"헤비스플래시", effect:"aoe",    mul:1.6, cd:380, color:"#607D8B", aoeRadius:75 },
+        phys: { name:"아이언헤드",   effect:"melee",  mul:2.0, cd:240, color:"#90A4AE", status:"paralysis", statusChance:0.30, statusDur:90, fx:"metalHead" },
+        spec: { name:"자이로볼",     effect:"aoe",    mul:1.6, cd:380, color:"#607D8B", aoeRadius:75, fx:"metalHead", fxScale:1.6 },
+        ult:  { name:"메탈클로",     effect:"melee",  mul:2.5, cd:420, color:"#455A64", status:"mDefDown", statusChance:0.60, statusDur:300, fx:"metalHead", fxScale:1.4 },
     },
     "이브이격투.png": {
-        phys: { name:"마하펀치",     effect:"dash",   mul:1.8, cd:200, color:"#FF7043" },
-        spec: { name:"인파이트",     effect:"single", mul:2.4, cd:360, color:"#D84315", status:"defDown", statusChance:0.40, statusDur:240 },
+        phys: { name:"마하펀치",     effect:"dash",   mul:1.8, cd:200, color:"#FF7043", fx:"punch" },
+        spec: { name:"인파이트",     effect:"single", mul:2.4, cd:360, color:"#D84315", status:"mDefDown", statusChance:0.50, statusDur:240, fx:"punch", fxScale:1.5 },
+        ult:  { name:"벌크업",       effect:"buff",   mul:0,   cd:480, color:"#BF360C", buffType:"atk", buffRadius:60, buffDur:480, fx:"punch", fxScale:1.3 },
     },
     "이브이고스트.png": {
-        phys: { name:"섀도우펀치",   effect:"single", mul:1.7, cd:220, color:"#7E57C2" },
-        spec: { name:"섀도우볼",     effect:"single", mul:2.6, cd:380, color:"#4A148C", status:"sleep", statusChance:0.25, statusDur:150 },
+        phys: { name:"섀도우펀치",   effect:"single", mul:1.7, cd:220, color:"#7E57C2", fx:"shadow" },
+        // 섀도우볼/나이트헤드: 밤에 강력 (어둠)
+        spec: { name:"섀도우볼",     effect:"aoe",    mul:2.0, cd:380, color:"#4A148C", aoeRadius:70, status:"sDefDown", statusChance:0.40, statusDur:240, fx:"darkBall", fxScale:1.5, nightMul:1.4 },
+        ult:  { name:"나이트헤드",   effect:"single", mul:3.0, cd:540, color:"#311B92", status:"sleep", statusChance:0.50, statusDur:180, fx:"darkBall", fxScale:1.8, nightMul:1.6, dayMul:0.7 },
     },
     "이브이독.png": {
-        phys: { name:"독엄니",       effect:"melee",  mul:1.8, cd:240, color:"#9C27B0", status:"poison", statusChance:0.40, statusDur:240, statusDmg:3 },
-        spec: { name:"베놈쇼크",     effect:"aoe",    mul:1.6, cd:380, color:"#7B1FA2", aoeRadius:75, status:"poison", statusChance:0.40, statusDur:240, statusDmg:4 },
+        phys: { name:"독엄니",       effect:"melee",  mul:1.8, cd:240, color:"#9C27B0", status:"poison", statusChance:0.40, statusDur:240, statusDmg:3, fx:"poisonFang" },
+        spec: { name:"베놈쇼크",     effect:"aoe",    mul:1.6, cd:380, color:"#7B1FA2", aoeRadius:75, status:"poison", statusChance:0.50, statusDur:240, statusDmg:5, fx:"venom", fxScale:1.6 },
+        // 맹독: 밤에 강력 (어둠 속 잠식)
+        ult:  { name:"맹독",         effect:"single", mul:1.5, cd:480, color:"#4A148C", status:"poison", statusChance:1.0, statusDur:360, statusDmg:9, fx:"toxic", fxScale:1.5, nightMul:1.35 },
     },
     "이브이드래곤.png": {
-        phys: { name:"드래곤테일",   effect:"single", mul:1.9, cd:240, color:"#5D4037" },
-        spec: { name:"드래곤펄스",   effect:"single", mul:2.7, cd:380, color:"#6A1B9A" },
+        phys: { name:"드래곤테일",   effect:"single", mul:1.9, cd:240, color:"#5D4037", fx:"dragonTail" },
+        spec: { name:"드래곤펄스",   effect:"pierce", mul:2.7, cd:380, color:"#6A1B9A", fx:"dragonPulse", fxScale:1.5 },
+        ult:  { name:"드래곤에너지", effect:"aoe",    mul:3.0, cd:720, color:"#4A148C", aoeRadius:100, fx:"dragonPulse", fxScale:1.9 },
     },
     "이브이땅.png": {
-        phys: { name:"굴착",         effect:"dash",   mul:1.8, cd:240, color:"#8D6E63" },
-        spec: { name:"지진",         effect:"aoe",    mul:1.7, cd:400, color:"#5D4037", aoeRadius:85 },
+        phys: { name:"굴착",         effect:"dash",   mul:1.8, cd:240, color:"#8D6E63", fx:"dig" },
+        spec: { name:"지진",         effect:"aoe",    mul:1.7, cd:400, color:"#5D4037", aoeRadius:85, status:"mDefDown", statusChance:0.30, statusDur:180, fx:"dig", fxScale:1.6 },
+        ult:  { name:"모래지옥",     effect:"field",  mul:0.6, cd:540, color:"#4E342E", fieldRadius:80, fieldDur:300, status:"slow", statusChance:1.0, statusDur:60, fx:"dig", fxScale:1.7 },
     },
     "이브이바위.png": {
-        phys: { name:"락슬라이드",   effect:"single", mul:2.0, cd:240, color:"#795548" },
-        spec: { name:"스톤에지",     effect:"chain",  mul:1.6, cd:320, color:"#5D4037", chainRange:90, chainCount:3 },
+        phys: { name:"락슬라이드",   effect:"aoe",    mul:1.7, cd:240, color:"#795548", aoeRadius:70, fx:"rockSlide" },
+        spec: { name:"스톤에지",     effect:"chain",  mul:1.6, cd:320, color:"#5D4037", chainRange:90, chainCount:3, fx:"rockSlide", fxScale:1.3 },
+        // 이중바위: 낮에 강력
+        ult:  { name:"이중바위",     effect:"single", mul:2.5, cd:420, color:"#3E2723", fx:"rockSlide", fxScale:1.6, dayMul:1.4 },
     },
     "이브이벌레.png": {
-        phys: { name:"시저크로스",   effect:"melee",  mul:1.7, cd:200, color:"#558B2F" },
-        spec: { name:"벌레의노래",   effect:"aoe",    mul:1.5, cd:360, color:"#827717", aoeRadius:70, status:"sleep", statusChance:0.35, statusDur:150 },
+        phys: { name:"시저크로스",   effect:"melee",  mul:1.7, cd:200, color:"#558B2F", fx:"scissor" },
+        spec: { name:"벌레의노래",   effect:"aoe",    mul:1.5, cd:360, color:"#827717", aoeRadius:70, status:"sleep", statusChance:0.35, statusDur:150, fx:"sleep", fxScale:1.5 },
+        ult:  { name:"유턴",         effect:"buff",   mul:2.0, cd:420, color:"#33691E", buffType:"spd", buffRadius:60, buffDur:240, fx:"scissor", fxScale:1.4 },
     },
     "이브이비행.png": {
-        phys: { name:"부메랑",       effect:"chain",  mul:1.5, cd:220, color:"#81D4FA", chainRange:90, chainCount:3 },
-        spec: { name:"에어슬래시",   effect:"aoe",    mul:1.7, cd:380, color:"#03A9F4", aoeRadius:80 },
+        phys: { name:"부메랑",       effect:"chain",  mul:1.5, cd:220, color:"#81D4FA", chainRange:90, chainCount:3, fx:"airSlash" },
+        spec: { name:"에어슬래시",   effect:"aoe",    mul:1.7, cd:380, color:"#03A9F4", aoeRadius:80, status:"paralysis", statusChance:0.30, statusDur:90, fx:"airSlash", fxScale:1.6, dayMul:1.3 },
+        // 폭풍: 밤(폭풍우)에 강력
+        ult:  { name:"폭풍",         effect:"field",  mul:0.7, cd:600, color:"#01579B", fieldRadius:90, fieldDur:480, fx:"airSlash", fxScale:1.8, nightMul:1.5 },
     },
 };
+
+// ═══════════════════════════════════════════
+// 스프라이트 시트 (스킬 이펙트 이미지)
+// effects.png: 8x8 grid, 64x64 each (총 512x512)
+// 행/열 → (row, col) 0~7
+// ═══════════════════════════════════════════
+const FX_CELL = 64;
+function fxRC(row, col) { return { sx: col * FX_CELL, sy: row * FX_CELL, sw: FX_CELL, sh: FX_CELL }; }
+
+const FX = {
+    // === 행 0: 불 ===
+    fire1:        fxRC(0, 0),
+    fire2:        fxRC(0, 1),
+    fire3:        fxRC(0, 2),
+    explosion1:   fxRC(0, 3),
+    explosion2:   fxRC(0, 4),
+    fireFang:     fxRC(0, 5),
+    meteor:       fxRC(0, 6),
+    fireDust:     fxRC(0, 7),
+
+    // === 행 1: 얼음 ===
+    iceCrystal1:  fxRC(1, 0),
+    iceCrystal2:  fxRC(1, 1),
+    freeze:       fxRC(1, 2),
+    snowflake:    fxRC(1, 3),
+    iceFang:      fxRC(1, 4),
+    blizzard:     fxRC(1, 5),
+    frost:        fxRC(1, 6),
+    iceDust:      fxRC(1, 7),
+
+    // === 행 2: 전기 ===
+    lightning1:   fxRC(2, 0),
+    lightning2:   fxRC(2, 1),
+    spark:        fxRC(2, 2),
+    paralysis:    fxRC(2, 3),
+    thunderbolt:  fxRC(2, 4),
+    quickAttack:  fxRC(2, 5),
+    plasma:       fxRC(2, 6),
+    staticElec:   fxRC(2, 7),
+
+    // === 행 3: 풀 ===
+    leafBlade:    fxRC(3, 0),
+    leafStorm:    fxRC(3, 1),
+    solarBeam:    fxRC(3, 2),
+    seed:         fxRC(3, 3),
+    vine:         fxRC(3, 4),
+    slow:         fxRC(3, 5),
+    seedBomb:     fxRC(3, 6),
+    spore:        fxRC(3, 7),
+
+    // === 행 4: 독 ===
+    poisonDrop:   fxRC(4, 0),
+    poisonCloud:  fxRC(4, 1),
+    poisonFang:   fxRC(4, 2),
+    venom:        fxRC(4, 3),
+    toxic:        fxRC(4, 4),
+    corrosion:    fxRC(4, 5),
+    poisonMist:   fxRC(4, 6),
+    bubble:       fxRC(4, 7),
+
+    // === 행 5: 사이코/어둠 ===
+    psychic:      fxRC(5, 0),
+    psychoShock:  fxRC(5, 1),
+    shadow:       fxRC(5, 2),
+    darkPulse:    fxRC(5, 3),
+    darkBall:     fxRC(5, 4),
+    futureSight:  fxRC(5, 5),
+    illusion:     fxRC(5, 6),
+    sleep:        fxRC(5, 7),
+
+    // === 행 6: 페어리/물 ===
+    starlight:    fxRC(6, 0),
+    sparkle:      fxRC(6, 1),
+    heart:        fxRC(6, 2),
+    waterDrop:    fxRC(6, 3),
+    hydroPump:    fxRC(6, 4),
+    whirlpool:    fxRC(6, 5),
+    wave:         fxRC(6, 6),
+    waterBubble:  fxRC(6, 7),
+
+    // === 행 7: 격투/노멀/땅/바위/벌레/비행/강철/드래곤 ===
+    punch:        fxRC(7, 0),
+    dragonPulse:  fxRC(7, 1),
+    dig:          fxRC(7, 2),
+    rockSlide:    fxRC(7, 3),
+    scissor:      fxRC(7, 4),
+    airSlash:     fxRC(7, 5),
+    metalHead:    fxRC(7, 6),
+    dragonTail:   fxRC(7, 7),
+};
+
+// ═══════════════════════════════════════════
+// FX 키별 보정값 (game-icons.net 아이콘들이 각도/스케일 다 다름)
+// rot: 추가 회전(라디안), scale: 베이스 스케일 배율
+// 광선/돌격류는 0(우→) 기준이라 회전 보정이 필요할 수 있음
+// ═══════════════════════════════════════════
+const FX_ADJUST = {
+    // 광선/돌격류 — 우측 방향 기준이어야 함
+    solarBeam:    { rot: 0,        scale: 1.0 },
+    hydroPump:    { rot: 0,        scale: 1.0 },
+    psychoShock:  { rot: 0,        scale: 1.0 },
+    dragonPulse:  { rot: Math.PI,  scale: 1.0 }, // 용머리는 좌향이 기본 → 180도 보정
+    quickAttack:  { rot: 0,        scale: 1.0 },
+    thunderbolt:  { rot: 0,        scale: 1.0 },
+    lightning1:   { rot: 0,        scale: 1.0 },
+    // 베기류 — 비스듬히
+    leafBlade:    { rot: -0.5,     scale: 1.0 },
+    scissor:      { rot: 0,        scale: 1.0 },
+    airSlash:     { rot: -0.3,     scale: 1.0 },
+    // 송곳니류 — 약간 기울임
+    fireFang:     { rot: -0.2,     scale: 1.0 },
+    iceFang:      { rot: -0.2,     scale: 1.0 },
+    poisonFang:   { rot: -0.2,     scale: 1.0 },
+    // 낙하류 — 위에서 떨어지는 느낌
+    meteor:       { rot: 0.4,      scale: 1.1 },
+    rockSlide:    { rot: 0,        scale: 1.0 },
+    // 폭발/원형 — 회전 무관
+    explosion1:   { rot: 0,        scale: 1.1 },
+    explosion2:   { rot: 0,        scale: 1.2 },
+    blizzard:     { rot: 0,        scale: 1.1 },
+    seedBomb:     { rot: 0,        scale: 1.0 },
+    venom:        { rot: 0,        scale: 1.0 },
+    toxic:        { rot: 0,        scale: 1.0 },
+    psychic:      { rot: 0,        scale: 1.0 },
+    shadow:       { rot: 0,        scale: 1.0 },
+    darkPulse:    { rot: 0,        scale: 1.0 },
+    darkBall:     { rot: 0,        scale: 1.0 },
+    sleep:        { rot: 0,        scale: 0.9 },
+    sparkle:      { rot: 0,        scale: 1.0 },
+    heart:        { rot: 0,        scale: 0.9 },
+    waterDrop:    { rot: 0,        scale: 0.9 },
+    whirlpool:    { rot: 0,        scale: 1.1 },
+    punch:        { rot: 0,        scale: 1.0 },
+    dig:          { rot: 0,        scale: 1.0 },
+    metalHead:    { rot: 0,        scale: 1.0 },
+};
+
+// FX 틴트 캐시 (fxKey + color → tinted canvas)
+const _fxTintCache = new Map();
+function getFxTinted(fxKey, img, color) {
+    const cacheKey = fxKey + "|" + color;
+    let cached = _fxTintCache.get(cacheKey);
+    if (cached) return cached;
+    const c = document.createElement("canvas");
+    c.width = img.naturalWidth || 64;
+    c.height = img.naturalHeight || 64;
+    const cx = c.getContext("2d");
+    cx.drawImage(img, 0, 0);
+    cx.globalCompositeOperation = "source-in";
+    cx.fillStyle = color;
+    cx.fillRect(0, 0, c.width, c.height);
+    _fxTintCache.set(cacheKey, c);
+    return c;
+}
+
+// 개별 PNG로 이펙트 그리기 (틴트 + 키별 보정 + 회전 + 스케일 + 알파)
+function drawFx(fxKey, x, y, opts = {}) {
+    const img = images[`fx/${fxKey}`];
+    if (!img || !img.complete || img.naturalWidth === 0) return false;
+
+    const adj = FX_ADJUST[fxKey] || { rot: 0, scale: 1.0 };
+    const baseSize = 64; // 출력 베이스 사이즈
+    const scale = (opts.scale || 1) * adj.scale;
+    const rotation = (opts.rotation || 0) + adj.rot;
+    const alpha = opts.alpha != null ? opts.alpha : 1;
+    const tintColor = opts.color || "#FFFFFF";
+    const dw = baseSize * scale, dh = baseSize * scale;
+
+    const tinted = getFxTinted(fxKey, img, tintColor);
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    if (rotation) {
+        ctx.translate(x, y);
+        ctx.rotate(rotation);
+        ctx.drawImage(tinted, -dw / 2, -dh / 2, dw, dh);
+    } else {
+        ctx.drawImage(tinted, x - dw / 2, y - dh / 2, dw, dh);
+    }
+    ctx.restore();
+    return true;
+}
 
 // 스킬 이펙트 (시각 효과)
 const skillEffects = []; // {type, x, y, life, maxLife, color, radius}
@@ -581,7 +980,8 @@ function applySkillDamage(target, ee, skill, isSpec) {
     const defStat = getMonsterDef(target, isSpec);
     const baseDmg = Math.max(1, baseAtk * skill.mul - defStat * 0.3);
     const mul = totalTypeMul(ee.type, target);
-    const dmg = Math.max(1, Math.round(baseDmg * mul));
+    const dn = getDayNightMul(ee.type, skill);
+    const dmg = Math.max(1, Math.round(baseDmg * mul * dn.mul));
     const wasAlive = target.hp > 0;
     target.hp -= dmg;
     if (wasAlive && target.hp <= 0 && ee) {
@@ -602,7 +1002,7 @@ function applySkillDamage(target, ee, skill, isSpec) {
                 const sDef = getMonsterDef(m, isSpec);
                 const sBase = Math.max(1, baseAtk * skill.mul * splashMul - sDef * 0.3);
                 const sMul = totalTypeMul(ee.type, m);
-                const sDmg = Math.max(1, Math.round(sBase * sMul));
+                const sDmg = Math.max(1, Math.round(sBase * sMul * dn.mul));
                 const sWasAlive = m.hp > 0;
                 m.hp -= sDmg;
                 m.hitAnim = 6;
@@ -626,6 +1026,19 @@ function applySkillDamage(target, ee, skill, isSpec) {
     // 효과 표시
     if (mul > 1) coinTexts.push({ x: target.x, y: target.y - 20, text: "효과적!", life: 35, color: "#FFEB3B" });
     else if (mul < 1) coinTexts.push({ x: target.x, y: target.y - 20, text: "별로...", life: 35, color: "#9E9E9E" });
+    if (dn.isBoosted) {
+        // 시각 이펙트만: 작은 빛 링 + 반짝 파티클
+        const dnColor = dn.isDay ? "#FFE082" : "#B39DDB";
+        skillEffects.push({ type:"shockwave", x: target.x, y: target.y, life: 16, maxLife: 16, color: dnColor, radius: 22 });
+        for (let k = 0; k < 6; k++) {
+            const a = Math.random() * Math.PI * 2;
+            particles.push({
+                x: target.x, y: target.y - 4,
+                vx: Math.cos(a) * 1.5, vy: Math.sin(a) * 1.5 - 1.2,
+                color: dnColor, life: 18, maxLife: 18, size: 1.5 + Math.random() * 1.5,
+            });
+        }
+    }
     // 피격 파티클
     for (let k = 0; k < 4; k++) {
         const a = Math.random() * Math.PI * 2;
@@ -672,6 +1085,378 @@ function castNineEvolveBoost(caster) {
     }
 }
 
+// ═══════════════════════════════════════════
+// 자기 회전이 어울리는 FX (대칭/구체/링/별 형태)
+// 방향성 있는 모양(송곳니/하트/광선/펀치/메테오 등)은 회전 X
+// ═══════════════════════════════════════════
+const FX_SPINNABLE = new Set([
+    "explosion1", "explosion2", "sparkle",
+    "darkPulse", "darkBall",
+    "blizzard", // 눈송이는 6각 대칭
+    "venom",    // 폭발성 분출
+    "sleep",    // Z 표시지만 흩날림 OK
+    "leafBlade", // 잎날 — 베는 느낌으로 회전
+    "scissor",   // 가위 X자 베기
+    "rockSlide", // 바위 회전 낙하
+    "metalHead", // 금속 충격
+]);
+function fxSpin(fx, val)    { return FX_SPINNABLE.has(fx) ? val : 0; }
+function fxRandRot(fx)      { return FX_SPINNABLE.has(fx) ? Math.random() * Math.PI * 2 : 0; }
+
+// ═══════════════════════════════════════════
+// FX 시각 모드 — effect 타입 + 스킬 이름으로 모드 결정
+// ═══════════════════════════════════════════
+function getFxMode(skill) {
+    if (skill.fxMode) return skill.fxMode; // 명시적 지정 우선
+    const eff = skill.effect;
+    const name = skill.name || "";
+    // 특수 케이스 (스킬 이름 기반)
+    if (name === "번개") return "strike";
+    if (name === "메테오" || name === "거다이맥스" || name === "대폭발") return "drop";
+    if (name === "씨폭탄" || name === "락슬라이드" || name === "눈보라" || name === "블리자드") return "rain";
+    // 드래곤계 — dragonPulse 사용 스킬: 시전자 → 타겟 방향 한 번 출력
+    if (skill.fx === "dragonPulse") return "facing";
+    // 비행계 — airSlash: 여러 각도 베기
+    if (skill.fx === "airSlash") return "slashes";
+    // effect 타입 기반 자동 매핑
+    if (eff === "pierce") return "beam";
+    if (eff === "aoe")    return "scatter";
+    if (eff === "chain")  return "multi";
+    if (eff === "field")  return "orbit";
+    if (eff === "buff")   return "rise";
+    if (eff === "delayed")return "drop";
+    if (eff === "dash")   return "dash";
+    if (eff === "melee")  return "burst";
+    return "burst"; // single 기본
+}
+
+// 모바일은 이펙트 개수 60% 수준으로
+const FX_COUNT_MUL = isMobile ? 0.6 : 1.0;
+const SKILL_EFFECTS_CAP = isMobile ? 200 : 400;
+function fxCount(n) { return Math.max(1, Math.round(n * FX_COUNT_MUL)); }
+
+function spawnFxByMode(skill, ee, target) {
+    // 캡 초과 시 가장 오래된 것부터 정리
+    if (skillEffects.length > SKILL_EFFECTS_CAP) {
+        skillEffects.splice(0, skillEffects.length - SKILL_EFFECTS_CAP);
+    }
+    const mode = getFxMode(skill);
+    const baseScale = skill.fxScale || 1.0;
+    const fx = skill.fx;
+    const color = skill.color;
+    // 모든 fx push에 groundY 자동 적용 (vy>0인데 명시 없으면 target.y로)
+    const pushFx = (props) => {
+        if ((props.vy != null && props.vy > 0) && props.groundY == null) {
+            props.groundY = target.y;
+        }
+        skillEffects.push(props);
+    };
+
+    if (mode === "burst") {
+        // melee는 작고 빠르게, single은 약간 더 큼
+        const isMelee = skill.effect === "melee";
+        const burstScale = isMelee ? 0.55 : 0.75;
+        const burstLife  = isMelee ? 22 : 30;
+        pushFx({
+            type:"fx", fxKey: fx, x: target.x, y: target.y,
+            life: burstLife, maxLife: burstLife,
+            scale: baseScale * burstScale, rotation: 0,
+            rotSpeed: fxSpin(fx, FX_SPINNABLE.has(fx) ? 0.25 : 0), // 잎날/가위 등 빠른 회전
+            pulse: true, color,
+        });
+    }
+    else if (mode === "beam") {
+        // 기존 광선 (pierceBeam) + 타격 지점에 폭발 fx 여러 개
+        // 광선 라인은 절차적 (코드에 이미 pierceBeam 타입 있음)
+        skillEffects.push({
+            type:"pierceBeam",
+            x: ee.x, y: ee.y - 5,
+            x2: target.x, y2: target.y,
+            life: 14, maxLife: 14, color,
+        });
+        // 타격 지점 폭발 — 작은 폭발 3개 시차로 파파팡
+        for (let i = 0; i < 3; i++) {
+            pushFx({
+                type:"fx", fxKey: skill.fxImpact || "explosion1",
+                x: target.x + (Math.random() - 0.5) * 18,
+                y: target.y + (Math.random() - 0.5) * 14,
+                life: 20, maxLife: 20,
+                scale: baseScale * (0.5 + Math.random() * 0.3),
+                rotation: 0,
+                rotSpeed: fxSpin(skill.fxImpact || "explosion1", 0.18),
+                pulse: true,
+                delay: i * 3,
+                color,
+            });
+        }
+        // 충격파 링
+        skillEffects.push({
+            type:"shockwave", x: target.x, y: target.y,
+            life: 16, maxLife: 16, color, radius: 30,
+        });
+    }
+    else if (mode === "rain") {
+        // 작은 거 많이 (블리자드/씨폭탄/락슬라이드)
+        const r = skill.aoeRadius || 70;
+        const count = fxCount(14);
+        for (let i = 0; i < count; i++) {
+            const a = Math.random() * Math.PI * 2;
+            const d = Math.random() * r * 0.9;
+            const tx = target.x + Math.cos(a) * d;
+            const ty = target.y + Math.sin(a) * d * ISO_Y;
+            pushFx({
+                type:"fx", fxKey: fx,
+                x: tx, y: ty - 60 - Math.random() * 40,
+                life: 26, maxLife: 26,
+                scale: baseScale * (0.22 + Math.random() * 0.18),
+                rotation: fxRandRot(fx),
+                rotSpeed: fxSpin(fx, (Math.random() - 0.5) * 0.3),
+                vy: 1.5, gravity: 0.15,
+                groundY: ty,
+                delay: i * 2,
+                color,
+            });
+        }
+    }
+    else if (mode === "scatter") {
+        // 작은 거 많이 영역 내 시차 출현
+        const r = skill.aoeRadius || 70;
+        const count = fxCount(12);
+        for (let i = 0; i < count; i++) {
+            const a = Math.random() * Math.PI * 2;
+            const d = Math.random() * r * 0.85;
+            pushFx({
+                type:"fx", fxKey: fx,
+                x: target.x + Math.cos(a) * d,
+                y: target.y + Math.sin(a) * d * ISO_Y,
+                life: 22, maxLife: 22,
+                scale: baseScale * (0.28 + Math.random() * 0.2),
+                rotation: fxRandRot(fx),
+                rotSpeed: fxSpin(fx, 0.1),
+                pulse: true,
+                delay: i * 2,
+                color,
+            });
+        }
+    }
+    else if (mode === "multi") {
+        // 작은 거 8개 시차 (연쇄/다단)
+        const count = fxCount(8);
+        for (let i = 0; i < count; i++) {
+            pushFx({
+                type:"fx", fxKey: fx,
+                x: target.x + (Math.random() - 0.5) * 28,
+                y: target.y + (Math.random() - 0.5) * 20,
+                life: 14, maxLife: 14,
+                scale: baseScale * 0.3,
+                rotation: fxRandRot(fx),
+                pulse: true,
+                delay: i * 2,
+                color,
+            });
+        }
+    }
+    else if (mode === "rise") {
+        // 시전자 위에서 떠오름 (버프) — 작게 많이
+        const count = fxCount(10);
+        for (let i = 0; i < count; i++) {
+            pushFx({
+                type:"fx", fxKey: fx,
+                x: ee.x + (Math.random() - 0.5) * 30,
+                y: ee.y - 4 + (Math.random() - 0.5) * 6,
+                life: 36, maxLife: 36,
+                scale: baseScale * (0.22 + Math.random() * 0.15),
+                rotation: 0,
+                rotSpeed: fxSpin(fx, 0.06),
+                vy: -1.0 - Math.random() * 0.4,
+                delay: i * 3,
+                color,
+            });
+        }
+    }
+    else if (mode === "orbit") {
+        // 중심 1개(작게) + 작은 거 10개 둘레 회전
+        const r = skill.fieldRadius || 70;
+        const dur = Math.min(120, skill.fieldDur || 90);
+        pushFx({
+            type:"fx", fxKey: fx, x: target.x, y: target.y,
+            life: dur, maxLife: dur,
+            scale: baseScale * 0.55, rotation: 0,
+            pulse: true, color,
+        });
+        const orbitCount = fxCount(10);
+        for (let i = 0; i < orbitCount; i++) {
+            const a = (i / orbitCount) * Math.PI * 2;
+            pushFx({
+                type:"fx", fxKey: fx,
+                x: target.x, y: target.y,
+                life: dur, maxLife: dur,
+                scale: baseScale * 0.25,
+                rotation: 0,
+                orbitCx: target.x, orbitCy: target.y,
+                orbitR: r * 0.75,
+                orbitAngle: a,
+                orbitSpeed: 0.05,
+                color,
+            });
+        }
+    }
+    else if (mode === "strike") {
+        // 한 번 번쩍! — 위→아래로 길게 늘인 fx, 짧은 life, 아래끝이 target.y
+        const strikeImpact = skill.fxImpact || "explosion1";
+        pushFx({
+            type:"fx", fxKey: fx,
+            x: target.x, y: target.y - 50,
+            life: 10, maxLife: 10, // 한 번 번쩍
+            scale: baseScale,
+            scaleX: 0.7,
+            scaleY: 2.6, // 세로 길게
+            rotation: 0,
+            color,
+        });
+        // 타격 지점 폭발
+        pushFx({
+            type:"fx", fxKey: strikeImpact,
+            x: target.x, y: target.y,
+            life: 20, maxLife: 20,
+            scale: baseScale * 0.8,
+            rotation: 0,
+            rotSpeed: fxSpin(strikeImpact, 0.2),
+            pulse: true,
+            color,
+        });
+        skillEffects.push({
+            type:"shockwave", x: target.x, y: target.y,
+            life: 14, maxLife: 14, color, radius: 30,
+        });
+        for (let k = 0; k < 6; k++) {
+            const a = Math.random() * Math.PI * 2;
+            const sp = 1.5 + Math.random() * 2;
+            particles.push({
+                x: target.x, y: target.y,
+                vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 1.5,
+                color, life: 18, maxLife: 18,
+                size: 1.5 + Math.random() * 1.5,
+            });
+        }
+    }
+    else if (mode === "slashes") {
+        // 여러 각도 베기 (날개/슬래시 — airSlash 등)
+        const count = fxCount(5);
+        for (let i = 0; i < count; i++) {
+            const angle = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
+            const dist = 6 + Math.random() * 8;
+            pushFx({
+                type:"fx", fxKey: fx,
+                x: target.x + Math.cos(angle) * dist,
+                y: target.y + Math.sin(angle) * dist * ISO_Y,
+                life: 18, maxLife: 18,
+                scale: baseScale * (0.55 + Math.random() * 0.2),
+                rotation: angle + Math.PI / 2, // 베기 방향
+                pulse: true,
+                delay: i * 2,
+                color,
+            });
+        }
+        skillEffects.push({
+            type:"shockwave", x: target.x, y: target.y,
+            life: 14, maxLife: 14, color, radius: 28,
+        });
+    }
+    else if (mode === "facing") {
+        // 시전자 위치에서 타겟 방향 향해 한 번 출력 (용머리/방향성 강한 fx)
+        const dx = target.x - ee.x, dy = target.y - ee.y;
+        const angle = Math.atan2(dy, dx);
+        // 시전자 → 타겟 중간쯤에 한 번
+        pushFx({
+            type:"fx", fxKey: fx,
+            x: ee.x + dx * 0.45, y: ee.y + dy * 0.45,
+            life: 22, maxLife: 22,
+            scale: baseScale * 1.0,
+            rotation: angle,
+            pulse: true,
+            color,
+        });
+        // 타격 지점에 충격파만
+        skillEffects.push({
+            type:"shockwave", x: target.x, y: target.y,
+            life: 16, maxLife: 16, color, radius: 30,
+        });
+    }
+    else if (mode === "drop") {
+        // 마커 → 낙하 → 충돌 폭발
+        const impactFx = skill.fxImpact || "explosion2";
+        pushFx({
+            type:"fx", fxKey: fx, x: target.x, y: target.y,
+            life: 12, maxLife: 12,
+            scale: baseScale * 0.35,
+            rotation: 0, color,
+        });
+        pushFx({
+            type:"fx", fxKey: fx,
+            x: target.x, y: target.y - 100,
+            life: 28, maxLife: 28,
+            scale: baseScale * 0.8,
+            rotation: 0,
+            vy: 2.5, gravity: 0.2,
+            groundY: target.y,
+            delay: 6,
+            color,
+        });
+        pushFx({
+            type:"fx", fxKey: impactFx, x: target.x, y: target.y,
+            life: 22, maxLife: 22,
+            scale: baseScale * 0.95,
+            rotation: 0,
+            rotSpeed: fxSpin(impactFx, 0.18),
+            pulse: true,
+            delay: 18,
+            color,
+        });
+        skillEffects.push({
+            type:"shockwave", x: target.x, y: target.y,
+            life: 18, maxLife: 18, color, radius: 36,
+            delay: 18,
+        });
+        for (let k = 0; k < 10; k++) {
+            const a = Math.random() * Math.PI * 2;
+            const sp = 1.5 + Math.random() * 2.5;
+            particles.push({
+                x: target.x, y: target.y,
+                vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 1.5,
+                color, life: 24, maxLife: 24,
+                size: 1.5 + Math.random() * 2,
+            });
+        }
+    }
+    else if (mode === "dash") {
+        // 시전자→타겟 라인 잔상 3개 + 끝점
+        const dx = target.x - ee.x, dy = target.y - ee.y;
+        const angle = Math.atan2(dy, dx);
+        for (let i = 0; i < 3; i++) {
+            const ti = (i + 1) / 4;
+            pushFx({
+                type:"fx", fxKey: fx,
+                x: ee.x + dx * ti, y: ee.y + dy * ti,
+                life: 16, maxLife: 16,
+                scale: baseScale * 0.55,
+                rotation: angle,
+                delay: i * 2,
+                color,
+            });
+        }
+        pushFx({
+            type:"fx", fxKey: fx, x: target.x, y: target.y,
+            life: 22, maxLife: 22,
+            scale: baseScale * 0.75,
+            rotation: angle,
+            pulse: true,
+            delay: 6,
+            color,
+        });
+    }
+}
+
 function castSkill(ee, target, skill, isSpec) {
     if (!target) return;
 
@@ -679,6 +1464,11 @@ function castSkill(ee, target, skill, isSpec) {
     skillEffects.push({ type:"cast", x: ee.x, y: ee.y - 18, life: 20, maxLife: 20, color: skill.color });
     // 스킬 이름 텍스트
     coinTexts.push({ x: ee.x, y: ee.y - 35, text: skill.name, life: 50, color: skill.color });
+
+    // 스킬 이펙트 아이콘 (skill.fx 키 정의 시) — effect 타입에 따라 시각 모드 선택
+    if (skill.fx) {
+        spawnFxByMode(skill, ee, target);
+    }
 
     if (skill.effect === "single") {
         applySkillDamage(target, ee, skill, isSpec);
@@ -788,6 +1578,86 @@ function castSkill(ee, target, skill, isSpec) {
             }
             cur = next;
         }
+    } else if (skill.effect === "pierce") {
+        // 관통: 시전자 → 타겟 방향 직선 위 모든 적
+        const dx = target.x - ee.x, dy = target.y - ee.y;
+        const ang = Math.atan2(dy, dx);
+        const maxDist = getEeveeRange(ee) * 1.6;
+        // 라인 양옆 일정 너비 안의 적
+        const lineW = 30;
+        for (const m of monsters) {
+            if (m.hp <= 0) continue;
+            const mdx = m.x - ee.x, mdy = m.y - ee.y;
+            // 진행 방향 거리 (사거리 안)
+            const along = mdx * Math.cos(ang) + mdy * Math.sin(ang);
+            if (along < 0 || along > maxDist) continue;
+            // 수직 거리 (라인 너비 안)
+            const perp = Math.abs(-mdx * Math.sin(ang) + mdy * Math.cos(ang));
+            if (perp < lineW) {
+                applySkillDamage(m, ee, skill, isSpec);
+            }
+        }
+        // 빔 이펙트
+        const ex = ee.x + Math.cos(ang) * maxDist;
+        const ey = ee.y - 5 + Math.sin(ang) * maxDist;
+        skillEffects.push({ type:"pierceBeam", x: ee.x, y: ee.y - 5, x2: ex, y2: ey, life: 20, maxLife: 20, color: skill.color });
+    } else if (skill.effect === "buff") {
+        // 자기 + 주변 이브이에 일시 버프
+        const r = skill.buffRadius || 100;
+        const dur = skill.buffDur || 360; // 6초 기본
+        for (const e of eevees) {
+            const dx = e.x - ee.x, dy = (e.y - ee.y) / ISO_Y;
+            if (dx * dx + dy * dy < r * r) {
+                e.skillBuff = e.skillBuff || {};
+                if (skill.buffType === "atk") e.skillBuff.atk = Math.max(e.skillBuff.atk || 0, dur);
+                else if (skill.buffType === "spd") e.skillBuff.spd = Math.max(e.skillBuff.spd || 0, dur);
+                else if (skill.buffType === "range") e.skillBuff.range = Math.max(e.skillBuff.range || 0, dur);
+                else if (skill.buffType === "all") {
+                    e.skillBuff.atk = Math.max(e.skillBuff.atk || 0, dur);
+                    e.skillBuff.spd = Math.max(e.skillBuff.spd || 0, dur);
+                    e.skillBuff.range = Math.max(e.skillBuff.range || 0, dur);
+                }
+            }
+        }
+        // 이펙트
+        skillEffects.push({ type:"aoe", x: ee.x, y: ee.y, life: 30, maxLife: 30, color: skill.color, radius: r });
+        skillEffects.push({ type:"shockwave", x: ee.x, y: ee.y, life: 22, maxLife: 22, color: "#fff", radius: r });
+        for (let k = 0; k < 16; k++) {
+            const a = Math.random() * Math.PI * 2;
+            particles.push({
+                x: ee.x + Math.cos(a) * 8, y: ee.y + Math.sin(a) * 8,
+                vx: Math.cos(a) * 2, vy: Math.sin(a) * 2 - 2,
+                color: skill.color, life: 30, maxLife: 30,
+                size: 2 + Math.random() * 2,
+            });
+        }
+    } else if (skill.effect === "field") {
+        // 지속장 (DOT 영역) — 일정 시간 동안 영역 안 적에게 데미지
+        const r = skill.fieldRadius || 80;
+        const dur = skill.fieldDur || 180; // 3초
+        skillEffects.push({
+            type:"field", x: target.x, y: target.y, radius: r,
+            life: dur, maxLife: dur, color: skill.color,
+            tickEvery: 30, // 0.5초마다 데미지
+            tickCounter: 0,
+            srcEe: ee, skill, isSpec,
+        });
+        // 처음 한 번 데미지
+        for (const m of monsters) {
+            if (m.hp <= 0) continue;
+            const dx = m.x - target.x, dy = (m.y - target.y) / ISO_Y;
+            if (dx * dx + dy * dy < r * r) {
+                applySkillDamage(m, ee, skill, isSpec);
+            }
+        }
+    } else if (skill.effect === "delayed") {
+        // 딜레이 폭발 — 시전 후 일정 시간 후 폭발
+        skillEffects.push({
+            type:"delayed", x: target.x, y: target.y, radius: skill.aoeRadius || 80,
+            life: skill.delay || 120, maxLife: skill.delay || 120,
+            color: skill.color,
+            srcEe: ee, skill, isSpec,
+        });
     }
 }
 
@@ -832,27 +1702,36 @@ function spawnEevee(sprite, atk, atkSpeed, range, bulletType) {
 }
 
 function getLevelUpCost(ee) {
+    const l = ee.level - 1;
     const isEvolved = ee.sprite !== "이브이.png";
     if (isEvolved) {
-        return 40 + (ee.level - 1) * 20;
+        return Math.floor(40 + l * 20 + l * l * 1.5);
     }
-    return 15 + (ee.level - 1) * 8;
+    // 기본 이브이도 가속
+    return Math.floor(15 + l * 8 + l * l * 0.6);
 }
 
 // 레벨업 배율 (복리)
-function lvAtkMul(level)   { return Math.pow(1.16, level - 1); }
-function lvSpdMul(level)   { return Math.pow(0.94, level - 1); }
-function lvRangeMul(level) { return Math.pow(1.05, level - 1); }
+// 가산식 — 진화체 기준 (lv당 +16% atk, -3% 공속)
+function lvAtkMul(level)   { return 1 + (level - 1) * 0.16; }
+function lvSpdMul(level)   { return Math.max(0.3, 1 - (level - 1) * 0.03); }
+function lvRangeMul(level) { return 1; }
+// 기본 이브이는 더 낮음 (진화 유도)
+function lvAtkMulBase(level)   { return 1 + (level - 1) * 0.08; }
+function lvSpdMulBase(level)   { return Math.max(0.5, 1 - (level - 1) * 0.015); }
 
 function levelUpEevee(ee) {
     const cost = getLevelUpCost(ee);
     if (coins < cost) return;
     coins -= cost;
     ee.level++;
-    // 복리 능력치 상승
-    ee.atk = Math.max(1, Math.floor(ee.baseAtk * lvAtkMul(ee.level)));
-    if (ee.baseSpAtk) ee.spAtk = Math.max(1, Math.floor(ee.baseSpAtk * lvAtkMul(ee.level)));
-    ee.atkSpeed = Math.max(8, Math.floor(ee.baseAtkSpeed * lvSpdMul(ee.level)));
+    // 능력치 상승 (기본 이브이는 더 약함)
+    const isBase = ee.sprite === "이브이.png";
+    const atkM = isBase ? lvAtkMulBase(ee.level) : lvAtkMul(ee.level);
+    const spdM = isBase ? lvSpdMulBase(ee.level) : lvSpdMul(ee.level);
+    ee.atk = Math.max(1, Math.floor(ee.baseAtk * atkM));
+    if (ee.baseSpAtk) ee.spAtk = Math.max(1, Math.floor(ee.baseSpAtk * atkM));
+    ee.atkSpeed = Math.max(8, Math.floor(ee.baseAtkSpeed * spdM));
     ee.range = Math.floor(ee.baseRange * lvRangeMul(ee.level));
     // 레벨업 이펙트
     for (let k = 0; k < 12; k++) {
@@ -877,7 +1756,9 @@ let monsterIdCounter = 0;
 function spawnMonster(name, sprite, hp, mDef, sDef, spd, typeOrTypes, isBoss, opts) {
     // typeOrTypes: 문자열 또는 배열
     const types = Array.isArray(typeOrTypes) ? typeOrTypes : [typeOrTypes];
-    const dirIdx = Math.floor(Math.random() * 8);
+    // 8방향 중 상단 3방향(10시·12시·2시 = 5,6,7)은 하늘 영역이라 제외
+    const allowedDirs = [0, 1, 2, 3, 4];
+    const dirIdx = allowedDirs[Math.floor(Math.random() * allowedDirs.length)];
     const dirAngle = (dirIdx / 8) * Math.PI * 2;
     const startDist = Math.max(CW, CH) * 0.7;
     const startX = FARM_CX + Math.cos(dirAngle) * startDist;
@@ -943,13 +1824,20 @@ function getMonsterSpdMul(m) {
     if (m.statuses.paralysis) return 0;  // 마비 = 완전 정지
     if (m.statuses.sleep) return 0;       // 잠듦 = 정지
     if (m.statuses.freeze) return 0.4;    // 빙결 = 느려짐
+    if (m.statuses.slow) return 0.6;      // 둔화 = 약하게 느려짐
     return 1;
 }
 
 // 몬스터 effective 방어력
 function getMonsterDef(m, isSpec) {
     let d = isSpec ? (m.sDef || 0) : (m.mDef || 0);
-    if (m.statuses && m.statuses.defDown) d *= 0.7;
+    if (m.statuses) {
+        // 통합 defDown (양쪽 다)
+        if (m.statuses.defDown) d *= 0.7;
+        // 분리형: mDefDown/sDefDown
+        if (!isSpec && m.statuses.mDefDown) d *= 0.7;
+        if (isSpec && m.statuses.sDefDown) d *= 0.7;
+    }
     return d;
 }
 
@@ -1039,21 +1927,23 @@ function setupWave(w) {
     // 웨이브별 레벨 디자인
     let waveMul;
     if (w <= 7) {
-        waveMul = 0.25 + (w - 1) * 0.06;   // W1:0.25 W4:0.43 W7:0.61
+        waveMul = 0.25 + (w - 1) * 0.06;   // W1:0.25 W7:0.61
     } else if (w <= 15) {
-        waveMul = 0.7 + (w - 8) * 0.12;    // W8:0.7 W12:1.18 W15:1.54
+        waveMul = 0.7 + (w - 8) * 0.15;    // W8:0.7 W15:1.75
     } else if (w <= 30) {
-        waveMul = 1.7 + (w - 16) * 0.20;   // W16:1.7 W20:2.5 W30:4.5
+        waveMul = 1.9 + (w - 16) * 0.30;   // W16:1.9 W20:3.1 W30:6.1
     } else if (w <= 50) {
-        waveMul = 4.5 + (w - 30) * 0.35;   // W30:4.5 W40:8 W50:11.5
+        waveMul = 6.1 + (w - 30) * 0.55;   // W30:6.1 W40:11.6 W50:17.1
     } else {
-        waveMul = 11.5 + (w - 50) * 0.70;  // W50:11.5 W60:18.5 W80:32.5 W100:46.5
+        waveMul = 17.1 + (w - 50) * 0.90;  // W50:17.1 W60:26.1 W80:44.1 W100:62.1
     }
+    // 10웨이브마다 추가 스탯 부스트 (소폭, 누적)
+    waveMul *= 1 + Math.floor(w / 10) * 0.05;
     const spdBase = 0.010;
     let count, unlocked;
 
-    // 몬스터 종류 해금: 1웨이브당 1종씩 (W1: 1종, W2: 2종, ... W9+: 9종)
-    unlocked = Math.min(w, monPool.length);
+    // 몬스터 종류 해금: 5웨이브 구간마다 1종씩 (W1~4: 1종, W5~9: 2종, W10~14: 3종 …)
+    unlocked = Math.min(Math.floor((w - 1) / 5) + 1, monPool.length);
 
     // 마릿수
     if (w <= 4) {
@@ -1073,7 +1963,7 @@ function setupWave(w) {
         const raid = raidPool[Math.floor(Math.random() * raidPool.length)];
         waveSpawnQueue.push({
             name: raid.name, sprite: raid.sprite, types: raid.types,
-            hp: Math.floor(raid.baseHp * waveMul * 12),
+            hp: Math.floor(raid.baseHp * waveMul * 20),
             mDef: Math.floor(raid.baseMDef * waveMul * 0.25),
             sDef: Math.floor(raid.baseSDef * waveMul * 0.25),
             spd: spdBase * (raid.baseSpd / 100) * 0.4,
@@ -1088,7 +1978,7 @@ function setupWave(w) {
         const cal = calamityPool[Math.floor(Math.random() * calamityPool.length)];
         waveSpawnQueue.push({
             name: cal.name, sprite: cal.sprite, types: cal.types,
-            hp: Math.floor(cal.baseHp * waveMul * 8),
+            hp: Math.floor(cal.baseHp * waveMul * 14),
             mDef: Math.floor(cal.baseMDef * waveMul * 0.2),
             sDef: Math.floor(cal.baseSDef * waveMul * 0.2),
             spd: spdBase * (cal.baseSpd / 100) * 0.4,
@@ -1098,6 +1988,9 @@ function setupWave(w) {
         count = Math.floor(count * 0.4);
     }
 
+    // 동적 스폰 간격: 라운드 시간의 70% 안에 모든 몬스터가 등장하도록
+    const targetWindow = Math.floor(WAVE_TIME * 0.7);
+    const dynGap = Math.max(6, Math.min(45, Math.floor(targetWindow / Math.max(1, count))));
     for (let i = 0; i < count; i++) {
         const m = monPool[Math.floor(Math.random() * unlocked)];
         const hpRoll = 0.85 + Math.random() * 0.3;
@@ -1107,7 +2000,7 @@ function setupWave(w) {
             mDef: Math.floor(m.baseMDef * waveMul * 0.12),
             sDef: Math.floor(m.baseSDef * waveMul * 0.12),
             spd: spdBase * (m.baseSpd / 100) * (0.9 + Math.random() * 0.2),
-            delay: i * 45 + Math.floor(Math.random() * 20) + (w % 10 === 0 ? 90 : 0),
+            delay: i * dynGap + Math.floor(Math.random() * Math.min(15, dynGap)) + (w % 10 === 0 ? 90 : 0),
         });
     }
     waveTimer = getWaveTime(w);
@@ -1126,6 +2019,11 @@ let dragging = null;
 function update() {
     frame++;
 
+    // 파티클 캡 (모바일 250 / 데스크탑 500)
+    const PARTICLE_CAP = isMobile ? 250 : 500;
+    if (particles.length > PARTICLE_CAP) {
+        particles.splice(0, particles.length - PARTICLE_CAP);
+    }
     // 파티클 업데이트
     for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i];
@@ -1137,8 +2035,37 @@ function update() {
         if (hitEffects[i].life <= 0) hitEffects.splice(i, 1);
     }
     for (let i = skillEffects.length - 1; i >= 0; i--) {
-        skillEffects[i].life--;
-        if (skillEffects[i].life <= 0) skillEffects.splice(i, 1);
+        const e = skillEffects[i];
+        // 지연 중에는 life 깎지 않음 (draw에서 delay 카운트다운)
+        if (e.delay && e.delay > 0) continue;
+        e.life--;
+        // 지속장 (field) 틱 데미지
+        if (e.type === "field" && e.srcEe && e.skill) {
+            e.tickCounter = (e.tickCounter || 0) + 1;
+            if (e.tickCounter >= e.tickEvery) {
+                e.tickCounter = 0;
+                for (const m of monsters) {
+                    if (m.hp <= 0) continue;
+                    const dx = m.x - e.x, dy = (m.y - e.y) / ISO_Y;
+                    if (dx * dx + dy * dy < e.radius * e.radius) {
+                        applySkillDamage(m, e.srcEe, e.skill, e.isSpec);
+                    }
+                }
+            }
+        }
+        // 딜레이 폭발
+        if (e.type === "delayed" && e.life === 0 && e.srcEe && e.skill) {
+            for (const m of monsters) {
+                if (m.hp <= 0) continue;
+                const dx = m.x - e.x, dy = (m.y - e.y) / ISO_Y;
+                if (dx * dx + dy * dy < e.radius * e.radius) {
+                    applySkillDamage(m, e.srcEe, e.skill, e.isSpec);
+                }
+            }
+            // 폭발 이펙트
+            skillEffects.push({ type:"aoe", x: e.x, y: e.y, life: 35, maxLife: 35, color: e.color, radius: e.radius });
+        }
+        if (e.life <= 0) skillEffects.splice(i, 1);
     }
 
     if (gameState === "splash") return;
@@ -1203,10 +2130,10 @@ function update() {
         }
     }
 
-    waveTimer--;
+    if (!testMode) waveTimer--;
 
     // 라운드 시간 종료 → 즉시 다음 라운드 시작
-    if (waveTimer <= 0) {
+    if (!testMode && waveTimer <= 0) {
         wave++;
         setupWave(wave);
         for (const ee of eevees) {
@@ -1252,10 +2179,15 @@ function update() {
     // 몬스터 이동
     for (const m of monsters) {
         if (m.hitAnim > 0) m.hitAnim--;
+        // 테스트 더미: 이동/HP 고정
+        if (m.isTestDummy) {
+            m.hp = m.maxHp; // HP 회복 (불멸)
+            continue;
+        }
         if (m.phase === "enter") {
             // 울퉁불퉁멧: 진입 중 매초 도트 (60프레임마다)
             if (hasItem("helmet") && frame % 60 === 0) {
-                const dot = 5 + Math.floor(wave * 0.5);
+                const dot = 3 + Math.floor(wave * 0.3);
                 m.hp -= dot;
                 m.hitAnim = 4;
                 coinTexts.push({ x: m.x, y: m.y - 12, text: `-${dot}`, life: 25, color: "#FFAB91" });
@@ -1300,6 +2232,12 @@ function update() {
     for (const ee of eevees) {
         ee.animTimer++;
         if (ee.boostBuff > 0) ee.boostBuff--;
+        // 스킬 버프 타이머
+        if (ee.skillBuff) {
+            if (ee.skillBuff.atk > 0) ee.skillBuff.atk--;
+            if (ee.skillBuff.spd > 0) ee.skillBuff.spd--;
+            if (ee.skillBuff.range > 0) ee.skillBuff.range--;
+        }
         if (ee === dragging) continue;
 
         // --- 타겟 탐색 (사정거리 1.5배 이내만) ---
@@ -1319,6 +2257,7 @@ function update() {
         // --- 스킬 쿨다운 감소 (매 프레임) ---
         if (ee.skill1Cd > 0) ee.skill1Cd--;
         if (ee.skill2Cd > 0) ee.skill2Cd--;
+        if (ee.skill3Cd > 0) ee.skill3Cd--;
 
         // --- 공격 (평타 발동 시점에 스킬 발동도 체크) ---
         if (ee.atkCooldown > 0) ee.atkCooldown--;
@@ -1327,23 +2266,38 @@ function update() {
             if (d <= effRange) {
                 // 평타 데미지 (예리한이빨 크리)
                 let atkVal = getEeveeAtk(ee);
-                if (hasItem("fang") && Math.random() < 0.15) atkVal = Math.floor(atkVal * 1.8);
+                if (hasItem("fang") && Math.random() < 0.06) atkVal = Math.floor(atkVal * 1.6);
                 fireProjectile(ee.x, ee.y - 5, target.id, atkVal, ee.bulletType, ee.category || "phys", ee.type || "normal", ee);
                 // 겨냥표적 더블샷
-                if (hasItem("target") && Math.random() < 0.3) {
+                if (hasItem("target") && Math.random() < 0.20) {
                     fireProjectile(ee.x, ee.y - 5, target.id, atkVal, ee.bulletType, ee.category || "phys", ee.type || "normal", ee);
                 }
                 ee.atkCooldown = effSpd;
                 ee.facing = target.x > ee.x ? 1 : -1;
 
-                // 스킬 발동 (평타 시 10% 확률, 쿨다운 + 레벨 조건)
-                if (ee.skill1 && ee.level >= 5 && ee.skill1Cd <= 0 && Math.random() < 0.10) {
-                    castSkill(ee, target, ee.skill1, false);
-                    ee.skill1Cd = ee.skill1.cd;
-                }
-                if (ee.skill2 && ee.level >= 10 && ee.skill2Cd <= 0 && Math.random() < 0.10) {
-                    castSkill(ee, target, ee.skill2, true);
-                    ee.skill2Cd = ee.skill2.cd;
+                // 스킬 발동 — 테스트 모드면 1→2→3 순환 강제, 아니면 확률
+                if (testMode) {
+                    ee.testSkillIdx = ((ee.testSkillIdx || 0) + 1) % 3;
+                    if (ee.testSkillIdx === 0 && ee.skill1) {
+                        castSkill(ee, target, ee.skill1, false);
+                    } else if (ee.testSkillIdx === 1 && ee.skill2) {
+                        castSkill(ee, target, ee.skill2, true);
+                    } else if (ee.testSkillIdx === 2 && ee.skill3) {
+                        castSkill(ee, target, ee.skill3, ee.skill3.effect === "buff" ? false : true);
+                    }
+                } else {
+                    if (ee.skill1 && ee.level >= getSkill1Unlock(ee) && ee.skill1Cd <= 0 && Math.random() < 0.06) {
+                        castSkill(ee, target, ee.skill1, false);
+                        ee.skill1Cd = ee.skill1.cd;
+                    }
+                    if (ee.skill2 && ee.level >= getSkill2Unlock(ee) && ee.skill2Cd <= 0 && Math.random() < 0.06) {
+                        castSkill(ee, target, ee.skill2, true);
+                        ee.skill2Cd = ee.skill2.cd;
+                    }
+                    if (ee.skill3 && ee.level >= getSkill3Unlock(ee) && ee.skill3Cd <= 0 && Math.random() < 0.06) {
+                        castSkill(ee, target, ee.skill3, ee.skill3.effect === "buff" ? false : true);
+                        ee.skill3Cd = ee.skill3.cd;
+                    }
                 }
             }
         }
@@ -1362,25 +2316,13 @@ function update() {
         // 공격 중(사거리 내 타겟)이면 멈춤
         if (target && bestDist <= effRange) continue;
 
-        // 이끼바위 버프 (인접 이브이 이동속도 +50%)
-        let mossBuff = 1;
-        const mossR = getRockBuffRadius("moss");
-        for (const r of rocks) {
-            if (r.type !== "moss") continue;
-            const dxR = ee.x - r.x, dyR = (ee.y - r.y) / ISO_Y;
-            if (dxR * dxR + dyR * dyR < mossR * mossR) {
-                mossBuff = 1.5;
-                break;
-            }
-        }
-
         // 타겟이 있지만 사거리 밖 → 추적
         if (target) {
             const chaseX = target.x, chaseY = target.y;
             const cdx = chaseX - ee.x, cdy = chaseY - ee.y;
             const cdist = Math.sqrt(cdx * cdx + cdy * cdy);
             if (cdist > 3) {
-                const spd = ee.moveSpeed * 1.3 * mossBuff;
+                const spd = ee.moveSpeed * 1.3;
                 ee.x += (cdx / cdist) * spd;
                 ee.y += (cdy / cdist) * spd;
                 if (cdx > 0.5) ee.facing = 1;
@@ -1404,8 +2346,8 @@ function update() {
                 ee.wanderTimer = 120 + Math.floor(Math.random() * 180);
                 ee.idleTimer = 30 + Math.floor(Math.random() * 90);
             } else {
-                ee.x += (dxW / distW) * ee.moveSpeed * mossBuff;
-                ee.y += (dyW / distW) * ee.moveSpeed * mossBuff;
+                ee.x += (dxW / distW) * ee.moveSpeed;
+                ee.y += (dyW / distW) * ee.moveSpeed;
                 ee.wanderTimer--;
                 if (dxW > 0.5) ee.facing = 1;
                 else if (dxW < -0.5) ee.facing = -1;
@@ -1471,7 +2413,8 @@ function update() {
             const baseDmg = Math.max(1, p.atk - defStat * 0.3);
             // 타입 상성
             const mul = totalTypeMul(p.attackerType, target);
-            const dmg = Math.max(1, Math.round(baseDmg * mul));
+            const dn = getDayNightMul(p.attackerType, null);
+            const dmg = Math.max(1, Math.round(baseDmg * mul * dn.mul));
             const wasAlive = target.hp > 0;
             target.hp -= dmg;
             // 라스트힛 카운트
@@ -1485,6 +2428,18 @@ function update() {
                 coinTexts.push({ x: target.x, y: target.y - 20, text: "효과적!", life: 35, color: "#FFEB3B" });
             } else if (mul < 1) {
                 coinTexts.push({ x: target.x, y: target.y - 20, text: "별로...", life: 35, color: "#9E9E9E" });
+            }
+            if (dn.isBoosted) {
+                const dnColor = dn.isDay ? "#FFE082" : "#B39DDB";
+                skillEffects.push({ type:"shockwave", x: target.x, y: target.y, life: 14, maxLife: 14, color: dnColor, radius: 18 });
+                for (let k = 0; k < 4; k++) {
+                    const a = Math.random() * Math.PI * 2;
+                    particles.push({
+                        x: target.x, y: target.y - 4,
+                        vx: Math.cos(a) * 1.2, vy: Math.sin(a) * 1.2 - 1,
+                        color: dnColor, life: 14, maxLife: 14, size: 1.5 + Math.random() * 1,
+                    });
+                }
             }
             target.hitAnim = 8;
             const bt = BULLET_TYPES[p.bulletType] || BULLET_TYPES.normal;
@@ -1520,7 +2475,7 @@ function update() {
                 m.sprite = p2.sprite;
                 m.types = p2.types;
                 m.type = p2.types[0];
-                m.hp = Math.floor(p2.baseHp * wm * 12);
+                m.hp = Math.floor(p2.baseHp * wm * 20);
                 m.maxHp = m.hp;
                 m.mDef = Math.floor(p2.baseMDef * wm * 0.25);
                 m.sDef = Math.floor(p2.baseSDef * wm * 0.25);
@@ -1554,7 +2509,8 @@ function update() {
             coinTexts.push({ x: m.x, y: m.y - 15, text: `+${reward}`, life: 50 });
 
             // 보스/레이드 처치 시 아이템 드롭 (레이드는 100%, 보스는 25%)
-            const dropChance = m.isRaid ? 1.0 : (m.isBoss ? BOSS_DROP_RATE : 0);
+            // 첫 보스(W10)는 75% 드롭, 그 외 25%, 레이드는 100%
+            const dropChance = m.isRaid ? 1.0 : (m.isBoss ? (wave <= 10 ? 0.75 : BOSS_DROP_RATE) : 0);
             if (dropChance > 0 && Math.random() < dropChance) {
                 const unowned = ITEMS.filter(it => !inventory.has(it.id));
                 if (unowned.length > 0) {
@@ -1635,405 +2591,157 @@ function update() {
 // 렌더링 (아이소메트릭)
 // ═══════════════════════════════════════════
 
-// ═══════════════════════════════════════════
-// 아이소메트릭 배경 (RPG 스타일 탑뷰)
-// ═══════════════════════════════════════════
+// 농장 타일 좌표 계산용 (드로우 함수에서 사용)
 const BG_TW = 56, BG_TH = Math.round(BG_TW * ISO_Y);
-
 function bgRand(a, b) {
     let n = a * 374761393 + b * 668265263;
     n = ((n ^ (n >> 13)) * 1274126177) | 0;
     return ((n ^ (n >> 16)) & 0x7fffffff) / 0x7fffffff;
 }
 
-// 배경을 오프스크린 캔버스에 미리 렌더
-const bgCanvas = document.createElement("canvas");
-bgCanvas.width = CW;
-bgCanvas.height = CH;
-const bgCtx = bgCanvas.getContext("2d");
-
-(function renderStaticBG() {
-    const ox = CW / 2, oy = -80;
-    const rows = 50, cols = 50;
-    const farmIso = toIso(FARM_CX, FARM_CY);
-
-    bgCtx.fillStyle = "#4A7A3A";
-    bgCtx.fillRect(0, 0, CW, CH);
-
-    // --- 타일 그리기 ---
-    for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-            const sx = ox + (c - r) * BG_TW / 2;
-            const sy = oy + (c + r) * BG_TH / 2;
-            if (sx < -BG_TW || sx > CW + BG_TW || sy < -BG_TH || sy > CH + BG_TH) continue;
-
-            const rnd = bgRand(c, r);
-            const ri = (c * 7 + r * 13) % 4;
-            const dx = sx - farmIso.x;
-            const dy = (sy - farmIso.y) * 1.8;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            const edgeDist = Math.min(sx + 30, CW - sx + 30, sy + 50, CH - sy + 30);
-
-            let fill, stroke;
-
-            if (edgeDist < 30) {
-                // 절벽 타일 — 측면 벽 먼저 그리기
-                const cliffH = 12 + (30 - edgeDist) * 0.6;
-                bgCtx.fillStyle = "#5E503E";
-                bgCtx.beginPath();
-                bgCtx.moveTo(sx + BG_TW / 2, sy);
-                bgCtx.lineTo(sx, sy + BG_TH / 2);
-                bgCtx.lineTo(sx, sy + BG_TH / 2 + cliffH);
-                bgCtx.lineTo(sx + BG_TW / 2, sy + cliffH);
-                bgCtx.fill();
-                bgCtx.fillStyle = "#4A3E2E";
-                bgCtx.beginPath();
-                bgCtx.moveTo(sx - BG_TW / 2, sy);
-                bgCtx.lineTo(sx, sy + BG_TH / 2);
-                bgCtx.lineTo(sx, sy + BG_TH / 2 + cliffH);
-                bgCtx.lineTo(sx - BG_TW / 2, sy + cliffH);
-                bgCtx.fill();
-                // 절벽 돌 디테일
-                bgCtx.strokeStyle = "rgba(0,0,0,0.15)";
-                bgCtx.lineWidth = 0.5;
-                for (let li = 1; li < cliffH; li += 4) {
-                    bgCtx.beginPath();
-                    bgCtx.moveTo(sx - BG_TW / 2 + 2, sy + li);
-                    bgCtx.lineTo(sx + BG_TW / 2 - 2, sy + li);
-                    bgCtx.stroke();
-                }
-                fill = ["#8A7A65", "#7A6B58", "#96876F", "#847560"][ri];
-                stroke = "#6A5B48";
-            } else if (edgeDist < 55 && rnd < 0.35) {
-                // 절벽 근처 바위 지형
-                fill = ["#8A7A65", "#7E7058", "#917E68"][ri % 3];
-                stroke = "#6A5B48";
-            } else if (dist < 100) {
-                // 농장 근처 흙길
-                fill = ["#C4A56A", "#B89B62", "#D1AE72", "#BFA168"][ri];
-                stroke = "#A89058";
-            } else if (dist < 155 && rnd < 0.4) {
-                // 흙/잔디 전환 구간
-                fill = rnd < 0.2
-                    ? ["#C4A56A", "#B89B62"][ri % 2]
-                    : ["#7AAA50", "#6B9B45"][ri % 2];
-                stroke = rnd < 0.2 ? "#A89058" : "#5A8A38";
-            } else {
-                // 잔디
-                if (rnd < 0.12) {
-                    fill = ["#5A9A45", "#4F8E3D", "#558F42"][ri % 3];
-                    stroke = "#4A8235";
-                } else {
-                    fill = ["#6AAF55", "#5FA04D", "#72B85E", "#68A852"][ri];
-                    stroke = "#5A9A45";
-                }
-            }
-
-            // 다이아몬드 타일
-            bgCtx.beginPath();
-            bgCtx.moveTo(sx, sy - BG_TH / 2);
-            bgCtx.lineTo(sx + BG_TW / 2, sy);
-            bgCtx.lineTo(sx, sy + BG_TH / 2);
-            bgCtx.lineTo(sx - BG_TW / 2, sy);
-            bgCtx.closePath();
-            bgCtx.fillStyle = fill;
-            bgCtx.fill();
-            bgCtx.strokeStyle = stroke;
-            bgCtx.lineWidth = 0.5;
-            bgCtx.stroke();
-        }
-    }
-
-    // --- 길 (농장으로 이어지는 흙길) ---
-    // 우측에서 농장까지 이어지는 진입로
-    for (let px = farmIso.x + 90; px < CW + 30; px += 18) {
-        const py = farmIso.y;
-        bgCtx.fillStyle = `rgba(180,150,90,${0.3 + bgRand(px, 0) * 0.2})`;
-        bgCtx.beginPath();
-        bgCtx.ellipse(px, py, 14, 7, -0.4, 0, Math.PI * 2);
-        bgCtx.fill();
-    }
-
-    // --- 나무 (배경) ---
-    const treePlacements = [];
-    for (let i = 0; i < 35; i++) {
-        const tr = Math.floor(bgRand(i * 3, 777) * rows);
-        const tc = Math.floor(bgRand(777, i * 3) * cols);
-        const tsx = ox + (tc - tr) * BG_TW / 2;
-        const tsy = oy + (tc + tr) * BG_TH / 2;
-        const tdx = tsx - farmIso.x;
-        const tdy = (tsy - farmIso.y) * 1.8;
-        const tdist = Math.sqrt(tdx * tdx + tdy * tdy);
-        if (tdist < 185) continue;
-        if (tsx < 40 || tsx > CW - 40 || tsy < 30 || tsy > CH - 40) continue;
-        const edgeDist = Math.min(tsx + 30, CW - tsx + 30, tsy + 50, CH - tsy + 30);
-        if (edgeDist < 55) continue;
-        treePlacements.push({ sx: tsx, sy: tsy, i });
-    }
-
-    // 나무를 Y 좌표 기준 정렬 (화가 알고리즘)
-    treePlacements.sort((a, b) => a.sy - b.sy);
-
-    for (const tp of treePlacements) {
-        const h = 24 + bgRand(tp.i, tp.i) * 20;
-        const w = 16 + bgRand(tp.i + 1, tp.i) * 8;
-        const sx = tp.sx, sy = tp.sy;
-
-        // 그림자
-        bgCtx.fillStyle = "rgba(0,0,0,0.18)";
-        bgCtx.beginPath();
-        bgCtx.ellipse(sx + 5, sy + 3, w * 0.55, w * 0.22, -0.3, 0, Math.PI * 2);
-        bgCtx.fill();
-
-        // 줄기
-        bgCtx.fillStyle = "#5A3A1A";
-        bgCtx.fillRect(sx - 2, sy - h * 0.35, 4, h * 0.42);
-
-        // 잎 (둥근 나무)
-        const g = bgRand(tp.i, tp.i + 2);
-        bgCtx.fillStyle = g < 0.33 ? "#2D6B1E" : g < 0.66 ? "#357A25" : "#2A5E18";
-        bgCtx.beginPath();
-        bgCtx.ellipse(sx, sy - h * 0.5, w * 0.58, h * 0.42, 0, 0, Math.PI * 2);
-        bgCtx.fill();
-
-        // 잎 하이라이트
-        bgCtx.fillStyle = "rgba(110,195,65,0.3)";
-        bgCtx.beginPath();
-        bgCtx.ellipse(sx - 3, sy - h * 0.62, w * 0.32, h * 0.22, 0, 0, Math.PI * 2);
-        bgCtx.fill();
-
-        // 잎 어두운 부분
-        bgCtx.fillStyle = "rgba(0,50,0,0.15)";
-        bgCtx.beginPath();
-        bgCtx.ellipse(sx + 3, sy - h * 0.4, w * 0.4, h * 0.2, 0, 0, Math.PI * 2);
-        bgCtx.fill();
-    }
-
-    // --- 물 웅덩이 (우하단) ---
-    const wx = CW * 0.82, wy = CH * 0.78;
-    bgCtx.fillStyle = "rgba(70,165,210,0.55)";
-    bgCtx.beginPath();
-    bgCtx.ellipse(wx, wy, 45, 22, -0.4, 0, Math.PI * 2);
-    bgCtx.fill();
-    bgCtx.fillStyle = "rgba(120,200,240,0.35)";
-    bgCtx.beginPath();
-    bgCtx.ellipse(wx - 8, wy - 4, 25, 12, -0.4, 0, Math.PI * 2);
-    bgCtx.fill();
-    bgCtx.strokeStyle = "rgba(55,130,170,0.4)";
-    bgCtx.lineWidth = 1.5;
-    bgCtx.beginPath();
-    bgCtx.ellipse(wx, wy, 46, 23, -0.4, 0, Math.PI * 2);
-    bgCtx.stroke();
-    // 물 반짝임
-    bgCtx.fillStyle = "rgba(200,240,255,0.3)";
-    bgCtx.beginPath();
-    bgCtx.ellipse(wx - 15, wy - 8, 8, 3, -0.5, 0, Math.PI * 2);
-    bgCtx.fill();
-
-    // --- 잔디 디테일 (타일 위 풀잎) ---
-    for (let i = 0; i < 80; i++) {
-        const gx = bgRand(i * 2, 555) * CW;
-        const gy = bgRand(555, i * 2) * CH;
-        const gdx = gx - farmIso.x;
-        const gdy = (gy - farmIso.y) * 1.8;
-        const gdist = Math.sqrt(gdx * gdx + gdy * gdy);
-        if (gdist < 120) continue;
-        const edgeDist = Math.min(gx + 30, CW - gx + 30, gy + 50, CH - gy + 30);
-        if (edgeDist < 55) continue;
-
-        bgCtx.strokeStyle = "rgba(80,160,50,0.25)";
-        bgCtx.lineWidth = 1;
-        for (let g = -1; g <= 1; g++) {
-            bgCtx.beginPath();
-            bgCtx.moveTo(gx + g * 2, gy);
-            bgCtx.lineTo(gx + g * 2 + g * 0.5, gy - 4 - bgRand(i, g + 5) * 3);
-            bgCtx.stroke();
-        }
-    }
-
-    // --- 작은 꽃 ---
-    for (let i = 0; i < 20; i++) {
-        const fx = bgRand(i, 888) * CW;
-        const fy = bgRand(888, i) * CH;
-        const fdx = fx - farmIso.x;
-        const fdy = (fy - farmIso.y) * 1.8;
-        const fdist = Math.sqrt(fdx * fdx + fdy * fdy);
-        if (fdist < 130) continue;
-        const edgeDist = Math.min(fx + 30, CW - fx + 30, fy + 50, CH - fy + 30);
-        if (edgeDist < 55) continue;
-
-        const colors = ["#FF6B8A", "#FFD54F", "#CE93D8", "#64B5F6", "#FF8A65"];
-        bgCtx.fillStyle = colors[i % colors.length];
-        bgCtx.beginPath();
-        bgCtx.arc(fx, fy, 2, 0, Math.PI * 2);
-        bgCtx.fill();
-        bgCtx.fillStyle = "#FFE082";
-        bgCtx.beginPath();
-        bgCtx.arc(fx, fy, 0.8, 0, Math.PI * 2);
-        bgCtx.fill();
-    }
-})();
-
-// 구름 그림자 (애니메이션)
-const cloudShadows = [];
-for (let i = 0; i < 3; i++) {
-    cloudShadows.push({
-        baseX: bgRand(i, 100) * CW * 1.5,
-        y: 80 + bgRand(100, i) * (CH - 160),
-        w: 80 + bgRand(i, 200) * 100,
-        h: 40 + bgRand(200, i) * 50,
-        speed: 0.1 + bgRand(i, 300) * 0.08,
-    });
-}
-
-// (농장 장식은 drawFarmPlatform 내부에서 직접 렌더)
-
 function drawBackground() {
-    ctx.drawImage(bgCanvas, 0, 0);
-
-    // 밤 배경 톤 (잔디/지형 어둡게)
-    if (!isDayWave()) {
-        ctx.fillStyle = "rgba(30,40,80,0.28)";
+    // 낮/밤 배경 이미지
+    const day = isDayWave();
+    const bgImg = day ? images["bg/bg-day.png"] : images["bg/bg-night.png"];
+    if (bgImg && bgImg.complete && bgImg.naturalWidth > 0) {
+        ctx.drawImage(bgImg, 0, 0, CW, CH);
+    } else {
+        // fallback: 단색
+        ctx.fillStyle = day ? "#5a9a45" : "#1c2540";
         ctx.fillRect(0, 0, CW, CH);
     }
+}
 
-    // 구름 그림자 (애니메이션)
-    ctx.save();
-    for (const cs of cloudShadows) {
-        const cx = ((cs.baseX + frame * cs.speed) % (CW + cs.w * 2)) - cs.w;
-        ctx.fillStyle = isDayWave() ? "rgba(0,0,0,0.06)" : "rgba(0,0,30,0.15)";
-        ctx.beginPath();
-        ctx.ellipse(cx, cs.y, cs.w / 2, cs.h / 2, -0.4, 0, Math.PI * 2);
-        ctx.fill();
-    }
-    ctx.restore();
-
-    // 밤이면 별 배경
-    if (!isDayWave()) {
-        for (let i = 0; i < 30; i++) {
-            const sx = (i * 197 + 33) % CW;
-            const sy = (i * 53 + 13) % 200;
-            const tw = 0.5 + 0.5 * Math.sin(frame * 0.05 + i);
-            ctx.fillStyle = `rgba(255,255,200,${0.4 + tw * 0.4})`;
-            ctx.beginPath();
-            ctx.arc(sx, sy, 1 + tw, 0, Math.PI * 2);
-            ctx.fill();
-        }
-    }
+// 농장 울타리 — image/bg/fence.png 사용 (낮 원본, 밤 자동 틴트)
+// 이미지 로드 실패 시 fallback으로 절차적 그리기
+let _fenceNightCache = null; // 밤 틴트 캐시
+function getFenceNight(srcImg) {
+    if (_fenceNightCache && _fenceNightCache.src === srcImg) return _fenceNightCache.canvas;
+    const c = document.createElement("canvas");
+    c.width = srcImg.naturalWidth;
+    c.height = srcImg.naturalHeight;
+    const cx = c.getContext("2d");
+    cx.drawImage(srcImg, 0, 0);
+    // 밤 톤: source-atop으로 알파 영역에만 푸른빛 오버레이
+    // multiply는 알파 마스크를 무시하므로 사용 불가 (사각형 잔상 발생)
+    cx.globalCompositeOperation = "source-atop";
+    cx.fillStyle = "rgba(40, 50, 110, 0.55)";
+    cx.fillRect(0, 0, c.width, c.height);
+    cx.globalCompositeOperation = "source-over";
+    _fenceNightCache = { src: srcImg, canvas: c };
+    return c;
 }
 
 function drawFarmPlatform() {
-    // 배경과 동일 좌표계 — 평면 타일, 벽 없음
-    const farmRX = FARM_RADIUS;            // 타원 X반경
-    const farmRY = FARM_RADIUS * ISO_Y;    // 타원 Y반경 (아이소 압축)
-
-    // --- 농장 타일 (타원 영역) ---
-    ctx.save();
-    ctx.beginPath();
-    ctx.ellipse(FARM_CX, FARM_CY, farmRX + 5, farmRY + 3, 0, 0, Math.PI * 2);
-    ctx.clip();
-
-    for (let r = -8; r <= 8; r++) {
-        for (let c = -8; c <= 8; c++) {
-            const sx = FARM_CX + (c - r) * BG_TW / 2;
-            const sy = FARM_CY + (c + r) * BG_TH / 2;
-            const nx = (sx - FARM_CX) / (farmRX + 10);
-            const ny = (sy - FARM_CY) / (farmRY + 5);
-            if (nx * nx + ny * ny > 1.1) continue;
-
-            const ri = ((c + 8) * 7 + (r + 8) * 13) & 3;
-            const rnd = bgRand(c + 200, r + 200);
-            let color;
-            if (rnd < 0.06) color = "#4E9842";
-            else if (rnd < 0.14) color = "#62B055";
-            else color = ["#58A84E", "#54A44A", "#5DAD52", "#50A046"][ri];
-
-            ctx.beginPath();
-            ctx.moveTo(sx, sy - BG_TH / 2);
-            ctx.lineTo(sx + BG_TW / 2, sy);
-            ctx.lineTo(sx, sy + BG_TH / 2);
-            ctx.lineTo(sx - BG_TW / 2, sy);
-            ctx.closePath();
-            ctx.fillStyle = color;
-            ctx.fill();
-            ctx.strokeStyle = "rgba(40,80,30,0.2)";
-            ctx.lineWidth = 0.5;
-            ctx.stroke();
-        }
+    const fence = images["bg/fence.png"];
+    if (fence && fence.complete && fence.naturalWidth > 0) {
+        const day = isDayWave();
+        // 농장 타원 가로지름 = FARM_RADIUS * 2 = 290
+        // 이미지를 농장 폭에 맞춰 그리기 (비율 유지)
+        const targetW = FARM_RADIUS * 2 + 20; // 약간의 여유
+        const ratio = fence.naturalHeight / fence.naturalWidth;
+        const targetH = targetW * ratio;
+        const dx = FARM_CX - targetW / 2;
+        const dy = FARM_CY - targetH / 2;
+        const src = day ? fence : getFenceNight(fence);
+        ctx.drawImage(src, dx, dy, targetW, targetH);
+        return;
     }
-    ctx.restore();
+    // === Fallback (이미지 로드 실패 시) ===
+    return drawFarmPlatformFallback();
+}
 
-    // --- 테두리 ---
-    ctx.strokeStyle = "#9A8A6A";
-    ctx.lineWidth = 2.5;
-    ctx.beginPath();
-    ctx.ellipse(FARM_CX, FARM_CY, farmRX, farmRY, 0, 0, Math.PI * 2);
-    ctx.stroke();
+function drawFarmPlatformFallback() {
+    const farmRX = FARM_RADIUS;
+    const farmRY = FARM_RADIUS * ISO_Y;
+    const day = isDayWave();
 
-    // --- 울타리 (타원형) ---
-    const fRX = farmRX * 0.93, fRY = farmRY * 0.93;
-    const posts = 20;
-    // 레일 2줄
-    ctx.strokeStyle = "#C4A882";
-    ctx.lineWidth = 1.2;
-    for (const hOff of [-4, -9]) {
+    // 시간대별 톤
+    const colLight  = day ? "#F5EEDC" : "#B8B5C8"; // 밝은 면 (낮: 아이보리, 밤: 라벤더 톤)
+    const colMid    = day ? "#D9C9A0" : "#7A7A95";
+    const colDark   = day ? "#6B5638" : "#2E2E45"; // 외곽선
+    const colShadow = "rgba(0,0,0,0.35)";
+
+    const posts = 22;
+    // 기둥들을 y 기준으로 정렬해서 뒤(작은 y) → 앞(큰 y) 순으로 그림 → 자연스러운 가림
+    const postData = [];
+    for (let i = 0; i < posts; i++) {
+        const a = (i / posts) * Math.PI * 2;
+        const px = FARM_CX + Math.cos(a) * farmRX;
+        const py = FARM_CY + Math.sin(a) * farmRY;
+        // depth: 0(뒤) ~ 1(앞)
+        const depth = (Math.sin(a) + 1) / 2;
+        postData.push({ px, py, depth, a });
+    }
+    postData.sort((a, b) => a.py - b.py);
+
+    // === 1) 가로 레일 (타원 둘레 따라 두 줄) — 뒤쪽 절반 먼저, 앞쪽은 나중에 ===
+    function drawRail(yOff, lineW, color) {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = lineW;
         ctx.beginPath();
-        for (let i = 0; i <= 64; i++) {
-            const a = (i / 64) * Math.PI * 2;
-            const px = FARM_CX + Math.cos(a) * fRX;
-            const py = FARM_CY + Math.sin(a) * fRY + hOff;
+        for (let i = 0; i <= 80; i++) {
+            const a = (i / 80) * Math.PI * 2;
+            const px = FARM_CX + Math.cos(a) * farmRX;
+            const py = FARM_CY + Math.sin(a) * farmRY + yOff;
             if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
         }
         ctx.closePath();
         ctx.stroke();
     }
-    // 기둥
-    ctx.fillStyle = "#A08060";
-    ctx.strokeStyle = "#7A6040";
-    ctx.lineWidth = 0.8;
-    for (let i = 0; i < posts; i++) {
-        const a = (i / posts) * Math.PI * 2;
-        const px = FARM_CX + Math.cos(a) * fRX;
-        const py = FARM_CY + Math.sin(a) * fRY;
-        ctx.fillRect(px - 1.5, py - 12, 3, 14);
-        ctx.strokeRect(px - 1.5, py - 12, 3, 14);
-        // 캡
-        ctx.fillStyle = "#B89870";
-        ctx.fillRect(px - 2.5, py - 13, 5, 2);
-        ctx.fillStyle = "#A08060";
-    }
 
-    // --- 장식 ---
-    // 건초
-    ctx.fillStyle = "#D4A84A";
-    ctx.beginPath(); ctx.ellipse(FARM_CX + 60, FARM_CY + 25, 10, 5, -0.4, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = "#C49838";
-    ctx.beginPath(); ctx.ellipse(FARM_CX + 60, FARM_CY + 28, 10, 3.5, -0.4, 0, Math.PI * 2); ctx.fill();
+    // 그림자 베이스 (땅에 닿는 라인 살짝 어두움)
+    ctx.save();
+    ctx.shadowColor = colShadow;
+    ctx.shadowBlur = 4 * SHADOW_BLUR_MUL;
+    ctx.shadowOffsetY = 2;
+    drawRail(-3, 2.4, colMid);   // 아래쪽 가로레일
+    drawRail(-11, 2.4, colMid);  // 위쪽 가로레일
+    ctx.restore();
 
-    ctx.fillStyle = "#D4A84A";
-    ctx.beginPath(); ctx.ellipse(FARM_CX + 75, FARM_CY + 18, 8, 4, -0.3, 0, Math.PI * 2); ctx.fill();
+    // 레일 외곽선
+    drawRail(-3, 3.0, colDark);
+    drawRail(-11, 3.0, colDark);
+    // 레일 본체 (밝은 톤)
+    drawRail(-3, 1.8, colLight);
+    drawRail(-11, 1.8, colLight);
 
-    // 상자
-    ctx.fillStyle = "#C4A882";
-    ctx.fillRect(FARM_CX - 70, FARM_CY + 15, 10, 10);
-    ctx.strokeStyle = "#8B7355"; ctx.lineWidth = 0.8;
-    ctx.strokeRect(FARM_CX - 70, FARM_CY + 15, 10, 10);
+    // === 2) 기둥 — 뒤→앞 순으로, 깊이에 따라 크기/색 보간 ===
+    for (const p of postData) {
+        // 뒤쪽 기둥은 살짝 작고 어둡게, 앞쪽은 크고 밝게
+        const w = 2.6 + p.depth * 1.6;        // 2.6 ~ 4.2
+        const h = 14 + p.depth * 4;           // 14 ~ 18
+        const top = p.py - h;
 
-    // 물통
-    ctx.fillStyle = "#7A8A9A";
-    ctx.beginPath(); ctx.ellipse(FARM_CX - 50, FARM_CY - 25, 9, 4.5, -0.4, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = "rgba(100,180,230,0.5)";
-    ctx.beginPath(); ctx.ellipse(FARM_CX - 50, FARM_CY - 26, 7, 3, -0.4, 0, Math.PI * 2); ctx.fill();
+        // 그림자
+        ctx.fillStyle = colShadow;
+        ctx.beginPath();
+        ctx.ellipse(p.px, p.py + 1.5, w * 0.9, 1.5, 0, 0, Math.PI * 2);
+        ctx.fill();
 
-    // 꽃
-    const flowers = [[-40,-35],[25,30],[-80,8],[45,-30],[85,-5],[-15,38]];
-    const fColors = ["#FF6B8A","#FFD54F","#CE93D8","#64B5F6","#FF8A65","#FF6B8A"];
-    for (let i = 0; i < flowers.length; i++) {
-        const fx = FARM_CX + flowers[i][0], fy = FARM_CY + flowers[i][1];
-        ctx.fillStyle = fColors[i];
-        ctx.beginPath(); ctx.arc(fx, fy, 2.5, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = "#FFE082";
-        ctx.beginPath(); ctx.arc(fx, fy, 1, 0, Math.PI * 2); ctx.fill();
+        // 본체 — 좌(밝) / 우(중간) 두 면으로 픽셀아트 느낌
+        const half = w / 2;
+        // 좌측 밝은 면
+        ctx.fillStyle = colLight;
+        ctx.fillRect(p.px - half, top, half, h);
+        // 우측 어두운 면
+        ctx.fillStyle = colMid;
+        ctx.fillRect(p.px, top, half, h);
+        // 외곽선
+        ctx.strokeStyle = colDark;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(p.px - half, top, w, h);
+
+        // 캡 (뾰족한 모자)
+        ctx.fillStyle = colLight;
+        ctx.beginPath();
+        ctx.moveTo(p.px - half - 0.5, top);
+        ctx.lineTo(p.px, top - 3);
+        ctx.lineTo(p.px + half + 0.5, top);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = colDark;
+        ctx.stroke();
     }
 }
 
@@ -2042,14 +2750,16 @@ function drawOrbitPath() {
 }
 
 
-// 오프스크린 캔버스로 스프라이트 틴트
+// 오프스크린 캔버스로 스프라이트 틴트 (원본 + 색 오버레이 합성)
 const _tintCanvas = document.createElement("canvas");
 const _tintCtx = _tintCanvas.getContext("2d");
 function getTintCanvas(img, size, tint, dx, dy) {
     if (_tintCanvas.width !== size) { _tintCanvas.width = size; _tintCanvas.height = size; }
     _tintCtx.clearRect(0, 0, size, size);
+    // 1) 원본 스프라이트
     _tintCtx.globalCompositeOperation = "source-over";
     _tintCtx.drawImage(img, 0, 0, size, size);
+    // 2) 알파 영역에만 색 오버레이 (source-atop)
     _tintCtx.globalCompositeOperation = "source-atop";
     _tintCtx.fillStyle = tint;
     _tintCtx.fillRect(0, 0, size, size);
@@ -2057,11 +2767,39 @@ function getTintCanvas(img, size, tint, dx, dy) {
     ctx.drawImage(_tintCanvas, dx, dy);
 }
 
+// 상태이상 외곽 글로우 (저비용 — 단순 ellipse + alpha 펄스)
+const STATUS_GLOW_COLORS = {
+    freeze:    "#4FC3F7",
+    burn:      "#FF5722",
+    poison:    "#9C27B0",
+    paralysis: "#FFEB3B",
+    sleep:     "#90A4AE",
+    slow:      "#90CAF9",
+    mDefDown:  "#EC407A",
+    sDefDown:  "#BA68C8",
+};
+function drawStatusGlow(m, sx, sy, size) {
+    if (!m.statuses) return;
+    let glowColor = null;
+    for (const k in STATUS_GLOW_COLORS) {
+        if (m.statuses[k]) { glowColor = STATUS_GLOW_COLORS[k]; break; }
+    }
+    if (!glowColor) return;
+    const pulse = 0.5 + 0.5 * Math.sin(frame * 0.18);
+    ctx.save();
+    ctx.globalAlpha = 0.18 + pulse * 0.18;
+    ctx.fillStyle = glowColor;
+    ctx.beginPath();
+    ctx.ellipse(sx, sy, size * 0.55, size * 0.55 * 0.85, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+}
+
 function drawMonsterAt(m) {
     if (m.hp <= 0) return;
     const sx = m.x, sy = m.y;
     const img = images[m.sprite];
-    const size = m.isRaid ? 96 : (m.isBoss ? 72 : 56);
+    const size = m.isRaid ? 112 : (m.isBoss ? 84 : 68);
     let shake = m.hitAnim > 0 ? Math.sin(m.hitAnim * 4) * 4 : 0;
     let shakeY = 0;
     if (m.invading) {
@@ -2076,6 +2814,9 @@ function drawMonsterAt(m) {
     ctx.ellipse(sx, sy + size / 2 - 2, 14, 5, 0, 0, Math.PI * 2);
     ctx.fill();
 
+    // 상태이상 외곽 글로우 (스프라이트 뒤에 깔림)
+    drawStatusGlow(m, sx, sy + breathe, size);
+
     if (img && img.complete) {
         ctx.save();
         if (m.hitAnim > 0) {
@@ -2084,20 +2825,20 @@ function drawMonsterAt(m) {
         const drawX = sx - size / 2 + shake;
         const drawY = sy - size / 2 + breathe + shakeY;
 
-        // 상태이상 색상 결정
+        // 상태이상 색상 결정 (약한 알파)
         let tint = null;
         if (m.statuses) {
-            const pulse = 0.4 + 0.2 * Math.sin(frame * 0.15);
+            const pulse = 0.25 + 0.1 * Math.sin(frame * 0.18);
             if (m.statuses.freeze)         tint = `rgba(100,200,255,${pulse + 0.1})`;
             else if (m.statuses.burn)      tint = `rgba(255,80,30,${pulse})`;
             else if (m.statuses.poison)    tint = `rgba(170,60,200,${pulse})`;
             else if (m.statuses.paralysis) tint = `rgba(255,235,59,${pulse})`;
             else if (m.statuses.sleep)     tint = `rgba(150,170,200,${pulse + 0.05})`;
-            else if (m.statuses.defDown)   tint = `rgba(244,143,177,${pulse - 0.1})`;
+            else if (m.statuses.slow)      tint = `rgba(140,200,250,${pulse - 0.05})`;
+            else if (m.statuses.defDown || m.statuses.mDefDown || m.statuses.sDefDown) tint = `rgba(244,143,177,${pulse})`;
         }
 
         if (tint) {
-            // 오프스크린에 스프라이트만 그리고 source-atop으로 틴트
             getTintCanvas(img, size, tint, drawX, drawY);
         } else {
             ctx.drawImage(img, drawX, drawY, size, size);
@@ -2136,7 +2877,10 @@ function drawMonsterAt(m) {
             else if (k === "freeze") { icColor = "#4FC3F7"; icText = "❄"; }
             else if (k === "paralysis"){ icColor = "#FFEB3B"; icText = "⚡"; }
             else if (k === "sleep")  { icColor = "#90A4AE"; icText = "💤"; }
+            else if (k === "slow")   { icColor = "#90CAF9"; icText = "↘"; }
             else if (k === "defDown"){ icColor = "#F48FB1"; icText = "↓"; }
+            else if (k === "mDefDown"){ icColor = "#EC407A"; icText = "▼"; }
+            else if (k === "sDefDown"){ icColor = "#BA68C8"; icText = "▽"; }
             ctx.fillStyle = icColor;
             ctx.beginPath();
             ctx.arc(ix + 4, iy, 4, 0, Math.PI * 2);
@@ -2165,7 +2909,7 @@ function drawEeveeAt(ee) {
     const isDrag = ee === dragging;
     const sx = ee.x, sy = ee.y;
     const img = images[ee.sprite];
-    const size = isDrag ? 44 : 38;
+    const size = isDrag ? 54 : 48;
     const bounce = Math.sin(ee.animTimer * 0.06) * 2;
 
     // 부스트 버프 오라
@@ -2206,18 +2950,27 @@ function drawEeveeAt(ee) {
         ctx.restore();
     }
 
-    // 레벨 배지
+    // 레벨 배지 (10단위 색상 + 50+ 무지개)
     if (ee.level > 1) {
-        ctx.fillStyle = "rgba(255,193,7,0.95)";
+        const lv = ee.level;
+        // 단계별 색상
+        let bg, border;
+        if (lv >= 50)      { bg = `hsl(${(frame * 4) % 360}, 80%, 55%)`; border = "#fff"; } // 무지개
+        else if (lv >= 40) { bg = "#E91E63"; border = "#FFEBEE"; } // 핑크
+        else if (lv >= 30) { bg = "#9C27B0"; border = "#F3E5F5"; } // 보라
+        else if (lv >= 20) { bg = "#3F51B5"; border = "#E8EAF6"; } // 인디고
+        else if (lv >= 10) { bg = "#00BCD4"; border = "#E0F7FA"; } // 시안
+        else               { bg = "#FFC107"; border = "#fff"; }   // 노랑 (기본)
+        ctx.fillStyle = bg;
         ctx.beginPath();
         ctx.arc(sx + 12, sy - size / 2 + 4, 7, 0, Math.PI * 2);
         ctx.fill();
-        ctx.strokeStyle = "#fff"; ctx.lineWidth = 1;
+        ctx.strokeStyle = border; ctx.lineWidth = 1.2;
         ctx.stroke();
         ctx.fillStyle = "#fff";
         ctx.font = "bold 9px system-ui";
         ctx.textAlign = "center"; ctx.textBaseline = "middle";
-        ctx.fillText(`${ee.level}`, sx + 12, sy - size / 2 + 4);
+        ctx.fillText(`${lv}`, sx + 12, sy - size / 2 + 4);
     }
 
     if (!isDrag) {
@@ -2422,6 +3175,8 @@ function drawRocks() {
 
 function drawSkillEffects() {
     for (const e of skillEffects) {
+        // 공통 시작 지연 처리 (모든 이펙트 타입)
+        if (e.delay && e.delay > 0) { e.delay--; continue; }
         const t = e.life / e.maxLife;
         const a = t;
         ctx.save();
@@ -2609,6 +3364,111 @@ function drawSkillEffects() {
             ctx.beginPath();
             ctx.arc(e.x, e.y, r * 0.4, 0, Math.PI * 2);
             ctx.fill();
+        } else if (e.type === "pierceBeam") {
+            // 관통 빔 - 두꺼운 광선 + 흰 코어
+            ctx.globalAlpha = a;
+            ctx.shadowColor = e.color; ctx.shadowBlur = 14 * SHADOW_BLUR_MUL;
+            ctx.strokeStyle = e.color;
+            ctx.lineWidth = 14 * a + 4;
+            ctx.lineCap = "round";
+            ctx.beginPath();
+            ctx.moveTo(e.x, e.y);
+            ctx.lineTo(e.x2, e.y2);
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            ctx.strokeStyle = "#fff";
+            ctx.lineWidth = 5 * a + 1;
+            ctx.beginPath();
+            ctx.moveTo(e.x, e.y);
+            ctx.lineTo(e.x2, e.y2);
+            ctx.stroke();
+            ctx.lineCap = "butt";
+        } else if (e.type === "field") {
+            // 지속장 - 회전하는 원형 영역
+            const r = e.radius;
+            ctx.globalAlpha = 0.25 + 0.15 * Math.sin(frame * 0.15);
+            ctx.fillStyle = e.color;
+            ctx.beginPath();
+            ctx.ellipse(e.x, e.y, r, r * ISO_Y, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 0.5;
+            ctx.strokeStyle = e.color;
+            ctx.lineWidth = 2;
+            ctx.setLineDash([6, 4]);
+            ctx.beginPath();
+            ctx.ellipse(e.x, e.y, r, r * ISO_Y, frame * 0.02, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        } else if (e.type === "delayed") {
+            // 딜레이 폭발 - 점점 커지는 경고 원
+            const r = e.radius;
+            const progress = 1 - t; // 0 → 1
+            const pulse = 0.4 + 0.4 * Math.sin(frame * 0.3);
+            ctx.globalAlpha = 0.3 + pulse * 0.3;
+            ctx.fillStyle = e.color;
+            ctx.beginPath();
+            ctx.ellipse(e.x, e.y, r * progress, r * progress * ISO_Y, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 0.7 + pulse * 0.3;
+            ctx.strokeStyle = e.color;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.ellipse(e.x, e.y, r, r * ISO_Y, 0, 0, Math.PI * 2);
+            ctx.stroke();
+            // 카운트 표시
+            ctx.globalAlpha = 1;
+            ctx.fillStyle = "#fff";
+            ctx.font = "bold 18px system-ui";
+            ctx.textAlign = "center"; ctx.textBaseline = "middle";
+            ctx.fillText(Math.ceil(e.life / 60).toString(), e.x, e.y);
+        } else if (e.type === "fx") {
+            // 회전 누적
+            if (e.rotSpeed) e.rotation = (e.rotation || 0) + e.rotSpeed;
+            // orbit 위치 회전 (아이콘은 안 돌고 위치만)
+            if (e.orbitSpeed != null) {
+                e.orbitAngle = (e.orbitAngle || 0) + e.orbitSpeed;
+                e.x = e.orbitCx + Math.cos(e.orbitAngle) * e.orbitR;
+                e.y = e.orbitCy + Math.sin(e.orbitAngle) * e.orbitR * ISO_Y;
+            }
+            // 중력 (rain 모드)
+            if (e.gravity) {
+                e.vy = (e.vy || 0) + e.gravity;
+                e.y += e.vy;
+            } else if (e.vy) {
+                e.y += e.vy; // 상승/하강
+            }
+            // 바닥 클램프 (낙하류) — y가 groundY를 넘으면 정지 (상승 중일 땐 무시)
+            if (e.groundY != null && e.y >= e.groundY && (e.vy || 0) >= 0) {
+                e.y = e.groundY;
+                e.vy = 0;
+                e.gravity = 0;
+            }
+            // 펄스 (burst 모드)
+            let drawScale = e.scale * (1 + (1 - t) * 0.2);
+            if (e.pulse) {
+                drawScale *= 1 + Math.sin((1 - t) * Math.PI * 2.5) * 0.18;
+            }
+            // beam 모드 — scaleX 따로
+            if (e.scaleX) {
+                ctx.save();
+                ctx.translate(e.x, e.y);
+                if (e.rotation) ctx.rotate(e.rotation);
+                ctx.scale(e.scaleX, e.scaleY || 1);
+                drawFx(e.fxKey, 0, 0, {
+                    scale: drawScale,
+                    rotation: 0,
+                    alpha: a,
+                    color: e.color,
+                });
+                ctx.restore();
+            } else {
+                drawFx(e.fxKey, e.x, e.y, {
+                    scale: drawScale,
+                    rotation: e.rotation,
+                    alpha: a,
+                    color: e.color,
+                });
+            }
         }
         ctx.restore();
     }
@@ -2816,107 +3676,103 @@ function drawShopItemIcon(item, cx, cy) {
 function drawHUD() {
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
 
-    // === 상단: 웨이브 + 타이머 ===
-    ctx.fillStyle = "rgba(0,0,0,0.4)";
-    ctx.beginPath();
-    ctx.roundRect(CW / 2 - 60, 10, 120, 30, 15);
-    ctx.fill();
-    ctx.fillStyle = "#FFD54F"; ctx.font = "bold 16px system-ui";
-    ctx.fillText(`WAVE ${wave}`, CW / 2, 25);
-
-    // 낮/밤 배지 (상단 좌측)
+    // === 상단 영역 (0~110) ===
+    // 낮/밤 배지 (좌측)
     const day = isDayWave();
-    ctx.fillStyle = day ? "rgba(255,193,7,0.85)" : "rgba(40,53,147,0.85)";
+    ctx.fillStyle = day ? "rgba(255,193,7,0.9)" : "rgba(40,53,147,0.9)";
     ctx.beginPath();
-    ctx.roundRect(10, 10, 70, 30, 15);
+    ctx.roundRect(10, 10, 90, 36, 18);
     ctx.fill();
     ctx.strokeStyle = day ? "#FFC107" : "#3F51B5"; ctx.lineWidth = 1.5;
     ctx.stroke();
-    ctx.fillStyle = "#fff"; ctx.font = "bold 14px system-ui";
-    ctx.fillText(day ? "☀ 낮" : "☾ 밤", 45, 25);
+    ctx.fillStyle = "#fff"; ctx.font = "bold 17px system-ui";
+    ctx.fillText(day ? "☀ 낮" : "☾ 밤", 55, 28);
 
-    // 인벤토리 (낮/밤 배지 아래, 좌측)
-    if (inventory.size > 0) {
-        const itemSize = 26;
-        const itemGap = 4;
-        let ix = 10, iy = 48;
-        for (const it of ITEMS) {
-            if (!inventory.has(it.id)) continue;
-            ctx.fillStyle = "rgba(0,0,0,0.5)";
-            ctx.beginPath();
-            ctx.roundRect(ix, iy, itemSize, itemSize, 4);
-            ctx.fill();
-            ctx.strokeStyle = "rgba(255,215,0,0.5)"; ctx.lineWidth = 1;
-            ctx.stroke();
-            const img = images[it.sprite];
-            if (img && img.complete) ctx.drawImage(img, ix + 2, iy + 2, itemSize - 4, itemSize - 4);
-            ix += itemSize + itemGap;
-            if (ix > CW - 130) { ix = 10; iy += itemSize + itemGap; }
-        }
-    }
+    // 웨이브 배지 (중앙 상단)
+    ctx.fillStyle = "rgba(0,0,0,0.5)";
+    ctx.beginPath();
+    ctx.roundRect(CW / 2 - 70, 10, 140, 36, 18);
+    ctx.fill();
+    ctx.fillStyle = "#FFD54F"; ctx.font = "bold 19px system-ui";
+    ctx.fillText(`WAVE ${wave}`, CW / 2, 28);
 
-    // 리더보드 버튼 (상단 우측, 코인 옆)
+    // 코인 (우측 상단)
+    ctx.fillStyle = "rgba(0,0,0,0.5)";
+    ctx.beginPath();
+    ctx.roundRect(CW - 130, 10, 120, 36, 18);
+    ctx.fill();
+    const coinX = CW - 112, coinY = 28;
+    ctx.fillStyle = "#FFD700";
+    ctx.beginPath(); ctx.arc(coinX, coinY, 11, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = "#B8860B"; ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.fillStyle = "#B8860B"; ctx.font = "bold 13px system-ui";
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText("$", coinX, coinY + 1);
+    ctx.fillStyle = "#FFD700"; ctx.font = "bold 18px system-ui";
+    ctx.textAlign = "left";
+    ctx.fillText(`${coins}`, coinX + 16, coinY);
+    ctx.textAlign = "center";
+
+    // 리더보드 버튼 (우측, 코인 아래)
     ctx.fillStyle = "rgba(0,0,0,0.5)";
     ctx.beginPath();
     ctx.roundRect(LB_BTN.x, LB_BTN.y, LB_BTN.w, LB_BTN.h, 8);
     ctx.fill();
     ctx.strokeStyle = "#FFD700"; ctx.lineWidth = 1.2;
     ctx.stroke();
-    ctx.fillStyle = "#FFD700"; ctx.font = "bold 14px system-ui";
-    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillStyle = "#FFD700"; ctx.font = "bold 18px system-ui";
+    ctx.textBaseline = "middle";
     ctx.fillText("🏆", LB_BTN.x + LB_BTN.w / 2, LB_BTN.y + LB_BTN.h / 2);
 
-    // 코인 (상단 우측)
-    ctx.fillStyle = "rgba(0,0,0,0.4)";
-    ctx.beginPath();
-    ctx.roundRect(CW - 130, 10, 120, 30, 15);
-    ctx.fill();
-    // 코인 아이콘
-    const coinX = CW - 110, coinY = 25;
-    ctx.fillStyle = "#FFD700";
-    ctx.beginPath(); ctx.arc(coinX, coinY, 9, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = "#B8860B"; ctx.lineWidth = 1.5;
-    ctx.stroke();
-    ctx.fillStyle = "#B8860B"; ctx.font = "bold 11px system-ui";
-    ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillText("$", coinX, coinY + 1);
-    // 금액
-    ctx.fillStyle = "#FFD700"; ctx.font = "bold 15px system-ui";
-    ctx.textAlign = "left";
-    ctx.fillText(`${coins}`, coinX + 14, coinY);
-    ctx.textAlign = "center";
+    // 인벤토리 (낮/밤 배지 아래)
+    if (inventory.size > 0) {
+        const itemSize = 30;
+        const itemGap = 4;
+        let ix = 10, iy = 54;
+        let cnt = 0;
+        for (const it of ITEMS) {
+            if (!inventory.has(it.id)) continue;
+            ctx.fillStyle = "rgba(0,0,0,0.55)";
+            ctx.beginPath();
+            ctx.roundRect(ix, iy, itemSize, itemSize, 5);
+            ctx.fill();
+            ctx.strokeStyle = "rgba(255,215,0,0.5)"; ctx.lineWidth = 1;
+            ctx.stroke();
+            const img = images[it.sprite];
+            if (img && img.complete) ctx.drawImage(img, ix + 2, iy + 2, itemSize - 4, itemSize - 4);
+            ix += itemSize + itemGap;
+            cnt++;
+            if (cnt % 3 === 0) { ix = 10; iy += itemSize + itemGap; }
+        }
+    }
 
+    // === 타이머 + 필드 카운터 (웨이브 아래) ===
     if (gameState === "playing") {
         const remain = Math.max(0, Math.ceil(waveTimer / 60));
-        ctx.fillStyle = "rgba(0,0,0,0.3)";
+        ctx.fillStyle = "rgba(0,0,0,0.4)";
         ctx.beginPath();
-        ctx.roundRect(CW / 2 - 35, 44, 70, 28, 14);
+        ctx.roundRect(CW / 2 - 50, 52, 100, 32, 16);
         ctx.fill();
         ctx.fillStyle = remain < 10 ? "#F44336" : "#fff";
-        ctx.font = "bold 20px system-ui";
-        ctx.fillText(`${remain}s`, CW / 2, 58);
+        ctx.font = "bold 22px system-ui";
+        ctx.fillText(`${remain}s`, CW / 2, 68);
 
         const aliveCount = monsters.filter(m => m.hp > 0).length;
         const queuedCount = waveSpawnQueue.length;
-        // 필드 몬스터/제한 (50 고정)
         const fieldColor = aliveCount >= OVERFLOW_LIMIT ? "#F44336"
             : aliveCount >= OVERFLOW_LIMIT - 8 ? "#FF9800"
-            : "rgba(255,255,255,0.6)";
-        ctx.fillStyle = fieldColor; ctx.font = "bold 12px system-ui";
-        ctx.fillText(`필드 ${aliveCount} / 50`, CW / 2, 82);
-        // 잔여 (스폰 대기 + 필드)
-        ctx.fillStyle = "rgba(255,255,255,0.4)"; ctx.font = "10px system-ui";
-        ctx.fillText(`잔여 ${aliveCount + queuedCount}`, CW / 2, 96);
+            : "rgba(255,255,255,0.7)";
+        ctx.fillStyle = fieldColor; ctx.font = "bold 14px system-ui";
+        ctx.fillText(`필드 ${aliveCount} / 50  ·  잔여 ${aliveCount + queuedCount}`, CW / 2, 95);
 
         // 라운드 클리어 시 - 화면 전체가 탭 영역, 중앙에 안내 텍스트만
         if (isRoundClear()) {
             const pulse = 0.6 + 0.4 * Math.sin(frame * 0.1);
-            // 살짝 어둡게 (탭 가능한 상태 표시)
-            ctx.fillStyle = `rgba(0,0,0,${pulse * 0.18})`;
+            ctx.fillStyle = `rgba(0,0,0,${pulse * 0.2})`;
             ctx.fillRect(0, 0, CW, CH);
-            // 안내 텍스트
             ctx.fillStyle = `rgba(255,255,255,${pulse})`;
-            ctx.font = "bold 22px system-ui";
+            ctx.font = "bold 24px system-ui";
             ctx.textAlign = "center"; ctx.textBaseline = "middle";
             ctx.strokeStyle = "rgba(0,0,0,0.7)"; ctx.lineWidth = 4;
             const msg = "▶ 화면을 탭하여 다음 라운드";
@@ -2944,52 +3800,64 @@ function drawHUD() {
     ctx.strokeStyle = canBuy ? "#66BB6A" : "#666";
     ctx.lineWidth = 1.5;
     ctx.stroke();
+    // 좌측: + 이브이 버튼
+    ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+    ctx.fillStyle = "rgba(255,255,255,0.7)"; ctx.font = "bold 14px system-ui";
+    ctx.fillText(`이브이 ${eevees.length} / ${maxSlots}`, BUY_BTN.x, BAR_Y + 30);
+
+    ctx.fillStyle = canBuy ? canBuy : "rgba(100,100,100,0.6)";
+    ctx.fillStyle = canBuy ? "rgba(76,175,80,0.85)" : "rgba(100,100,100,0.6)";
+    ctx.beginPath();
+    ctx.roundRect(BUY_BTN.x, BUY_BTN.y, BUY_BTN.w, BUY_BTN.h, 12);
+    ctx.fill();
+    ctx.strokeStyle = canBuy ? "#66BB6A" : "#666";
+    ctx.lineWidth = 2;
+    ctx.stroke();
     ctx.fillStyle = canBuy ? "#fff" : "#999";
-    ctx.font = "bold 13px system-ui";
+    ctx.font = "bold 19px system-ui";
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
     if (slotFull) {
         ctx.fillText(`슬롯 가득참`, BUY_BTN.x + BUY_BTN.w / 2, BUY_BTN.y + BUY_BTN.h / 2);
     } else {
         ctx.fillText(`+ 이브이 (${cost})`, BUY_BTN.x + BUY_BTN.w / 2, BUY_BTN.y + BUY_BTN.h / 2);
     }
 
-    // 이브이 수 표시 (현재/최대)
-    ctx.fillStyle = "rgba(255,255,255,0.5)"; ctx.font = "11px system-ui";
-    ctx.textAlign = "left";
-    ctx.fillText(`이브이: ${eevees.length} / ${maxSlots}`, 15, BAR_Y + 30);
-    ctx.textAlign = "center";
-
-    // === 액션 패널 (선택된 이브이가 있을 때 - 레벨업 버튼) ===
+    // 우측: 선택된 이브이 액션 패널 (레벨업)
     if (selectedEevee) {
-        ctx.fillStyle = "rgba(0,0,0,0.6)";
-        ctx.beginPath();
-        ctx.roundRect(ACTION_PANEL.x, ACTION_PANEL.y, ACTION_PANEL.w, ACTION_PANEL.h, 8);
-        ctx.fill();
-        ctx.strokeStyle = "rgba(255,215,0,0.3)"; ctx.lineWidth = 1;
-        ctx.stroke();
-
-        // Lv 표시
-        ctx.fillStyle = "#FFD54F"; ctx.font = "bold 13px system-ui";
-        ctx.textAlign = "center";
-        ctx.fillText(`Lv. ${selectedEevee.level}`, ACTION_PANEL.x + ACTION_PANEL.w / 2, ACTION_PANEL.y + 12);
-
-        // 친밀도 표시 (기본 이브이만)
-        if (selectedEevee.sprite === "이브이.png") {
-            ctx.fillStyle = "#F48FB1"; ctx.font = "10px system-ui";
-            ctx.fillText(`♥ ${selectedEevee.friendship}`, ACTION_PANEL.x + ACTION_PANEL.w / 2, ACTION_PANEL.y + 24);
-        }
+        ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+        ctx.fillStyle = "#FFD54F"; ctx.font = "bold 14px system-ui";
+        let lvText = `Lv.${selectedEevee.level}`;
+        if (selectedEevee.sprite === "이브이.png") lvText += `   ♥${selectedEevee.friendship}`;
+        ctx.fillText(lvText, LVL_BTN.x, BAR_Y + 30);
 
         // 레벨업 버튼
         const lvCost = getLevelUpCost(selectedEevee);
         const canLvl = coins >= lvCost;
-        ctx.fillStyle = canLvl ? "rgba(255,193,7,0.85)" : "rgba(100,100,100,0.6)";
+        ctx.fillStyle = canLvl ? "rgba(255,193,7,0.9)" : "rgba(100,100,100,0.6)";
         ctx.beginPath();
-        ctx.roundRect(LVL_BTN.x, LVL_BTN.y, LVL_BTN.w, LVL_BTN.h, 6);
+        ctx.roundRect(LVL_BTN.x, LVL_BTN.y, LVL_BTN.w, LVL_BTN.h, 12);
         ctx.fill();
-        ctx.strokeStyle = canLvl ? "#FFB300" : "#666"; ctx.lineWidth = 1.2;
+        ctx.strokeStyle = canLvl ? "#FFB300" : "#666"; ctx.lineWidth = 2;
         ctx.stroke();
         ctx.fillStyle = canLvl ? "#fff" : "#999";
-        ctx.font = "bold 12px system-ui";
+        ctx.font = "bold 19px system-ui";
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
         ctx.fillText(`▲ 레벨업 (${lvCost})`, LVL_BTN.x + LVL_BTN.w / 2, LVL_BTN.y + LVL_BTN.h / 2);
+    } else {
+        ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+        ctx.fillStyle = "rgba(255,255,255,0.4)"; ctx.font = "13px system-ui";
+        ctx.fillText("이브이를 탭하여 선택", LVL_BTN.x, BAR_Y + 30);
+        // 비활성 박스
+        ctx.fillStyle = "rgba(60,60,60,0.4)";
+        ctx.beginPath();
+        ctx.roundRect(LVL_BTN.x, LVL_BTN.y, LVL_BTN.w, LVL_BTN.h, 12);
+        ctx.fill();
+        ctx.strokeStyle = "rgba(255,255,255,0.15)"; ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.fillStyle = "rgba(255,255,255,0.3)";
+        ctx.font = "bold 17px system-ui";
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText(`▲ 레벨업`, LVL_BTN.x + LVL_BTN.w / 2, LVL_BTN.y + LVL_BTN.h / 2);
     }
 
     // === 상점 패널 (선택된 이브이가 기본 이브이일 때) ===
@@ -3005,9 +3873,9 @@ function drawHUD() {
         const baseAllDone = [0,1,2,3,4,5,6,7].every(i => isEvolutionTaken(i));
         const tier = baseAllDone ? "fan" : "base";
 
-        ctx.fillStyle = "rgba(255,255,255,0.5)"; ctx.font = "10px system-ui";
+        ctx.fillStyle = "rgba(255,255,255,0.6)"; ctx.font = "bold 13px system-ui";
         const tierLabel = baseAllDone ? "★ 팬메이드 ★" : "상점";
-        ctx.fillText(`${tierLabel}  |  ${isDayWave() ? "☀ 낮" : "☾ 밤"}`, CW / 2, EVO_PANEL_Y + 10);
+        ctx.fillText(`${tierLabel}  |  ${isDayWave() ? "☀ 낮" : "☾ 밤"}`, CW / 2, EVO_PANEL_Y + 14);
 
         // 현재 티어 + 보유 안한 진화만
         const visibleShop = SHOP_ITEMS.filter(item => {
@@ -3018,45 +3886,46 @@ function drawHUD() {
         currentVisibleShop = visibleShop;
 
         // 동적 아이콘 폭 (많은 슬롯 수용)
-        const iconW = Math.min(EVO_ICON_W, Math.floor((CW - 40) / Math.max(1, visibleShop.length)));
+        const iconW = Math.min(72, Math.floor((CW - 30) / Math.max(1, visibleShop.length)));
         const totalW = visibleShop.length * iconW;
         const startX = CW / 2 - totalW / 2;
 
         for (let i = 0; i < visibleShop.length; i++) {
             const item = visibleShop[i];
             const ex = startX + i * iconW + iconW / 2;
-            const ey = EVO_PANEL_Y + 35;
+            const ey = EVO_PANEL_Y + 60;
 
             const canAfford = coins >= item.cost;
             const condOk = checkShopItemConditions(selectedEevee, item);
             const canBuyItem = canAfford && condOk;
 
-            // 아이콘 배경
-            ctx.fillStyle = canBuyItem ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.35)";
+            // 아이콘 배경 (더 진하게)
+            ctx.fillStyle = canBuyItem ? "rgba(255,255,255,0.15)" : "rgba(20,20,20,0.55)";
             ctx.beginPath();
-            ctx.roundRect(ex - iconW/2 + 2, ey - 18, iconW - 4, 46, 6);
+            ctx.roundRect(ex - iconW/2 + 2, ey - 28, iconW - 4, 76, 8);
             ctx.fill();
             if (canBuyItem) {
-                ctx.strokeStyle = tier === "fan" ? "rgba(255,100,255,0.6)" : "rgba(255,215,0,0.5)";
-                ctx.lineWidth = 1;
+                ctx.strokeStyle = tier === "fan" ? "rgba(255,100,255,0.65)" : "rgba(255,215,0,0.55)";
+                ctx.lineWidth = 1.5;
                 ctx.stroke();
             }
 
             // 아이콘
             ctx.save();
-            if (!canBuyItem) ctx.globalAlpha = 0.35;
+            if (!canBuyItem) ctx.globalAlpha = 0.45;
             drawShopItemIcon(item, ex, ey - 4);
             ctx.restore();
 
-            // 이름 + 비용
-            ctx.fillStyle = canBuyItem ? "#fff" : "#666";
-            ctx.font = "8px system-ui";
-            ctx.fillText(item.name, ex, ey + 14);
-            ctx.fillStyle = canAfford ? "#FFD700" : "#888";
-            ctx.font = "bold 9px system-ui";
-            ctx.fillText(`${item.cost}`, ex, ey + 24);
+            // 이름 (가독성 ↑)
+            ctx.fillStyle = canBuyItem ? "#fff" : "rgba(255,255,255,0.55)";
+            ctx.font = "bold 12px system-ui";
+            ctx.fillText(item.name, ex, ey + 26);
+            // 비용
+            ctx.fillStyle = canAfford ? "#FFD700" : "rgba(200,180,80,0.6)";
+            ctx.font = "bold 14px system-ui";
+            ctx.fillText(`${item.cost}`, ex, ey + 42);
 
-            // 조건 미충족 표시 (간단)
+            // 조건 미충족 표시 (아이콘 위쪽, 배경 안 - 상점 타이틀과 겹치지 않게)
             if (!condOk) {
                 let hint = "";
                 if (item.reqLevel && selectedEevee.level < item.reqLevel) hint = `Lv${item.reqLevel}`;
@@ -3068,8 +3937,15 @@ function drawHUD() {
                 else if (item.type === "specificKill") hint = item.reqKillName;
                 else if (item.type === "itemHeld") hint = "울퉁불퉁멧";
                 if (hint) {
-                    ctx.fillStyle = "#F44336"; ctx.font = "7px system-ui";
-                    ctx.fillText(hint, ex, ey - 22);
+                    // 배경 작은 박스
+                    ctx.font = "bold 10px system-ui";
+                    const tw = ctx.measureText(hint).width + 6;
+                    ctx.fillStyle = "rgba(244,67,54,0.85)";
+                    ctx.beginPath();
+                    ctx.roundRect(ex - tw/2, ey - 23, tw, 14, 3);
+                    ctx.fill();
+                    ctx.fillStyle = "#fff";
+                    ctx.fillText(hint, ex, ey - 14);
                 }
             }
         }
@@ -3083,37 +3959,53 @@ function drawHUD() {
         ctx.stroke();
 
         const img = images[selectedEevee.sprite];
-        if (img && img.complete) ctx.drawImage(img, 18, EVO_PANEL_Y + 10, 50, 50);
+        if (img && img.complete) ctx.drawImage(img, 18, EVO_PANEL_Y + 14, 64, 64);
 
         ctx.textAlign = "left";
-        ctx.fillStyle = "#fff"; ctx.font = "bold 11px system-ui";
-        ctx.fillText(`${selectedEevee.type} · ${selectedEevee.category === "phys" ? "물리" : "특수"}`, 78, EVO_PANEL_Y + 14);
-        ctx.fillStyle = "#FFD54F"; ctx.font = "10px system-ui";
-        ctx.fillText(`ATK ${selectedEevee.atk}  spATK ${selectedEevee.spAtk}  RNG ${selectedEevee.range}`, 78, EVO_PANEL_Y + 28);
+        ctx.fillStyle = "#fff"; ctx.font = "bold 14px system-ui";
+        ctx.fillText(`${selectedEevee.name || selectedEevee.sprite.replace(".png","")}`, 88, EVO_PANEL_Y + 18);
+        // 타입 배지
+        const eeType = selectedEevee.type;
+        if (eeType) {
+            const eeTypeKo = typeNameKo(eeType);
+            ctx.font = "bold 11px system-ui";
+            const tw = ctx.measureText(eeTypeKo).width + 12;
+            ctx.fillStyle = getTypeColor(eeType);
+            ctx.beginPath();
+            ctx.roundRect(88, EVO_PANEL_Y + 26, tw, 16, 4);
+            ctx.fill();
+            ctx.strokeStyle = "rgba(0,0,0,0.4)"; ctx.lineWidth = 0.8;
+            ctx.stroke();
+            ctx.fillStyle = "#fff";
+            ctx.textAlign = "center"; ctx.textBaseline = "middle";
+            ctx.fillText(eeTypeKo, 88 + tw / 2, EVO_PANEL_Y + 34);
+            ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+            // 카테고리 옆에
+            ctx.fillStyle = "rgba(255,255,255,0.7)"; ctx.font = "11px system-ui";
+            ctx.fillText(selectedEevee.category === "phys" ? "물리" : "특수", 88 + tw + 8, EVO_PANEL_Y + 38);
+        }
+        ctx.fillStyle = "#FFD54F"; ctx.font = "12px system-ui";
+        ctx.fillText(`물리공격 ${selectedEevee.atk}  특수공격 ${selectedEevee.spAtk}  사거리 ${selectedEevee.range}`, 88, EVO_PANEL_Y + 50);
 
-        // 스킬 게이지 (Lv5/10 해금)
-        if (selectedEevee.skill1) {
-            const s1 = selectedEevee.skill1;
-            const unlocked1 = selectedEevee.level >= 5;
-            const r1 = unlocked1 ? 1 - selectedEevee.skill1Cd / s1.cd : 0;
+        // 스킬 게이지 (3개)
+        const sk1Lv = getSkill1Unlock(selectedEevee);
+        const sk2Lv = getSkill2Unlock(selectedEevee);
+        const sk3Lv = getSkill3Unlock(selectedEevee);
+        const barW = CW - 100;
+        const drawSkBar = (skill, cd, lv, label, yOff) => {
+            if (!skill) return;
+            const unlocked = selectedEevee.level >= lv;
+            const r = unlocked ? 1 - cd / skill.cd : 0;
             ctx.fillStyle = "rgba(255,255,255,0.15)";
-            ctx.fillRect(78, EVO_PANEL_Y + 38, 200, 8);
-            ctx.fillStyle = unlocked1 ? s1.color : "rgba(100,100,100,0.5)";
-            ctx.fillRect(78, EVO_PANEL_Y + 38, 200 * Math.min(1, r1), 8);
-            ctx.fillStyle = unlocked1 ? "#fff" : "#888"; ctx.font = "9px system-ui";
-            ctx.fillText(unlocked1 ? `Ⓟ ${s1.name}` : `Ⓟ ${s1.name} (Lv5)`, 282, EVO_PANEL_Y + 42);
-        }
-        if (selectedEevee.skill2) {
-            const s2 = selectedEevee.skill2;
-            const unlocked2 = selectedEevee.level >= 10;
-            const r2 = unlocked2 ? 1 - selectedEevee.skill2Cd / s2.cd : 0;
-            ctx.fillStyle = "rgba(255,255,255,0.15)";
-            ctx.fillRect(78, EVO_PANEL_Y + 50, 200, 8);
-            ctx.fillStyle = unlocked2 ? s2.color : "rgba(100,100,100,0.5)";
-            ctx.fillRect(78, EVO_PANEL_Y + 50, 200 * Math.min(1, r2), 8);
-            ctx.fillStyle = unlocked2 ? "#fff" : "#888"; ctx.font = "9px system-ui";
-            ctx.fillText(unlocked2 ? `Ⓢ ${s2.name}` : `Ⓢ ${s2.name} (Lv10)`, 282, EVO_PANEL_Y + 54);
-        }
+            ctx.fillRect(88, EVO_PANEL_Y + yOff, barW - 88, 10);
+            ctx.fillStyle = unlocked ? skill.color : "rgba(100,100,100,0.5)";
+            ctx.fillRect(88, EVO_PANEL_Y + yOff, (barW - 88) * Math.min(1, r), 10);
+            ctx.fillStyle = unlocked ? "#fff" : "#888"; ctx.font = "bold 11px system-ui";
+            ctx.fillText(unlocked ? `${label} ${skill.name}` : `${label} ${skill.name} (Lv${lv})`, 92, EVO_PANEL_Y + yOff + 5);
+        };
+        drawSkBar(selectedEevee.skill1, selectedEevee.skill1Cd, sk1Lv, "Ⓟ", 64);
+        drawSkBar(selectedEevee.skill2, selectedEevee.skill2Cd, sk2Lv, "Ⓢ", 82);
+        drawSkBar(selectedEevee.skill3, selectedEevee.skill3Cd, sk3Lv, "Ⓤ", 100);
         ctx.textAlign = "center";
     }
 
@@ -3128,46 +4020,66 @@ function drawHUD() {
         ctx.stroke();
 
         const img = images[m.sprite];
-        if (img && img.complete) ctx.drawImage(img, 18, EVO_PANEL_Y + 10, 50, 50);
+        if (img && img.complete) ctx.drawImage(img, 18, EVO_PANEL_Y + 14, 64, 64);
 
         ctx.textAlign = "left";
-        ctx.fillStyle = "#fff"; ctx.font = "bold 12px system-ui";
-        const typeLabel = (m.types && m.types.length > 1) ? m.types.join(" / ") : (m.type || "");
+        ctx.fillStyle = "#fff"; ctx.font = "bold 15px system-ui";
         const tag = m.isRaid ? " ⚡RAID⚡" : (m.isBoss ? " ★" : "");
-        ctx.fillText(`${m.name}${tag}  [${typeLabel}]`, 78, EVO_PANEL_Y + 14);
+        ctx.fillText(`${m.name}${tag}`, 88, EVO_PANEL_Y + 18);
+        // 타입 배지 (색상)
+        const typesArr = m.types && m.types.length > 0 ? m.types : [m.type];
+        let tx = 88;
+        for (const t of typesArr) {
+            const tKo = typeNameKo(t);
+            ctx.font = "bold 11px system-ui";
+            const tw = ctx.measureText(tKo).width + 12;
+            ctx.fillStyle = getTypeColor(t);
+            ctx.beginPath();
+            ctx.roundRect(tx, EVO_PANEL_Y + 28, tw, 16, 4);
+            ctx.fill();
+            ctx.strokeStyle = "rgba(0,0,0,0.4)"; ctx.lineWidth = 0.8;
+            ctx.stroke();
+            ctx.fillStyle = "#fff";
+            ctx.textAlign = "center"; ctx.textBaseline = "middle";
+            ctx.fillText(tKo, tx + tw / 2, EVO_PANEL_Y + 36);
+            tx += tw + 4;
+        }
+        ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
 
         // HP 바
         const hpRatio = m.hp / m.maxHp;
+        const barW2 = CW - 100;
         ctx.fillStyle = "rgba(255,255,255,0.15)";
-        ctx.fillRect(78, EVO_PANEL_Y + 22, 200, 8);
+        ctx.fillRect(88, EVO_PANEL_Y + 46, barW2 - 88, 12);
         ctx.fillStyle = hpRatio > 0.5 ? "#4CAF50" : hpRatio > 0.2 ? "#FF9800" : "#F44336";
-        ctx.fillRect(78, EVO_PANEL_Y + 22, 200 * hpRatio, 8);
-        ctx.fillStyle = "#fff"; ctx.font = "9px system-ui";
-        ctx.fillText(`HP ${Math.max(0, Math.ceil(m.hp))} / ${m.maxHp}`, 282, EVO_PANEL_Y + 28);
+        ctx.fillRect(88, EVO_PANEL_Y + 46, (barW2 - 88) * hpRatio, 12);
+        ctx.fillStyle = "#fff"; ctx.font = "bold 11px system-ui";
+        ctx.textAlign = "center";
+        ctx.fillText(`HP ${Math.max(0, Math.ceil(m.hp))} / ${m.maxHp}`, 88 + (barW2 - 88) / 2, EVO_PANEL_Y + 53);
 
-        ctx.fillStyle = "#FFD54F"; ctx.font = "10px system-ui";
-        ctx.fillText(`mDef ${m.mDef}  sDef ${m.sDef}`, 78, EVO_PANEL_Y + 42);
+        ctx.textAlign = "left";
+        ctx.fillStyle = "#FFD54F"; ctx.font = "12px system-ui";
+        ctx.fillText(`물리방어 ${m.mDef}  특수방어 ${m.sDef}`, 88, EVO_PANEL_Y + 76);
 
         // 상태이상
         const statusList = m.statuses ? Object.keys(m.statuses) : [];
         if (statusList.length > 0) {
-            const statusNames = { burn:"화상", poison:"독", freeze:"빙결", paralysis:"마비", sleep:"잠듦", defDown:"방어↓" };
-            const statusColors = { burn:"#FF5722", poison:"#9C27B0", freeze:"#4FC3F7", paralysis:"#FFEB3B", sleep:"#90A4AE", defDown:"#F48FB1" };
-            let sx2 = 78;
+            const statusColors = { burn:"#FF5722", poison:"#9C27B0", freeze:"#4FC3F7", paralysis:"#FFEB3B", sleep:"#90A4AE", slow:"#90CAF9", defDown:"#F48FB1", mDefDown:"#EC407A", sDefDown:"#BA68C8" };
+            let sx2 = 88;
             for (const k of statusList) {
-                const txt = statusNames[k] || k;
+                const txt = statusNameKo(k);
                 ctx.fillStyle = statusColors[k] || "#fff";
-                ctx.font = "9px system-ui";
-                const w = ctx.measureText(txt).width + 8;
+                ctx.font = "bold 11px system-ui";
+                const w = ctx.measureText(txt).width + 10;
                 ctx.fillStyle = `${statusColors[k]}33`;
-                ctx.fillRect(sx2, EVO_PANEL_Y + 50, w, 12);
+                ctx.fillRect(sx2, EVO_PANEL_Y + 92, w, 16);
                 ctx.fillStyle = statusColors[k];
-                ctx.fillText(txt, sx2 + 4, EVO_PANEL_Y + 56);
+                ctx.fillText(txt, sx2 + 5, EVO_PANEL_Y + 100);
                 sx2 += w + 4;
             }
         } else {
-            ctx.fillStyle = "rgba(255,255,255,0.4)"; ctx.font = "9px system-ui";
-            ctx.fillText("상태이상 없음", 78, EVO_PANEL_Y + 56);
+            ctx.fillStyle = "rgba(255,255,255,0.4)"; ctx.font = "11px system-ui";
+            ctx.fillText("상태이상 없음", 88, EVO_PANEL_Y + 100);
         }
         ctx.textAlign = "center";
     }
@@ -3184,16 +4096,15 @@ function drawHUD() {
             ctx.stroke();
 
             const img = images[it.sprite];
-            if (img && img.complete) ctx.drawImage(img, 18, EVO_PANEL_Y + 10, 50, 50);
+            if (img && img.complete) ctx.drawImage(img, 18, EVO_PANEL_Y + 14, 64, 64);
 
             ctx.textAlign = "left";
-            ctx.fillStyle = "#FFD700"; ctx.font = "bold 14px system-ui";
-            ctx.fillText(it.name, 78, EVO_PANEL_Y + 18);
-            ctx.fillStyle = "#fff"; ctx.font = "11px system-ui";
-            // 줄바꿈 처리 (자동)
+            ctx.fillStyle = "#FFD700"; ctx.font = "bold 18px system-ui";
+            ctx.fillText(it.name, 92, EVO_PANEL_Y + 30);
+            ctx.fillStyle = "#fff"; ctx.font = "14px system-ui";
             const desc = it.desc;
-            ctx.fillText(desc, 78, EVO_PANEL_Y + 38);
-            ctx.fillStyle = "rgba(255,255,255,0.4)"; ctx.font = "9px system-ui";
+            ctx.fillText(desc, 92, EVO_PANEL_Y + 60);
+            ctx.fillStyle = "rgba(255,255,255,0.4)"; ctx.font = "11px system-ui";
             ctx.fillText("글로벌 패시브 효과", 78, EVO_PANEL_Y + 56);
             ctx.textAlign = "center";
         }
@@ -3215,7 +4126,7 @@ function drawHUD() {
 
         // 바위 미니 아이콘
         ctx.save();
-        const cx = 38, cy = EVO_PANEL_Y + 35;
+        const cx = 50, cy = EVO_PANEL_Y + 50;
         if (isMoss) {
             ctx.fillStyle = "#6B6258";
             ctx.beginPath(); ctx.ellipse(cx, cy, 18, 13, 0, 0, Math.PI * 2); ctx.fill();
@@ -3242,18 +4153,18 @@ function drawHUD() {
         ctx.restore();
 
         const name = isMoss ? "이끼바위" : isMetal ? "강철바위" : "얼음바위";
-        const desc = isMoss ? "주변 이브이즈 이동속도 +50%"
+        const desc = isMoss ? "주변 이브이즈 사거리 +20%"
             : isMetal ? "주변 이브이즈 평타 데미지 +10%"
             : "주변 몬스터 이동속도 -60% (빙결)";
         const color = isMoss ? "#9CCC65" : isMetal ? "#B0BEC5" : "#81D4FA";
 
         ctx.textAlign = "left";
-        ctx.fillStyle = color; ctx.font = "bold 14px system-ui";
-        ctx.fillText(name, 78, EVO_PANEL_Y + 18);
-        ctx.fillStyle = "#fff"; ctx.font = "11px system-ui";
-        ctx.fillText(desc, 78, EVO_PANEL_Y + 38);
-        ctx.fillStyle = "rgba(255,255,255,0.5)"; ctx.font = "9px system-ui";
-        ctx.fillText(`효과 반경 ${Math.round(getRockBuffRadius(rt))}px  |  드래그로 이동`, 78, EVO_PANEL_Y + 56);
+        ctx.fillStyle = color; ctx.font = "bold 18px system-ui";
+        ctx.fillText(name, 92, EVO_PANEL_Y + 30);
+        ctx.fillStyle = "#fff"; ctx.font = "14px system-ui";
+        ctx.fillText(desc, 92, EVO_PANEL_Y + 60);
+        ctx.fillStyle = "rgba(255,255,255,0.5)"; ctx.font = "11px system-ui";
+        ctx.fillText(`효과 반경 ${Math.round(getRockBuffRadius(rt))}px  |  드래그로 이동`, 92, EVO_PANEL_Y + 84);
         ctx.textAlign = "center";
     }
 
@@ -3264,18 +4175,18 @@ function drawHUD() {
         const pulse = 0.3 + 0.2 * Math.sin(frame * 0.2);
         ctx.fillStyle = `rgba(244,67,54,${pulse * 0.15})`;
         ctx.fillRect(0, 0, CW, CH);
-        // 중앙 카운트다운
-        ctx.fillStyle = "rgba(0,0,0,0.7)";
+        // 중앙 카운트다운 (게임 영역 상단)
+        ctx.fillStyle = "rgba(0,0,0,0.78)";
         ctx.beginPath();
-        ctx.roundRect(CW / 2 - 110, 100, 220, 60, 12);
+        ctx.roundRect(CW / 2 - 130, 130, 260, 80, 14);
         ctx.fill();
-        ctx.strokeStyle = "#F44336"; ctx.lineWidth = 2;
+        ctx.strokeStyle = "#F44336"; ctx.lineWidth = 2.5;
         ctx.stroke();
-        ctx.fillStyle = "#fff"; ctx.font = "bold 14px system-ui";
+        ctx.fillStyle = "#fff"; ctx.font = "bold 16px system-ui";
         const warnMsg = overflowReason === "boss" ? "보스 다중 침입 경고!" : "농장 과포화 경고!";
-        ctx.fillText(warnMsg, CW / 2, 118);
-        ctx.fillStyle = "#F44336"; ctx.font = "bold 32px system-ui";
-        ctx.fillText(`${sec}`, CW / 2, 145);
+        ctx.fillText(warnMsg, CW / 2, 152);
+        ctx.fillStyle = "#F44336"; ctx.font = "bold 38px system-ui";
+        ctx.fillText(`${sec}`, CW / 2, 188);
     }
 
     // === 컷신 오버레이 ===
@@ -3363,7 +4274,7 @@ function drawSplash() {
 
     // 이브이즈 스프라이트 일렬
     const evoNames = ["이브이.png","샤미드.png","쥬피썬더.png","부스터.png","에브이.png","블래키.png","리피아.png","글레이시아.png","님피아.png"];
-    const sprW = 50, gap = 4;
+    const sprW = 46, gap = 4;
     const totalW = evoNames.length * (sprW + gap) - gap;
     let sx = CW / 2 - totalW / 2;
     const sy = CH / 2 - 30;
@@ -3532,15 +4443,15 @@ function drawTutorialOverlay() {
         ty += 20;
     }
 
-    // 스킵 버튼
-    ctx.fillStyle = "rgba(100,100,100,0.75)";
+    // 스킵 버튼 (상단 메시지 우측)
+    ctx.fillStyle = "rgba(100,100,100,0.85)";
     ctx.beginPath();
-    ctx.roundRect(CW - 80, CH - 50, 70, 32, 8);
+    ctx.roundRect(CW - 90, 200, 80, 40, 10);
     ctx.fill();
-    ctx.strokeStyle = "rgba(255,255,255,0.4)"; ctx.lineWidth = 1;
+    ctx.strokeStyle = "rgba(255,255,255,0.4)"; ctx.lineWidth = 1.5;
     ctx.stroke();
-    ctx.fillStyle = "#fff"; ctx.font = "12px system-ui";
-    ctx.fillText("스킵", CW - 45, CH - 34);
+    ctx.fillStyle = "#fff"; ctx.font = "bold 16px system-ui";
+    ctx.fillText("스킵", CW - 50, 220);
 }
 
 function drawLeaderboardPopup() {
@@ -3549,7 +4460,7 @@ function drawLeaderboardPopup() {
     ctx.fillStyle = "rgba(0,0,0,0.6)";
     ctx.fillRect(0, 0, CW, CH);
 
-    const popX = CW / 2 - 170, popY = 80, popW = 340, popH = 480;
+    const popX = 20, popY = 130, popW = CW - 40, popH = 600;
     ctx.fillStyle = "rgba(20,20,30,0.95)";
     ctx.beginPath();
     ctx.roundRect(popX, popY, popW, popH, 14);
@@ -3559,63 +4470,62 @@ function drawLeaderboardPopup() {
 
     // 타이틀
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillStyle = "#FFD700"; ctx.font = "bold 22px system-ui";
-    ctx.fillText("🏆 리더보드 🏆", CW / 2, popY + 28);
-    ctx.fillStyle = "rgba(255,255,255,0.4)"; ctx.font = "10px system-ui";
-    ctx.fillText("탭하여 닫기 (외부)", CW / 2, popY + 50);
+    ctx.fillStyle = "#FFD700"; ctx.font = "bold 26px system-ui";
+    ctx.fillText("🏆 리더보드 🏆", CW / 2, popY + 36);
+    ctx.fillStyle = "rgba(255,255,255,0.5)"; ctx.font = "12px system-ui";
+    ctx.fillText("외부 탭으로 닫기", CW / 2, popY + 64);
 
     // 헤더
-    ctx.fillStyle = "rgba(255,255,255,0.5)"; ctx.font = "bold 11px system-ui";
+    ctx.fillStyle = "rgba(255,255,255,0.5)"; ctx.font = "bold 13px system-ui";
     ctx.textAlign = "left";
-    ctx.fillText("#", popX + 20, popY + 80);
-    ctx.fillText("닉네임", popX + 50, popY + 80);
+    ctx.fillText("#", popX + 22, popY + 100);
+    ctx.fillText("닉네임", popX + 56, popY + 100);
     ctx.textAlign = "right";
-    ctx.fillText("Wave", popX + popW - 80, popY + 80);
-    ctx.fillText("진화", popX + popW - 20, popY + 80);
+    ctx.fillText("Wave", popX + popW - 100, popY + 100);
+    ctx.fillText("진화", popX + popW - 24, popY + 100);
 
     // 구분선
     ctx.strokeStyle = "rgba(255,255,255,0.2)"; ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(popX + 15, popY + 90);
-    ctx.lineTo(popX + popW - 15, popY + 90);
+    ctx.moveTo(popX + 18, popY + 112);
+    ctx.lineTo(popX + popW - 18, popY + 112);
     ctx.stroke();
 
     if (rankingLoading) {
-        ctx.fillStyle = "rgba(255,255,255,0.6)"; ctx.font = "13px system-ui";
+        ctx.fillStyle = "rgba(255,255,255,0.6)"; ctx.font = "16px system-ui";
         ctx.textAlign = "center";
         ctx.fillText("로딩 중...", CW / 2, popY + popH / 2);
     } else if (rankingData.length === 0) {
-        ctx.fillStyle = "rgba(255,255,255,0.6)"; ctx.font = "13px system-ui";
+        ctx.fillStyle = "rgba(255,255,255,0.6)"; ctx.font = "16px system-ui";
         ctx.textAlign = "center";
         ctx.fillText("아직 기록이 없습니다", CW / 2, popY + popH / 2);
     } else {
         for (let i = 0; i < Math.min(10, rankingData.length); i++) {
             const r = rankingData[i];
-            const yy = popY + 110 + i * 32;
-            // 순위 배경
+            const yy = popY + 138 + i * 40;
             const rankColor = i === 0 ? "rgba(255,215,0,0.18)"
                 : i === 1 ? "rgba(192,192,192,0.15)"
                 : i === 2 ? "rgba(205,127,50,0.15)"
                 : "rgba(255,255,255,0.04)";
             ctx.fillStyle = rankColor;
-            ctx.fillRect(popX + 15, yy - 12, popW - 30, 26);
+            ctx.fillRect(popX + 18, yy - 16, popW - 36, 32);
 
             // 순위
             ctx.textAlign = "left";
             ctx.fillStyle = i === 0 ? "#FFD700" : i === 1 ? "#C0C0C0" : i === 2 ? "#CD7F32" : "#fff";
-            ctx.font = "bold 14px system-ui";
-            ctx.fillText(`${i + 1}`, popX + 20, yy);
+            ctx.font = "bold 17px system-ui";
+            ctx.fillText(`${i + 1}`, popX + 22, yy);
             // 닉네임
-            ctx.fillStyle = "#fff"; ctx.font = "13px system-ui";
+            ctx.fillStyle = "#fff"; ctx.font = "16px system-ui";
             const name = (r.nickname || "").toString().slice(0, 12);
-            ctx.fillText(name, popX + 50, yy);
+            ctx.fillText(name, popX + 56, yy);
             // wave
             ctx.textAlign = "right";
-            ctx.fillStyle = "#FFD54F"; ctx.font = "bold 13px system-ui";
-            ctx.fillText(`${r.wave}`, popX + popW - 80, yy);
+            ctx.fillStyle = "#FFD54F"; ctx.font = "bold 16px system-ui";
+            ctx.fillText(`${r.wave}`, popX + popW - 100, yy);
             // 진화
-            ctx.fillStyle = "#9CCC65"; ctx.font = "12px system-ui";
-            ctx.fillText(`${r.evolved}`, popX + popW - 20, yy);
+            ctx.fillStyle = "#9CCC65"; ctx.font = "15px system-ui";
+            ctx.fillText(`${r.evolved}`, popX + popW - 24, yy);
         }
     }
     ctx.textAlign = "center";
@@ -3626,62 +4536,64 @@ function drawNicknameInput() {
     ctx.fillStyle = "rgba(0,0,0,0.75)";
     ctx.fillRect(0, 0, CW, CH);
 
-    const popX = CW / 2 - 180, popY = CH / 2 - 130, popW = 360, popH = 260;
+    const popW = 420, popH = 320;
+    const popX = CW / 2 - popW / 2, popY = CH / 2 - popH / 2;
     ctx.fillStyle = "rgba(30,30,40,0.98)";
     ctx.beginPath();
-    ctx.roundRect(popX, popY, popW, popH, 14);
+    ctx.roundRect(popX, popY, popW, popH, 16);
     ctx.fill();
-    ctx.strokeStyle = "#FFD700"; ctx.lineWidth = 2;
+    ctx.strokeStyle = "#FFD700"; ctx.lineWidth = 2.5;
     ctx.stroke();
 
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillStyle = "#FFD700"; ctx.font = "bold 18px system-ui";
-    ctx.fillText("기록 등록", CW / 2, popY + 30);
+    ctx.fillStyle = "#FFD700"; ctx.font = "bold 24px system-ui";
+    ctx.fillText("기록 등록", CW / 2, popY + 40);
 
-    ctx.fillStyle = "#fff"; ctx.font = "13px system-ui";
-    ctx.fillText(`Wave ${wave}  ·  진화 ${countEvolved()}`, CW / 2, popY + 58);
+    ctx.fillStyle = "#fff"; ctx.font = "16px system-ui";
+    ctx.fillText(`Wave ${wave}  ·  진화 ${countEvolved()}`, CW / 2, popY + 76);
 
-    ctx.fillStyle = "rgba(255,255,255,0.5)"; ctx.font = "11px system-ui";
-    ctx.fillText("닉네임 입력", CW / 2, popY + 82);
+    ctx.fillStyle = "rgba(255,255,255,0.55)"; ctx.font = "13px system-ui";
+    ctx.fillText("닉네임 입력", CW / 2, popY + 108);
 
     // 입력 필드
-    const inX = popX + 60, inY = popY + 100, inW = popW - 120, inH = 44;
+    const inX = popX + 50, inY = popY + 130, inW = popW - 100, inH = 56;
     ctx.fillStyle = "rgba(255,255,255,0.1)";
     ctx.beginPath();
-    ctx.roundRect(inX, inY, inW, inH, 6);
+    ctx.roundRect(inX, inY, inW, inH, 8);
     ctx.fill();
     ctx.strokeStyle = "#FFD700"; ctx.lineWidth = 2;
     ctx.stroke();
-    ctx.fillStyle = "#fff"; ctx.font = "bold 18px system-ui";
+    ctx.fillStyle = "#fff"; ctx.font = "bold 22px system-ui";
     const cursor = Math.floor(frame / 30) % 2 === 0 ? "|" : "";
     const placeholder = nicknameInput || "여기를 탭";
     if (!nicknameInput) ctx.fillStyle = "rgba(255,255,255,0.4)";
     ctx.fillText(nicknameInput ? (nicknameInput + cursor) : placeholder, CW / 2, inY + inH / 2);
 
     // 확인 / 취소 버튼
-    const btnY = popY + 170, btnH = 40;
+    const btnY = popY + 210, btnH = 56;
+    const btnW = 160;
     // 확인
     const okValid = nicknameInput.trim().length > 0;
-    ctx.fillStyle = okValid ? "rgba(76,175,80,0.85)" : "rgba(80,80,80,0.5)";
+    ctx.fillStyle = okValid ? "rgba(76,175,80,0.9)" : "rgba(80,80,80,0.5)";
     ctx.beginPath();
-    ctx.roundRect(popX + 60, btnY, 110, btnH, 8);
+    ctx.roundRect(popX + 30, btnY, btnW, btnH, 10);
     ctx.fill();
-    ctx.strokeStyle = okValid ? "#66BB6A" : "#555"; ctx.lineWidth = 1.5;
+    ctx.strokeStyle = okValid ? "#66BB6A" : "#555"; ctx.lineWidth = 2;
     ctx.stroke();
-    ctx.fillStyle = okValid ? "#fff" : "#888"; ctx.font = "bold 15px system-ui";
-    ctx.fillText("확인", popX + 115, btnY + btnH / 2);
+    ctx.fillStyle = okValid ? "#fff" : "#888"; ctx.font = "bold 19px system-ui";
+    ctx.fillText("확인", popX + 30 + btnW / 2, btnY + btnH / 2);
     // 취소
-    ctx.fillStyle = "rgba(120,120,120,0.7)";
+    ctx.fillStyle = "rgba(120,120,120,0.75)";
     ctx.beginPath();
-    ctx.roundRect(popX + 190, btnY, 110, btnH, 8);
+    ctx.roundRect(popX + popW - 30 - btnW, btnY, btnW, btnH, 10);
     ctx.fill();
-    ctx.strokeStyle = "#888"; ctx.lineWidth = 1.5;
+    ctx.strokeStyle = "#888"; ctx.lineWidth = 2;
     ctx.stroke();
-    ctx.fillStyle = "#fff"; ctx.font = "bold 15px system-ui";
-    ctx.fillText("취소", popX + 245, btnY + btnH / 2);
+    ctx.fillStyle = "#fff"; ctx.font = "bold 19px system-ui";
+    ctx.fillText("취소", popX + popW - 30 - btnW / 2, btnY + btnH / 2);
 
-    ctx.fillStyle = "rgba(255,255,255,0.4)"; ctx.font = "10px system-ui";
-    ctx.fillText("최대 12자", CW / 2, popY + popH - 16);
+    ctx.fillStyle = "rgba(255,255,255,0.4)"; ctx.font = "11px system-ui";
+    ctx.fillText("최대 12자", CW / 2, popY + popH - 18);
 }
 
 function draw() {
@@ -3708,9 +4620,42 @@ function draw() {
     }
     drawCoinTexts();
     drawHUD();
+    drawTestPanel();
     drawTutorialOverlay();
     drawLeaderboardPopup();
     drawNicknameInput();
+}
+
+// 테스트 패널 (우상단) — 일시적으로 숨김 (밸런스 테스트 중)
+const TEST_PANEL_VISIBLE = false;
+function drawTestPanel() {
+    if (!TEST_PANEL_VISIBLE) return;
+    // 토글 버튼
+    ctx.fillStyle = testMode ? "rgba(76,175,80,0.85)" : "rgba(0,0,0,0.55)";
+    ctx.beginPath();
+    ctx.roundRect(TEST_TOGGLE_BTN.x, TEST_TOGGLE_BTN.y, TEST_TOGGLE_BTN.w, TEST_TOGGLE_BTN.h, 6);
+    ctx.fill();
+    ctx.strokeStyle = testMode ? "#A5D6A7" : "rgba(255,255,255,0.3)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 12px system-ui";
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText(testMode ? "🧪 TEST ON" : "🧪 TEST", TEST_TOGGLE_BTN.x + TEST_TOGGLE_BTN.w / 2, TEST_TOGGLE_BTN.y + TEST_TOGGLE_BTN.h / 2);
+
+    // 다음 이브이 버튼 (테스트 모드일 때만)
+    if (testMode) {
+        ctx.fillStyle = "rgba(33,150,243,0.85)";
+        ctx.beginPath();
+        ctx.roundRect(TEST_NEXT_BTN.x, TEST_NEXT_BTN.y, TEST_NEXT_BTN.w, TEST_NEXT_BTN.h, 6);
+        ctx.fill();
+        ctx.strokeStyle = "#90CAF9"; ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 11px system-ui";
+        ctx.fillText(`▶ ${getTestDisplayName()}`, TEST_NEXT_BTN.x + TEST_NEXT_BTN.w / 2, TEST_NEXT_BTN.y + TEST_NEXT_BTN.h / 2);
+    }
+    ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
 }
 
 // ═══════════════════════════════════════════
@@ -3719,19 +4664,20 @@ function draw() {
 let dragOffsetX = 0, dragOffsetY = 0;
 let downPos = null; // 클릭/드래그 구분용
 
-// UI 레이아웃 상수
-const BAR_Y = 740, BAR_H = 60;
-const BUY_BTN = { x: CW / 2 - 65, y: BAR_Y + 12, w: 130, h: 36 };
-const EVO_PANEL_Y = 660, EVO_PANEL_H = 70;
-const EVO_ICON_W = 68;
-// 선택된 이브이 액션 패널 (선택 시 화면 좌측에 표시)
-const ACTION_PANEL = { x: 10, y: 568, w: 130, h: 84 };
-const LVL_BTN = { x: ACTION_PANEL.x + 8, y: ACTION_PANEL.y + 36, w: 114, h: 42 };
-const NEXT_BTN = { x: CW / 2 - 130, y: CH / 2 - 40, w: 260, h: 80 };
+// UI 레이아웃 상수 (480x960 기준)
+// 0~110: 상단 HUD / 110~700: 게임 영역 / 700~830: 정보패널 / 830~960: 하단 바 (130px)
+const BAR_Y = 830, BAR_H = 130;
+// 하단 바: 좌측에 BUY (절반), 우측에 LVL (절반)
+const BUY_BTN = { x: 14, y: BAR_Y + 50, w: 220, h: 60 };
+const LVL_BTN = { x: CW - 234, y: BAR_Y + 50, w: 220, h: 60 };
+const ACTION_PANEL = { x: CW - 234, y: BAR_Y + 50, w: 220, h: 60 }; // LVL_BTN과 동일
+const EVO_PANEL_Y = 680, EVO_PANEL_H = 155;
+const EVO_ICON_W = 56;
+const NEXT_BTN = { x: CW / 2 - 140, y: CH / 2 - 50, w: 280, h: 100 };
 // 판매 영역 (드래그 중에만 표시) - 우측 상단
-const SELL_ZONE = { x: CW - 95, y: 50, w: 80, h: 80 };
-// 리더보드 버튼 (상단 우측, 코인 옆)
-const LB_BTN = { x: CW - 165, y: 10, w: 30, h: 30 };
+const SELL_ZONE = { x: CW - 92, y: 100, w: 80, h: 60 };
+// 리더보드 버튼 (낮밤 배지 옆, 위)
+const LB_BTN = { x: 110, y: 10, w: 40, h: 36 };
 
 function getSellPrice(ee) {
     // 기본 이브이는 구매가 절반, 진화체는 누적 투자가 일부 환불
@@ -3804,13 +4750,15 @@ function applyEvolution(ee, evoIdx) {
     ee.baseRange = evo.range;
     // 진화 시 레벨 1로 리셋
     ee.level = 1;
-    // 스킬 초기화
+    // 스킬 초기화 (3개)
     const sk = SKILLS[evo.sprite];
     if (sk) {
         ee.skill1 = sk.phys;
         ee.skill2 = sk.spec;
-        ee.skill1Cd = Math.floor(sk.phys.cd * 0.5); // 첫 사용 빠르게
+        ee.skill3 = sk.ult || null;
+        ee.skill1Cd = Math.floor(sk.phys.cd * 0.5);
         ee.skill2Cd = Math.floor(sk.spec.cd * 0.5);
+        ee.skill3Cd = sk.ult ? Math.floor(sk.ult.cd * 0.5) : 0;
     }
     // 진화 이펙트
     for (let k = 0; k < 20; k++) {
@@ -3877,7 +4825,10 @@ function buyShopItem(ee, itemId) {
         let rockType = "moss";
         if (item.id === "ice_rock") rockType = "ice";
         else if (item.id === "metal_rock") rockType = "metal";
-        rocks.push({ type: rockType, x: ee.x, y: ee.y });
+        // 같은 종류 바위가 이미 있으면 추가 생성 안 함
+        if (!rocks.some(r => r.type === rockType)) {
+            rocks.push({ type: rockType, x: ee.x, y: ee.y });
+        }
     }
     applyEvolution(ee, targetEvoIdx);
     selectedEevee = null;
@@ -3888,11 +4839,26 @@ function onDown(e) {
     const pos = getCanvasPos(e);
     downPos = { x: pos.x, y: pos.y };
 
+    // 테스트 패널 — 가장 높은 우선순위 (스플래시/게임오버 제외 어디서나)
+    if (TEST_PANEL_VISIBLE && gameState !== "splash" && gameState !== "gameover" && !nicknameInputActive) {
+        if (hitRect(pos, TEST_TOGGLE_BTN)) {
+            toggleTestMode();
+            downPos = null;
+            return;
+        }
+        if (testMode && hitRect(pos, TEST_NEXT_BTN)) {
+            nextTestEevee();
+            downPos = null;
+            return;
+        }
+    }
+
     // 닉네임 입력 모달
     if (nicknameInputActive) {
-        const popX = CW / 2 - 180, popY = CH / 2 - 130;
-        const inX = popX + 60, inY = popY + 100, inW = 240, inH = 44;
-        const btnY = popY + 170, btnH = 40;
+        const popW = 420, popH = 320;
+        const popX = CW / 2 - popW / 2, popY = CH / 2 - popH / 2;
+        const inX = popX + 50, inY = popY + 130, inW = popW - 100, inH = 56;
+        const btnY = popY + 210, btnH = 56, btnW = 160;
         // 입력 필드 탭 → input 포커스 (모바일 키보드)
         if (hitRect(pos, { x: inX, y: inY, w: inW, h: inH })) {
             nickInputEl.focus();
@@ -3900,7 +4866,7 @@ function onDown(e) {
             return;
         }
         // 확인 버튼
-        if (hitRect(pos, { x: popX + 60, y: btnY, w: 110, h: btnH })) {
+        if (hitRect(pos, { x: popX + 30, y: btnY, w: btnW, h: btnH })) {
             if (nicknameInput.trim()) {
                 const nick = nicknameInput.trim().slice(0, 12);
                 submitScore(nick, wave, countEvolved());
@@ -3911,7 +4877,7 @@ function onDown(e) {
             return;
         }
         // 취소 버튼
-        if (hitRect(pos, { x: popX + 190, y: btnY, w: 110, h: btnH })) {
+        if (hitRect(pos, { x: popX + popW - 30 - btnW, y: btnY, w: btnW, h: btnH })) {
             closeNicknameInput();
             downPos = null;
             return;
@@ -3944,7 +4910,7 @@ function onDown(e) {
     // 튜토리얼: 마지막 단계 탭 또는 스킵 버튼
     if (gameState === "tutorial") {
         // 스킵 버튼 (우측 하단)
-        if (hitRect(pos, { x: CW - 80, y: CH - 50, w: 70, h: 32 })) {
+        if (hitRect(pos, { x: CW - 90, y: 200, w: 80, h: 40 })) {
             endTutorial();
             downPos = null;
             return;
@@ -4090,7 +5056,7 @@ function onUp(e) {
     }
     // 리더보드 팝업이 열려있으면 팝업 영역 외부 탭 시 닫기
     if (showLeaderboard) {
-        const popX = CW / 2 - 170, popY = 80, popW = 340, popH = 480;
+        const popX = 20, popY = 130, popW = CW - 40, popH = 600;
         if (!(tap.x >= popX && tap.x <= popX + popW && tap.y >= popY && tap.y <= popY + popH)) {
             showLeaderboard = false;
         }

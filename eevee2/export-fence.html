@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>Fence Export</title>
+<style>
+body { background:#222; color:#fff; font-family:sans-serif; padding:20px; }
+canvas { background:transparent; image-rendering:pixelated; border:1px dashed #555; margin:10px; }
+button { padding:10px 20px; font-size:14px; margin:5px; cursor:pointer; }
+</style>
+</head>
+<body>
+<h2>농장 울타리 PNG 추출</h2>
+<p>아래 4개 캔버스에서 원하는 걸 다운로드 받아.</p>
+
+<div>
+    <h3>1) 낮 버전 (투명 배경)</h3>
+    <canvas id="day" width="320" height="220"></canvas>
+    <br><button onclick="download('day','farm-fence-day.png')">⬇ farm-fence-day.png</button>
+</div>
+
+<div>
+    <h3>2) 밤 버전 (투명 배경)</h3>
+    <canvas id="night" width="320" height="220"></canvas>
+    <br><button onclick="download('night','farm-fence-night.png')">⬇ farm-fence-night.png</button>
+</div>
+
+<div>
+    <h3>3) 낮 2배 해상도 (640×440, 투명)</h3>
+    <canvas id="day2x" width="640" height="440"></canvas>
+    <br><button onclick="download('day2x','farm-fence-day@2x.png')">⬇ farm-fence-day@2x.png</button>
+</div>
+
+<div>
+    <h3>4) 밤 2배 해상도 (640×440, 투명)</h3>
+    <canvas id="night2x" width="640" height="440"></canvas>
+    <br><button onclick="download('night2x','farm-fence-night@2x.png')">⬇ farm-fence-night@2x.png</button>
+</div>
+
+<script>
+const ISO_Y = 0.7;
+const FARM_RADIUS = 145;
+const SHADOW_BLUR_MUL = 1;
+
+// 게임의 drawFarmPlatform()을 그대로 가져옴 (day 인자 추가)
+function drawFence(ctx, cx, cy, day, scale) {
+    const farmRX = FARM_RADIUS * scale;
+    const farmRY = FARM_RADIUS * ISO_Y * scale;
+
+    const colLight  = day ? "#F5EEDC" : "#B8B5C8";
+    const colMid    = day ? "#D9C9A0" : "#7A7A95";
+    const colDark   = day ? "#6B5638" : "#2E2E45";
+    const colShadow = "rgba(0,0,0,0.35)";
+
+    const posts = 22;
+    const postData = [];
+    for (let i = 0; i < posts; i++) {
+        const a = (i / posts) * Math.PI * 2;
+        const px = cx + Math.cos(a) * farmRX;
+        const py = cy + Math.sin(a) * farmRY;
+        const depth = (Math.sin(a) + 1) / 2;
+        postData.push({ px, py, depth, a });
+    }
+    postData.sort((a, b) => a.py - b.py);
+
+    function drawRail(yOff, lineW, color) {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = lineW * scale;
+        ctx.beginPath();
+        for (let i = 0; i <= 80; i++) {
+            const a = (i / 80) * Math.PI * 2;
+            const px = cx + Math.cos(a) * farmRX;
+            const py = cy + Math.sin(a) * farmRY + yOff * scale;
+            if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.stroke();
+    }
+
+    ctx.save();
+    ctx.shadowColor = colShadow;
+    ctx.shadowBlur = 4 * SHADOW_BLUR_MUL * scale;
+    ctx.shadowOffsetY = 2 * scale;
+    drawRail(-3, 2.4, colMid);
+    drawRail(-11, 2.4, colMid);
+    ctx.restore();
+
+    drawRail(-3, 3.0, colDark);
+    drawRail(-11, 3.0, colDark);
+    drawRail(-3, 1.8, colLight);
+    drawRail(-11, 1.8, colLight);
+
+    for (const p of postData) {
+        const w = (2.6 + p.depth * 1.6) * scale;
+        const h = (14 + p.depth * 4) * scale;
+        const top = p.py - h;
+
+        ctx.fillStyle = colShadow;
+        ctx.beginPath();
+        ctx.ellipse(p.px, p.py + 1.5 * scale, w * 0.9, 1.5 * scale, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        const half = w / 2;
+        ctx.fillStyle = colLight;
+        ctx.fillRect(p.px - half, top, half, h);
+        ctx.fillStyle = colMid;
+        ctx.fillRect(p.px, top, half, h);
+        ctx.strokeStyle = colDark;
+        ctx.lineWidth = 1 * scale;
+        ctx.strokeRect(p.px - half, top, w, h);
+
+        ctx.fillStyle = colLight;
+        ctx.beginPath();
+        ctx.moveTo(p.px - half - 0.5 * scale, top);
+        ctx.lineTo(p.px, top - 3 * scale);
+        ctx.lineTo(p.px + half + 0.5 * scale, top);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = colDark;
+        ctx.stroke();
+    }
+}
+
+function render(id, day, scale) {
+    const c = document.getElementById(id);
+    const ctx = c.getContext("2d");
+    ctx.clearRect(0, 0, c.width, c.height);
+    // 캔버스 중앙에 배치 (위쪽 여유 살짝)
+    drawFence(ctx, c.width / 2, c.height / 2 + 8 * scale, day, scale);
+}
+
+render("day", true, 1);
+render("night", false, 1);
+render("day2x", true, 2);
+render("night2x", false, 2);
+
+function download(id, filename) {
+    const c = document.getElementById(id);
+    const link = document.createElement("a");
+    link.download = filename;
+    link.href = c.toDataURL("image/png");
+    link.click();
+}
+</script>
+</body>
+</html>
