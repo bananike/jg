@@ -4121,24 +4121,23 @@ function drawHUD() {
     if (selectedItem) {
         const it = ITEMS.find(i => i.id === selectedItem);
         if (it) {
-            ctx.fillStyle = "rgba(0,0,0,0.75)";
+            ctx.fillStyle = "rgba(0,0,0,0.85)";
             ctx.beginPath();
             ctx.roundRect(10, EVO_PANEL_Y, CW - 20, EVO_PANEL_H, 10);
             ctx.fill();
-            ctx.strokeStyle = "rgba(255,215,0,0.5)"; ctx.lineWidth = 1.5;
+            ctx.strokeStyle = "rgba(255,215,0,0.6)"; ctx.lineWidth = 1.5;
             ctx.stroke();
 
             const img = images[it.sprite];
             if (img && img.complete) ctx.drawImage(img, 18, EVO_PANEL_Y + 14, 64, 64);
 
-            ctx.textAlign = "left";
+            ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
             ctx.fillStyle = "#FFD700"; ctx.font = "bold 18px system-ui";
-            ctx.fillText(it.name, 92, EVO_PANEL_Y + 30);
-            ctx.fillStyle = "#fff"; ctx.font = "14px system-ui";
-            const desc = it.desc;
-            ctx.fillText(desc, 92, EVO_PANEL_Y + 60);
-            ctx.fillStyle = "rgba(255,255,255,0.4)"; ctx.font = "11px system-ui";
-            ctx.fillText("글로벌 패시브 효과", 78, EVO_PANEL_Y + 56);
+            ctx.fillText(it.name, 92, EVO_PANEL_Y + 32);
+            ctx.fillStyle = "rgba(255,255,255,0.55)"; ctx.font = "11px system-ui";
+            ctx.fillText("글로벌 패시브", 92, EVO_PANEL_Y + 50);
+            ctx.fillStyle = "#fff"; ctx.font = "13px system-ui";
+            ctx.fillText(it.desc, 92, EVO_PANEL_Y + 72);
             ctx.textAlign = "center";
         }
     }
@@ -5122,10 +5121,11 @@ function onUp(e) {
         return;
     }
 
-    // 4. 인벤토리 아이템 클릭 (좌측 상단)
+    // 4. 인벤토리 아이템 클릭 (좌측 상단) — 그리기 코드와 동일한 좌표 사용
     if (inventory.size > 0) {
-        const itemSize = 26, itemGap = 4;
-        let ix = 10, iy = 48;
+        const itemSize = 30, itemGap = 4;
+        let ix = 10, iy = 54;
+        let cnt = 0;
         for (const it of ITEMS) {
             if (!inventory.has(it.id)) continue;
             if (hitRect(tap, { x: ix, y: iy, w: itemSize, h: itemSize })) {
@@ -5134,7 +5134,8 @@ function onUp(e) {
                 return;
             }
             ix += itemSize + itemGap;
-            if (ix > CW - 130) { ix = 10; iy += itemSize + itemGap; }
+            cnt++;
+            if (cnt % 3 === 0) { ix = 10; iy += itemSize + itemGap; }
         }
     }
 
@@ -5214,13 +5215,13 @@ window.addEventListener("keydown", (e) => {
     cheatBuffer += e.key.toLowerCase();
     if (cheatBuffer.length > 20) cheatBuffer = cheatBuffer.slice(-20);
 
-    // 단축키
-    if (e.key === "g" || e.key === "G") {
-        coins += 100;
-        coinTexts.push({ x: CW / 2, y: 100, text: "+100", life: 50, color: "#FFD700" });
-    } else if (e.key === "G".toLowerCase() && e.shiftKey) {
+    // 단축키 — Shift+G가 먼저 매칭돼야 함
+    if ((e.key === "g" || e.key === "G") && e.shiftKey) {
         coins += 1000;
         coinTexts.push({ x: CW / 2, y: 100, text: "+1000", life: 50, color: "#FFD700" });
+    } else if (e.key === "g" || e.key === "G") {
+        coins += 100;
+        coinTexts.push({ x: CW / 2, y: 100, text: "+100", life: 50, color: "#FFD700" });
     } else if (e.key === "n" || e.key === "N") {
         // 다음 라운드 강제
         waveTimer = 0;
