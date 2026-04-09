@@ -7,6 +7,22 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>이브이 타워디펜스</title>
+<script>
+// 버전 불일치 시 캐시 무시 강제 리로드
+(function() {
+    var CURRENT = "v1.80";
+    var KEY = "eevee2_cached_ver";
+    try {
+        var prev = localStorage.getItem(KEY);
+        if (prev && prev !== CURRENT) {
+            localStorage.setItem(KEY, CURRENT);
+            location.reload(true);
+            return;
+        }
+        localStorage.setItem(KEY, CURRENT);
+    } catch(e) {}
+})();
+</script>
 <link rel="icon" type="image/png" href="image/이브이.png">
 <link rel="apple-touch-icon" href="image/이브이.png">
 <style>
@@ -22,6 +38,7 @@ canvas { display:block; }
 const canvas = document.getElementById("c");
 const ctx = canvas.getContext("2d");
 const CW = 480, CH = 960;
+const GAME_VERSION = "v1.80";
 // 모바일 성능 최적화: DPR 최대 2로 캡 (iPhone DPR 3 → 2)
 const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -68,18 +85,19 @@ const FX_ICONS = [
     "scissor","airSlash","metalHead",
 ];
 totalImages = IMAGE_LIST.length + LOCAL_IMAGES.length + FX_ICONS.length;
+const CACHE_BUSTER = `?v=${GAME_VERSION}`;
 for (const name of IMAGE_LIST) {
     const img = new Image();
     img.onload = () => { imagesLoaded++; };
     img.onerror = () => { imagesLoaded++; };
-    img.src = `image/${name}`;
+    img.src = `image/${name}${CACHE_BUSTER}`;
     images[name] = img;
 }
 for (const name of LOCAL_IMAGES) {
     const img = new Image();
     img.onload = () => { imagesLoaded++; };
     img.onerror = () => { imagesLoaded++; };
-    img.src = `image/${name}`;
+    img.src = `image/${name}${CACHE_BUSTER}`;
     images[name] = img;
 }
 // FX 아이콘 로드 (icons/{key}.png)
@@ -87,7 +105,7 @@ for (const key of FX_ICONS) {
     const img = new Image();
     img.onload = () => { imagesLoaded++; };
     img.onerror = () => { imagesLoaded++; };
-    img.src = `image/icons/${key}.png`;
+    img.src = `image/icons/${key}.png${CACHE_BUSTER}`;
     images[`fx/${key}`] = img;
 }
 
@@ -159,7 +177,6 @@ function isoCirclePoints(cx, cy, radius, segments) {
 // ═══════════════════════════════════════════
 // 게임 상태
 // ═══════════════════════════════════════════
-const GAME_VERSION = "v1.80";
 
 // ═══════════════════════════════════════════
 // 랭킹 (Apps Script)
@@ -4486,17 +4503,18 @@ function drawSplash() {
         ctx.fillText("▶ 화면을 탭하여 시작", CW / 2, CH / 2 + 60);
     }
 
-    // TOP 3 미니 표시
+    // TOP 3 미니 표시 (세이브 버튼 유무에 따라 위치 조정)
+    const topY = _hasSave ? CH / 2 + 155 : CH / 2 + 90;
     if (rankingData.length > 0) {
         ctx.fillStyle = "#FFD700"; ctx.font = "bold 13px system-ui";
-        ctx.fillText("🏆 TOP 3 🏆", CW / 2, CH / 2 + 110);
+        ctx.fillText("🏆 TOP 3 🏆", CW / 2, topY);
         ctx.font = "12px system-ui";
         for (let i = 0; i < Math.min(3, rankingData.length); i++) {
             const r = rankingData[i];
             const color = i === 0 ? "#FFD700" : i === 1 ? "#C0C0C0" : "#CD7F32";
             ctx.fillStyle = color;
             const name = (r.nickname || "").toString().slice(0, 12);
-            ctx.fillText(`${i + 1}. ${name}  -  W${r.wave}  (${r.evolved}진화)`, CW / 2, CH / 2 + 132 + i * 18);
+            ctx.fillText(`${i + 1}. ${name}  -  W${r.wave}  (${r.evolved}진화)`, CW / 2, topY + 22 + i * 18);
         }
     }
 
