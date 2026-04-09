@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>이브이 타워디펜스</title>
 <link rel="icon" type="image/png" href="image/이브이.png">
 <link rel="apple-touch-icon" href="image/이브이.png">
@@ -156,7 +159,7 @@ function isoCirclePoints(cx, cy, radius, segments) {
 // ═══════════════════════════════════════════
 // 게임 상태
 // ═══════════════════════════════════════════
-const GAME_VERSION = "v1.67";
+const GAME_VERSION = "v1.80";
 
 // ═══════════════════════════════════════════
 // 랭킹 (Apps Script)
@@ -288,6 +291,100 @@ function fetchRanking() {
             rankingLoading = false;
         })
         .catch(() => { rankingLoading = false; });
+}
+
+// ═══════════════════════════════════════════
+// 세이브 / 로드 (localStorage)
+// ═══════════════════════════════════════════
+const SAVE_KEY = "eevee2_save";
+
+function saveGame() {
+    try {
+        const data = {
+            v: GAME_VERSION,
+            wave,
+            coins,
+            eeveesBought,
+            bossKillCount,
+            inventory: [...inventory],
+            rocks: rocks.map(r => ({ type: r.type, x: r.x, y: r.y })),
+            eevees: eevees.map(ee => ({
+                sprite: ee.sprite,
+                level: ee.level,
+                friendship: ee.friendship || 0,
+                kills: ee.kills || 0,
+                killNames: ee.killNames || {},
+                x: ee.x, y: ee.y,
+            })),
+        };
+        localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+    } catch (_) {}
+}
+
+function hasSaveData() {
+    try {
+        return !!localStorage.getItem(SAVE_KEY);
+    } catch (_) { return false; }
+}
+
+function loadGame() {
+    try {
+        const raw = localStorage.getItem(SAVE_KEY);
+        if (!raw) return false;
+        const data = JSON.parse(raw);
+
+        // 글로벌 상태 복원
+        wave = data.wave || 0;
+        coins = data.coins || 50;
+        eeveesBought = data.eeveesBought || 0;
+        bossKillCount = data.bossKillCount || 0;
+        inventory.clear();
+        for (const id of (data.inventory || [])) inventory.add(id);
+        rocks.length = 0;
+        for (const r of (data.rocks || [])) rocks.push({ type: r.type, x: r.x, y: r.y });
+
+        // 이브이 복원
+        eevees.length = 0;
+        for (const saved of (data.eevees || [])) {
+            const isBase = saved.sprite === "이브이.png";
+            if (isBase) {
+                spawnEevee("이브이.png", 5, 70, 110, "normal");
+            } else {
+                // 진화체: 먼저 기본 이브이로 생성 후 진화 적용
+                const evoIdx = EVOLUTIONS.findIndex(e => e.sprite === saved.sprite);
+                spawnEevee("이브이.png", 5, 70, 110, "normal");
+                if (evoIdx >= 0) applyEvolution(eevees[eevees.length - 1], evoIdx);
+            }
+            const ee = eevees[eevees.length - 1];
+            // 레벨 복원 (1에서 목표 레벨까지 스탯 재계산)
+            ee.level = 1;
+            const targetLv = saved.level || 1;
+            for (let l = 1; l < targetLv; l++) {
+                ee.level++;
+                const isBaseSprite = ee.sprite === "이브이.png";
+                const atkM = isBaseSprite ? lvAtkMulBase(ee.level) : lvAtkMul(ee.level);
+                const spdM = isBaseSprite ? lvSpdMulBase(ee.level) : lvSpdMul(ee.level);
+                ee.atk = Math.max(1, Math.floor(ee.baseAtk * atkM));
+                if (ee.baseSpAtk) ee.spAtk = Math.max(1, Math.floor(ee.baseSpAtk * atkM));
+                ee.atkSpeed = Math.max(8, Math.floor(ee.baseAtkSpeed * spdM));
+                ee.range = Math.floor(ee.baseRange * lvRangeMul(ee.level));
+            }
+            ee.friendship = saved.friendship || 0;
+            ee.kills = saved.kills || 0;
+            ee.killNames = saved.killNames || {};
+            ee.x = saved.x || ee.x;
+            ee.y = saved.y || ee.y;
+        }
+
+        // 세이브 유지 (다음 세이브 시점에 자연스럽게 덮어씀, 게임오버 시 삭제)
+        return true;
+    } catch (_) {
+        return false;
+    }
+}
+
+function deleteSave() {
+    try { localStorage.removeItem(SAVE_KEY); } catch (_) {}
 }
 
 function submitScore(nickname, waveVal, evolvedVal) {
@@ -579,6 +676,9 @@ const TYPE_COLORS = {
     fairy:    "#EE99AC",
 };
 function getTypeColor(type) { return TYPE_COLORS[type] || "#888"; }
+
+// 골드 포맷 (1,000 단위 콤마)
+function fmtGold(n) { return Number(n).toLocaleString(); }
 
 // 18타입 한글명
 const TYPE_NAMES_KO = {
@@ -2019,6 +2119,14 @@ let dragging = null;
 function update() {
     frame++;
 
+    // 레벨업 길게 누르기 반복
+    if (lvlHoldActive && selectedEevee) {
+        lvlHoldTimer++;
+        if (lvlHoldTimer >= LVL_HOLD_DELAY && (lvlHoldTimer - LVL_HOLD_DELAY) % LVL_HOLD_INTERVAL === 0) {
+            levelUpEevee(selectedEevee);
+        }
+    }
+
     // 파티클 캡 (모바일 250 / 데스크탑 500)
     const PARTICLE_CAP = isMobile ? 250 : 500;
     if (particles.length > PARTICLE_CAP) {
@@ -2124,6 +2232,7 @@ function update() {
     if (gameState === "wave_interval") {
         wave++;
         setupWave(wave);
+        saveGame(); // 라운드 시작 시점에도 세이브
         // 친밀도 증가 (기본 이브이만)
         for (const ee of eevees) {
             if (ee.sprite === "이브이.png") ee.friendship++;
@@ -2134,13 +2243,15 @@ function update() {
 
     // 라운드 시간 종료 → 즉시 다음 라운드 시작
     if (!testMode && waveTimer <= 0) {
+        // 라운드 종료 시 자동 세이브
+        saveGame();
         wave++;
         setupWave(wave);
         // 라운드 클리어 보상: 라운드 번호 × 3 골드
         const reward = wave * 3;
         coins += reward;
-        coinTexts.push({ x: CW / 2, y: 200, text: `라운드 보상 +${reward}`, life: 100, color: "#FFD700" });
-        coinTexts.push({ x: CW - 80, y: 80, text: `+${reward}`, life: 60, color: "#FFD700" });
+        coinTexts.push({ x: CW / 2, y: 200, text: `라운드 보상 +${fmtGold(reward)}`, life: 100, color: "#FFD700" });
+        coinTexts.push({ x: CW - 80, y: 80, text: `+${fmtGold(reward)}`, life: 60, color: "#FFD700" });
         for (const ee of eevees) {
             if (ee.sprite === "이브이.png") ee.friendship++;
         }
@@ -2533,7 +2644,7 @@ function update() {
             else if (m.isBoss) reward = 80 + wave * 18;
             else reward = 8 + Math.floor(wave * 1.6);
             coins += reward;
-            coinTexts.push({ x: m.x, y: m.y - 15, text: `+${reward}`, life: 50 });
+            coinTexts.push({ x: m.x, y: m.y - 15, text: `+${fmtGold(reward)}`, life: 50 });
 
             // 보스/레이드 처치 시 아이템 드롭 (레이드는 100%, 보스는 25%)
             // 첫 보스(W10)는 75% 드롭, 그 외 25%, 레이드는 100%
@@ -2998,6 +3109,18 @@ function drawEeveeAt(ee) {
         ctx.font = "bold 9px system-ui";
         ctx.textAlign = "center"; ctx.textBaseline = "middle";
         ctx.fillText(`${lv}`, sx + 12, sy - size / 2 + 4);
+    }
+
+    // 친밀도 표시 (기본 이브이만, ♥숫자 분홍색 + 얇은 테두리)
+    if (ee.sprite === "이브이.png" && (ee.friendship || 0) > 0) {
+        const f = ee.friendship;
+        const fx = sx - 12, fy = sy - size / 2 + 5;
+        ctx.font = "bold 9px system-ui";
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.strokeStyle = "rgba(0,0,0,0.6)"; ctx.lineWidth = 2.5;
+        ctx.strokeText(`♥${f}`, fx, fy);
+        ctx.fillStyle = "#F48FB1";
+        ctx.fillText(`♥${f}`, fx, fy);
     }
 
     if (!isDrag) {
@@ -3738,7 +3861,7 @@ function drawHUD() {
     ctx.fillText("$", coinX, coinY + 1);
     ctx.fillStyle = "#FFD700"; ctx.font = "bold 18px system-ui";
     ctx.textAlign = "left";
-    ctx.fillText(`${coins}`, coinX + 16, coinY);
+    ctx.fillText(`${fmtGold(coins)}`, coinX + 16, coinY);
     ctx.textAlign = "center";
 
     // 리더보드 버튼 (우측, 코인 아래)
@@ -3846,19 +3969,23 @@ function drawHUD() {
     if (slotFull) {
         ctx.fillText(`슬롯 가득참`, BUY_BTN.x + BUY_BTN.w / 2, BUY_BTN.y + BUY_BTN.h / 2);
     } else {
-        ctx.fillText(`+ 이브이 (${cost})`, BUY_BTN.x + BUY_BTN.w / 2, BUY_BTN.y + BUY_BTN.h / 2);
+        ctx.fillText(`+ 이브이 (${fmtGold(cost)})`, BUY_BTN.x + BUY_BTN.w / 2, BUY_BTN.y + BUY_BTN.h / 2);
     }
 
     // 우측: 선택된 이브이 액션 패널 (레벨업)
     if (selectedEevee) {
         ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+        // 레벨 (노란색)
         ctx.fillStyle = "#FFD54F"; ctx.font = "bold 14px system-ui";
-        let lvText = `Lv.${selectedEevee.level}`;
-        if (selectedEevee.sprite === "이브이.png") {
-            const mul = getFriendshipSellMul(selectedEevee);
-            lvText += `   ♥${selectedEevee.friendship} (판매×${mul})`;
-        }
+        const lvText = `Lv.${selectedEevee.level}`;
         ctx.fillText(lvText, LVL_BTN.x, BAR_Y + 30);
+        // 친밀도 (분홍색, 기본 이브이만)
+        if (selectedEevee.sprite === "이브이.png") {
+            const lvW = ctx.measureText(lvText).width;
+            const mul = getFriendshipSellMul(selectedEevee);
+            ctx.fillStyle = "#F48FB1"; ctx.font = "bold 13px system-ui";
+            ctx.fillText(`♥${selectedEevee.friendship} (판매×${mul})`, LVL_BTN.x + lvW + 10, BAR_Y + 30);
+        }
 
         // 레벨업 버튼
         const lvCost = getLevelUpCost(selectedEevee);
@@ -3872,7 +3999,7 @@ function drawHUD() {
         ctx.fillStyle = canLvl ? "#fff" : "#999";
         ctx.font = "bold 19px system-ui";
         ctx.textAlign = "center"; ctx.textBaseline = "middle";
-        ctx.fillText(`▲ 레벨업 (${lvCost})`, LVL_BTN.x + LVL_BTN.w / 2, LVL_BTN.y + LVL_BTN.h / 2);
+        ctx.fillText(`▲ 레벨업 (${fmtGold(lvCost)})`, LVL_BTN.x + LVL_BTN.w / 2, LVL_BTN.y + LVL_BTN.h / 2);
     } else {
         ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
         ctx.fillStyle = "rgba(255,255,255,0.4)"; ctx.font = "13px system-ui";
@@ -3953,7 +4080,7 @@ function drawHUD() {
             // 비용
             ctx.fillStyle = canAfford ? "#FFD700" : "rgba(200,180,80,0.6)";
             ctx.font = "bold 14px system-ui";
-            ctx.fillText(`${item.cost}`, ex, ey + 42);
+            ctx.fillText(`${fmtGold(item.cost)}`, ex, ey + 42);
 
             // 조건 미충족 표시 (아이콘 위쪽, 배경 안 - 상점 타이틀과 겹치지 않게)
             if (!condOk) {
@@ -4255,8 +4382,13 @@ function drawHUD() {
         ctx.fillStyle = "#fff"; ctx.font = "16px system-ui";
         ctx.fillText(`Wave ${wave} 도달`, CW / 2, CH / 2 + 10);
 
+        if (cheatUsed) {
+            ctx.fillStyle = "#FF9800"; ctx.font = "bold 12px system-ui";
+            ctx.fillText("🚫 치트 사용 — 랭킹 등록 불가", CW / 2, CH / 2 + 35);
+        }
+
         ctx.fillStyle = "rgba(255,255,255,0.5)"; ctx.font = "13px system-ui";
-        ctx.fillText("터치하여 재시작", CW / 2, CH / 2 + 50);
+        ctx.fillText("터치하여 재시작", CW / 2, CH / 2 + 55);
     }
 }
 
@@ -4290,7 +4422,7 @@ function drawSellZone() {
     ctx.fillStyle = "#fff"; ctx.font = "bold 11px system-ui";
     ctx.fillText("판매", cx, SELL_ZONE.y + 44);
     ctx.fillStyle = "#FFD700"; ctx.font = "bold 13px system-ui";
-    ctx.fillText(`+${getSellPrice(dragging)}`, cx, SELL_ZONE.y + 62);
+    ctx.fillText(`+${fmtGold(getSellPrice(dragging))}`, cx, SELL_ZONE.y + 62);
     ctx.restore();
 }
 
@@ -4326,11 +4458,33 @@ function drawSplash() {
         sx += sprW + gap;
     }
 
-    // 안내
-    const pulse = 0.5 + 0.5 * Math.sin(frame * 0.08);
-    ctx.fillStyle = `rgba(255,255,255,${pulse})`;
-    ctx.font = "bold 18px system-ui";
-    ctx.fillText("▶ 화면을 탭하여 시작", CW / 2, CH / 2 + 60);
+    // 안내 + 이어하기/새게임 버튼
+    const _hasSave = hasSaveData();
+    if (_hasSave) {
+        // 이어하기 버튼
+        ctx.fillStyle = "rgba(76,175,80,0.85)";
+        ctx.beginPath();
+        ctx.roundRect(CW / 2 - 120, CH / 2 + 40, 240, 44, 10);
+        ctx.fill();
+        ctx.strokeStyle = "#A5D6A7"; ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.fillStyle = "#fff"; ctx.font = "bold 18px system-ui";
+        ctx.fillText("▶ 이어하기", CW / 2, CH / 2 + 62);
+        // 새 게임 버튼
+        ctx.fillStyle = "rgba(120,120,120,0.7)";
+        ctx.beginPath();
+        ctx.roundRect(CW / 2 - 120, CH / 2 + 94, 240, 40, 10);
+        ctx.fill();
+        ctx.strokeStyle = "rgba(255,255,255,0.3)"; ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.fillStyle = "rgba(255,255,255,0.85)"; ctx.font = "bold 15px system-ui";
+        ctx.fillText("새 게임", CW / 2, CH / 2 + 114);
+    } else {
+        const pulse = 0.5 + 0.5 * Math.sin(frame * 0.08);
+        ctx.fillStyle = `rgba(255,255,255,${pulse})`;
+        ctx.font = "bold 18px system-ui";
+        ctx.fillText("▶ 화면을 탭하여 시작", CW / 2, CH / 2 + 60);
+    }
 
     // TOP 3 미니 표시
     if (rankingData.length > 0) {
@@ -4703,6 +4857,12 @@ function drawTestPanel() {
 let dragOffsetX = 0, dragOffsetY = 0;
 let downPos = null; // 클릭/드래그 구분용
 
+// 레벨업 길게 누르기 (누르고 있는 동안 반복 레벨업)
+let lvlHoldActive = false;
+let lvlHoldTimer = 0;
+const LVL_HOLD_DELAY = 20; // 첫 반복까지 대기 프레임
+const LVL_HOLD_INTERVAL = 6; // 반복 간격 프레임
+
 // UI 레이아웃 상수 (480x960 기준)
 // 0~110: 상단 HUD / 110~700: 게임 영역 / 700~830: 정보패널 / 830~960: 하단 바 (130px)
 const BAR_Y = 830, BAR_H = 130;
@@ -4714,7 +4874,7 @@ const EVO_PANEL_Y = 680, EVO_PANEL_H = 155;
 const EVO_ICON_W = 56;
 const NEXT_BTN = { x: CW / 2 - 140, y: CH / 2 - 50, w: 280, h: 100 };
 // 판매 영역 (드래그 중에만 표시) - 우측 상단
-const SELL_ZONE = { x: CW - 92, y: 100, w: 80, h: 60 };
+const SELL_ZONE = { x: CW - 100, y: 100, w: 90, h: 76 };
 // 리더보드 버튼 (낮밤 배지 옆, 위)
 const LB_BTN = { x: 110, y: 10, w: 40, h: 36 };
 
@@ -4751,7 +4911,7 @@ function sellEevee(ee) {
     const idx = eevees.indexOf(ee);
     if (idx < 0) return;
     coins += getSellPrice(ee);
-    coinTexts.push({ x: ee.x, y: ee.y - 15, text: `+${getSellPrice(ee)}`, life: 50, color: "#FFD700" });
+    coinTexts.push({ x: ee.x, y: ee.y - 15, text: `+${fmtGold(getSellPrice(ee))}`, life: 50, color: "#FFD700" });
     eevees.splice(idx, 1);
     if (selectedEevee === ee) selectedEevee = null;
 }
@@ -4936,7 +5096,7 @@ function onDown(e) {
         return;
     }
 
-    // 스플래시 → (튜토리얼 안 봤으면) 인터랙티브 튜토리얼 → 게임 시작
+    // 스플래시 → 이어하기 / 새 게임 / 튜토리얼
     if (gameState === "splash") {
         // ? 버튼 (튜토리얼 다시 보기)
         if (hitRect(pos, { x: CW - 60, y: CH - 60, w: 44, h: 44 })) {
@@ -4946,6 +5106,45 @@ function onDown(e) {
             downPos = null;
             return;
         }
+        const _hasSave = hasSaveData();
+        if (_hasSave) {
+            // 이어하기 버튼 (CW/2 - 120, CH/2 + 40, 240x44)
+            if (hitRect(pos, { x: CW / 2 - 120, y: CH / 2 + 40, w: 240, h: 44 })) {
+                if (loadGame()) {
+                    saveGame(); // 로드 직후 즉시 세이브 갱신 (새로고침 대응)
+                    gameState = "wave_interval";
+                    waveIntervalTimer = 0;
+                    downPos = null;
+                    return;
+                }
+            }
+            // 새 게임 버튼 (CW/2 - 120, CH/2 + 94, 240x40)
+            if (hitRect(pos, { x: CW / 2 - 120, y: CH / 2 + 94, w: 240, h: 40 })) {
+                deleteSave();
+                // 게임 상태 완전 초기화
+                monsters.length = 0; projectiles.length = 0; waveSpawnQueue.length = 0;
+                particles.length = 0; hitEffects.length = 0; coinTexts.length = 0;
+                eevees.length = 0; rocks.length = 0; skillEffects.length = 0;
+                inventory.clear();
+                coins = 50; eeveesBought = 0; bossKillCount = 0;
+                selectedEevee = null; selectedMonster = null; selectedItem = null; selectedRock = null;
+                wave = 0; overflowActive = false; overflowTimer = 0; overflowGraceWave = -1;
+                cheatUsed = false;
+                if (!tutorialSeen) {
+                    startTutorial();
+                } else {
+                    gameState = "wave_interval";
+                    waveIntervalTimer = 0;
+                    spawnEevee("이브이.png", 5, 70, 110, "normal");
+                }
+                downPos = null;
+                return;
+            }
+            // 다른 곳 탭 → 무시 (명확한 선택 유도)
+            downPos = null;
+            return;
+        }
+        // 세이브 없으면 기존 로직
         if (!tutorialSeen) {
             startTutorial();
             downPos = null;
@@ -4977,12 +5176,14 @@ function onDown(e) {
     if (gameState === "gameover") {
         // 닉네임 입력 모달이 떠있으면 무시
         if (nicknameInputActive) return;
-        // 점수 미제출 시 닉네임 입력 모달 표시
-        if (!scoreSubmitted && wave > 0) {
+        // 점수 미제출 시 닉네임 입력 모달 표시 (치트 사용 시 차단)
+        if (!scoreSubmitted && wave > 0 && !cheatUsed) {
             openNicknameInput();
             return;
         }
-        // 재시작
+        // 재시작 (세이브 삭제)
+        deleteSave();
+        cheatUsed = false;
         monsters.length = 0; projectiles.length = 0; waveSpawnQueue.length = 0;
         particles.length = 0; hitEffects.length = 0; coinTexts.length = 0;
         eevees.length = 0; rocks.length = 0; skillEffects.length = 0;
@@ -4995,6 +5196,13 @@ function onDown(e) {
         closeNicknameInput();
         spawnEevee("이브이.png", 5, 70, 110, "normal");
         return;
+    }
+
+    // 레벨업 버튼 길게 누르기 시작
+    if (selectedEevee && hitRect(pos, LVL_BTN)) {
+        lvlHoldActive = true;
+        lvlHoldTimer = 0;
+        levelUpEevee(selectedEevee); // 첫 레벨업 즉시
     }
 
     // 바위 드래그 시작 (이브이보다 우선순위 낮음 - 이브이가 위에 있을 수 있음)
@@ -5053,6 +5261,7 @@ function onMove(e) {
 }
 
 function onUp(e) {
+    lvlHoldActive = false; // 레벨업 길게 누르기 해제
     const wasDragging = dragging;
     // 판매 영역 위에서 떨어졌는지 체크
     if (wasDragging && eevees.includes(wasDragging) && hitRect({x: wasDragging.x, y: wasDragging.y}, SELL_ZONE)) {
@@ -5205,9 +5414,10 @@ canvas.addEventListener("touchmove", onMove, { passive: false });
 canvas.addEventListener("touchend", (e) => { e.preventDefault(); onUp(e); });
 
 // ═══════════════════════════════════════════
-// 치트 (개발용)
+// 치트 (개발용) — 사용 시 랭킹 등록 차단
 // ═══════════════════════════════════════════
 let cheatBuffer = "";
+let cheatUsed = false;
 window.addEventListener("keydown", (e) => {
     // 닉네임 입력 모드일 때는 input 요소가 직접 처리
     if (nicknameInputActive) return;
@@ -5217,19 +5427,21 @@ window.addEventListener("keydown", (e) => {
 
     // 단축키 — Shift+G가 먼저 매칭돼야 함
     if ((e.key === "g" || e.key === "G") && e.shiftKey) {
+        cheatUsed = true;
         coins += 1000;
-        coinTexts.push({ x: CW / 2, y: 100, text: "+1000", life: 50, color: "#FFD700" });
+        coinTexts.push({ x: CW / 2, y: 100, text: "+1,000 🚫", life: 50, color: "#FFD700" });
     } else if (e.key === "g" || e.key === "G") {
+        cheatUsed = true;
         coins += 100;
-        coinTexts.push({ x: CW / 2, y: 100, text: "+100", life: 50, color: "#FFD700" });
+        coinTexts.push({ x: CW / 2, y: 100, text: "+100 🚫", life: 50, color: "#FFD700" });
     } else if (e.key === "n" || e.key === "N") {
-        // 다음 라운드 강제
+        cheatUsed = true;
         waveTimer = 0;
     } else if (e.key === "k" || e.key === "K") {
-        // 모든 몬스터 즉사
+        cheatUsed = true;
         for (const m of monsters) m.hp = 0;
     } else if (e.key === "l" || e.key === "L") {
-        // 선택된 이브이 레벨업 무료
+        cheatUsed = true;
         if (selectedEevee) {
             selectedEevee.level++;
             selectedEevee.atk = Math.max(1, Math.floor(selectedEevee.baseAtk * lvAtkMul(selectedEevee.level)));
@@ -5238,10 +5450,10 @@ window.addEventListener("keydown", (e) => {
             selectedEevee.range = Math.floor(selectedEevee.baseRange * lvRangeMul(selectedEevee.level));
         }
     } else if (e.key === "i" || e.key === "I") {
-        // 모든 아이템 획득
+        cheatUsed = true;
         for (const it of ITEMS) inventory.add(it.id);
     } else if (e.key === "t" || e.key === "T") {
-        // 튜토리얼 다시 보기
+        // 튜토리얼은 치트 아님
         try { localStorage.removeItem("eevee2_tutorial_seen"); } catch(_) {}
         tutorialSeen = false;
     }
