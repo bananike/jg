@@ -10,7 +10,7 @@
 <script>
 // 버전 불일치 시 캐시 무시 강제 리로드
 (function() {
-    var CURRENT = "v1.80";
+    var CURRENT = "v1.81";
     var KEY = "eevee2_cached_ver";
     try {
         var prev = localStorage.getItem(KEY);
@@ -38,7 +38,271 @@ canvas { display:block; }
 const canvas = document.getElementById("c");
 const ctx = canvas.getContext("2d");
 const CW = 480, CH = 960;
-const GAME_VERSION = "v1.80";
+const GAME_VERSION = "v1.81";
+
+// =============================================
+// 🔊 사운드 시스템 (Web Audio API 합성)
+// =============================================
+const SFX_ENABLED_KEY = "eevee2_sfx";
+const BGM_ENABLED_KEY = "eevee2_bgm";
+let sfxEnabled = true;
+let bgmEnabled = true;
+try { sfxEnabled = localStorage.getItem(SFX_ENABLED_KEY) !== "0"; } catch(_) {}
+try { bgmEnabled = localStorage.getItem(BGM_ENABLED_KEY) !== "0"; } catch(_) {}
+
+let audioCtx = null;
+let bgmGain = null;
+let sfxGain = null;
+let bgmPlaying = false;
+
+function initAudio() {
+    if (audioCtx) return;
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    bgmGain = audioCtx.createGain();
+    bgmGain.gain.value = bgmEnabled ? 0.25 : 0;
+    bgmGain.connect(audioCtx.destination);
+    sfxGain = audioCtx.createGain();
+    sfxGain.gain.value = sfxEnabled ? 0.35 : 0;
+    sfxGain.connect(audioCtx.destination);
+}
+
+function toggleSfx() {
+    sfxEnabled = !sfxEnabled;
+    try { localStorage.setItem(SFX_ENABLED_KEY, sfxEnabled ? "1" : "0"); } catch(_) {}
+    if (sfxGain) sfxGain.gain.value = sfxEnabled ? 0.35 : 0;
+}
+function toggleBgm() {
+    bgmEnabled = !bgmEnabled;
+    try { localStorage.setItem(BGM_ENABLED_KEY, bgmEnabled ? "1" : "0"); } catch(_) {}
+    if (bgmGain) bgmGain.gain.value = bgmEnabled ? 0.25 : 0;
+    if (bgmEnabled && !bgmPlaying) startBGM();
+}
+
+// --- 효과음 ---
+function playNote(freq, duration, type, dest, vol, detune) {
+    if (!audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type || "square";
+    osc.frequency.value = freq;
+    if (detune) osc.detune.value = detune;
+    gain.gain.setValueAtTime((vol || 0.3) * 0.5, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+    osc.connect(gain);
+    gain.connect(dest || sfxGain);
+    osc.start(); osc.stop(audioCtx.currentTime + duration);
+}
+
+function sfxAttack() {
+    if (!audioCtx) return;
+    playNote(880, 0.06, "square", sfxGain, 0.15);
+    playNote(1100, 0.04, "square", sfxGain, 0.1);
+}
+function sfxHit() {
+    if (!audioCtx) return;
+    playNote(200, 0.08, "sawtooth", sfxGain, 0.2);
+    playNote(150, 0.06, "square", sfxGain, 0.15);
+}
+function sfxMonsterDie() {
+    if (!audioCtx) return;
+    playNote(523, 0.08, "square", sfxGain, 0.2);
+    setTimeout(() => playNote(659, 0.08, "square", sfxGain, 0.2), 40);
+    setTimeout(() => playNote(784, 0.12, "triangle", sfxGain, 0.25), 80);
+}
+function sfxBossDie() {
+    if (!audioCtx) return;
+    const t = audioCtx.currentTime;
+    [523, 659, 784, 1047].forEach((f, i) => {
+        const osc = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        osc.type = "square"; osc.frequency.value = f;
+        g.gain.setValueAtTime(0.3, t + i * 0.08);
+        g.gain.exponentialRampToValueAtTime(0.001, t + i * 0.08 + 0.3);
+        osc.connect(g); g.connect(sfxGain);
+        osc.start(t + i * 0.08); osc.stop(t + i * 0.08 + 0.3);
+    });
+}
+function sfxCoin() {
+    if (!audioCtx) return;
+    playNote(1318, 0.06, "square", sfxGain, 0.15);
+    setTimeout(() => playNote(1568, 0.08, "square", sfxGain, 0.2), 50);
+}
+function sfxBuy() {
+    if (!audioCtx) return;
+    playNote(660, 0.05, "triangle", sfxGain, 0.2);
+    setTimeout(() => playNote(880, 0.05, "triangle", sfxGain, 0.2), 50);
+    setTimeout(() => playNote(1100, 0.08, "triangle", sfxGain, 0.25), 100);
+}
+function sfxLevelUp() {
+    if (!audioCtx) return;
+    const notes = [523, 659, 784, 1047];
+    notes.forEach((f, i) => {
+        setTimeout(() => playNote(f, 0.1, "triangle", sfxGain, 0.25), i * 60);
+    });
+}
+function sfxSell() {
+    if (!audioCtx) return;
+    playNote(784, 0.06, "triangle", sfxGain, 0.2);
+    setTimeout(() => playNote(523, 0.1, "sawtooth", sfxGain, 0.15), 60);
+}
+function sfxWaveStart() {
+    if (!audioCtx) return;
+    const notes = [392, 523, 659, 784];
+    notes.forEach((f, i) => {
+        setTimeout(() => playNote(f, 0.12, "square", sfxGain, 0.2), i * 80);
+    });
+}
+function sfxWaveClear() {
+    if (!audioCtx) return;
+    const notes = [523, 659, 784, 1047, 1318];
+    notes.forEach((f, i) => {
+        setTimeout(() => playNote(f, 0.15, "triangle", sfxGain, 0.3), i * 70);
+    });
+}
+function sfxBossAppear() {
+    if (!audioCtx) return;
+    const t = audioCtx.currentTime;
+    // 불길한 저음
+    const osc = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    osc.type = "sawtooth"; osc.frequency.value = 80;
+    osc.frequency.linearRampToValueAtTime(50, t + 0.5);
+    g.gain.setValueAtTime(0.3, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
+    osc.connect(g); g.connect(sfxGain);
+    osc.start(t); osc.stop(t + 0.6);
+    // 경고음
+    setTimeout(() => { playNote(440, 0.1, "square", sfxGain, 0.25); }, 100);
+    setTimeout(() => { playNote(440, 0.1, "square", sfxGain, 0.25); }, 250);
+    setTimeout(() => { playNote(440, 0.15, "square", sfxGain, 0.3); }, 400);
+}
+function sfxEvolution() {
+    if (!audioCtx) return;
+    const notes = [392, 494, 587, 698, 784, 988, 1175];
+    notes.forEach((f, i) => {
+        setTimeout(() => playNote(f, 0.15, "triangle", sfxGain, 0.25 + i * 0.02), i * 55);
+    });
+}
+function sfxItemDrop() {
+    if (!audioCtx) return;
+    const notes = [784, 988, 1318, 1568];
+    notes.forEach((f, i) => {
+        setTimeout(() => playNote(f, 0.12, "triangle", sfxGain, 0.3), i * 60);
+    });
+}
+function sfxGameOver() {
+    if (!audioCtx) return;
+    const notes = [392, 330, 262, 196];
+    notes.forEach((f, i) => {
+        setTimeout(() => playNote(f, 0.25, "sawtooth", sfxGain, 0.25), i * 150);
+    });
+}
+function sfxTap() {
+    if (!audioCtx) return;
+    playNote(600, 0.03, "sine", sfxGain, 0.1);
+}
+
+// --- BGM (귀여운 칩튠 루프) ---
+let bgmTimeout = null;
+function startBGM() {
+    if (!audioCtx || bgmPlaying) return;
+    bgmPlaying = true;
+    // 귀여운 멜로디 패턴 (C major pentatonic 기반)
+    const melody = [
+        523, 587, 659, 784, 659, 587, 523, 392,
+        523, 659, 784, 880, 784, 659, 523, 587,
+        659, 784, 880, 1047, 880, 784, 659, 523,
+        392, 440, 523, 587, 523, 440, 392, 523,
+    ];
+    const bass = [
+        262, 262, 330, 330, 349, 349, 392, 392,
+        262, 262, 330, 330, 349, 349, 392, 392,
+        262, 262, 330, 330, 349, 349, 392, 392,
+        262, 262, 330, 330, 349, 349, 262, 262,
+    ];
+    const noteDur = 0.18;
+    const gap = 0.2;
+    let i = 0;
+
+    function playNext() {
+        if (!bgmPlaying || !audioCtx) return;
+        const t = audioCtx.currentTime;
+
+        // 멜로디
+        const mOsc = audioCtx.createOscillator();
+        const mG = audioCtx.createGain();
+        mOsc.type = "triangle";
+        mOsc.frequency.value = melody[i % melody.length];
+        mG.gain.setValueAtTime(0.18, t);
+        mG.gain.exponentialRampToValueAtTime(0.001, t + noteDur);
+        mOsc.connect(mG); mG.connect(bgmGain);
+        mOsc.start(t); mOsc.stop(t + noteDur);
+
+        // 서브멜로디 (옥타브 위, 작게)
+        const sOsc = audioCtx.createOscillator();
+        const sG = audioCtx.createGain();
+        sOsc.type = "sine";
+        sOsc.frequency.value = melody[i % melody.length] * 2;
+        sG.gain.setValueAtTime(0.04, t);
+        sG.gain.exponentialRampToValueAtTime(0.001, t + noteDur * 0.7);
+        sOsc.connect(sG); sG.connect(bgmGain);
+        sOsc.start(t); sOsc.stop(t + noteDur);
+
+        // 베이스
+        const bOsc = audioCtx.createOscillator();
+        const bG = audioCtx.createGain();
+        bOsc.type = "square";
+        bOsc.frequency.value = bass[i % bass.length] * 0.5;
+        bG.gain.setValueAtTime(0.1, t);
+        bG.gain.exponentialRampToValueAtTime(0.001, t + noteDur * 1.2);
+        bOsc.connect(bG); bG.connect(bgmGain);
+        bOsc.start(t); bOsc.stop(t + noteDur * 1.2);
+
+        i++;
+        bgmTimeout = setTimeout(playNext, gap * 1000);
+    }
+    playNext();
+}
+function stopBGM() {
+    bgmPlaying = false;
+    if (bgmTimeout) { clearTimeout(bgmTimeout); bgmTimeout = null; }
+}
+
+// 사운드 + 자동시작 버튼 위치
+const SFX_BTN = { x: CW - 130, y: 56, w: 36, h: 28 };
+const BGM_BTN = { x: CW - 90, y: 56, w: 36, h: 28 };
+const AUTO_BTN = { x: CW - 50, y: 56, w: 36, h: 28 };
+
+const AUTO_WAVE_KEY = "eevee2_autowave";
+let autoWaveEnabled = false;
+try { autoWaveEnabled = localStorage.getItem(AUTO_WAVE_KEY) === "1"; } catch(_) {}
+
+function toggleAutoWave() {
+    autoWaveEnabled = !autoWaveEnabled;
+    try { localStorage.setItem(AUTO_WAVE_KEY, autoWaveEnabled ? "1" : "0"); } catch(_) {}
+}
+
+function drawSoundBtns() {
+    // SFX 버튼
+    ctx.fillStyle = sfxEnabled ? "rgba(76,175,80,0.7)" : "rgba(100,100,100,0.6)";
+    ctx.beginPath(); ctx.roundRect(SFX_BTN.x, SFX_BTN.y, SFX_BTN.w, SFX_BTN.h, 6); ctx.fill();
+    ctx.fillStyle = "#fff"; ctx.font = "bold 11px system-ui";
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText(sfxEnabled ? "🔊" : "🔇", SFX_BTN.x + SFX_BTN.w / 2, SFX_BTN.y + SFX_BTN.h / 2);
+
+    // BGM 버튼
+    ctx.fillStyle = bgmEnabled ? "rgba(33,150,243,0.7)" : "rgba(100,100,100,0.6)";
+    ctx.beginPath(); ctx.roundRect(BGM_BTN.x, BGM_BTN.y, BGM_BTN.w, BGM_BTN.h, 6); ctx.fill();
+    ctx.fillStyle = "#fff"; ctx.font = "bold 11px system-ui";
+    ctx.fillText(bgmEnabled ? "🎵" : "🎵✕", BGM_BTN.x + BGM_BTN.w / 2, BGM_BTN.y + BGM_BTN.h / 2);
+
+    // 자동시작 버튼
+    ctx.fillStyle = autoWaveEnabled ? "rgba(255,152,0,0.7)" : "rgba(100,100,100,0.6)";
+    ctx.beginPath(); ctx.roundRect(AUTO_BTN.x, AUTO_BTN.y, AUTO_BTN.w, AUTO_BTN.h, 6); ctx.fill();
+    ctx.fillStyle = "#fff"; ctx.font = "bold 10px system-ui";
+    ctx.fillText(autoWaveEnabled ? "▶A" : "▶✕", AUTO_BTN.x + AUTO_BTN.w / 2, AUTO_BTN.y + AUTO_BTN.h / 2);
+}
+// =============================================
 // 모바일 성능 최적화: DPR 최대 2로 캡 (iPhone DPR 3 → 2)
 const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -1839,7 +2103,11 @@ function lvRangeMul(level) { return 1; }
 function lvAtkMulBase(level)   { return 1 + (level - 1) * 0.08; }
 function lvSpdMulBase(level)   { return Math.max(0.5, 1 - (level - 1) * 0.015); }
 
+const BASE_EEVEE_MAX_LEVEL = 50;
+
 function levelUpEevee(ee) {
+    // 기본 이브이 레벨 제한
+    if (ee.sprite === "이브이.png" && ee.level >= BASE_EEVEE_MAX_LEVEL) return;
     const cost = getLevelUpCost(ee);
     if (coins < cost) return;
     coins -= cost;
@@ -1852,6 +2120,7 @@ function levelUpEevee(ee) {
     if (ee.baseSpAtk) ee.spAtk = Math.max(1, Math.floor(ee.baseSpAtk * atkM));
     ee.atkSpeed = Math.max(8, Math.floor(ee.baseAtkSpeed * spdM));
     ee.range = Math.floor(ee.baseRange * lvRangeMul(ee.level));
+    sfxLevelUp();
     // 레벨업 이펙트
     for (let k = 0; k < 12; k++) {
         const a = Math.random() * Math.PI * 2;
@@ -1898,6 +2167,7 @@ function spawnMonster(name, sprite, hp, mDef, sDef, spd, typeOrTypes, isBoss, op
         statuses: {},
     };
     monsters.push(m);
+    if (m.isBoss) sfxBossAppear();
     return m;
 }
 
@@ -2080,7 +2350,7 @@ function setupWave(w) {
         const raid = raidPool[Math.floor(Math.random() * raidPool.length)];
         waveSpawnQueue.push({
             name: raid.name, sprite: raid.sprite, types: raid.types,
-            hp: Math.floor(raid.baseHp * waveMul * 20),
+            hp: Math.floor(raid.baseHp * waveMul * 35),
             mDef: Math.floor(raid.baseMDef * waveMul * 0.25),
             sDef: Math.floor(raid.baseSDef * waveMul * 0.25),
             spd: spdBase * (raid.baseSpd / 100) * 0.4,
@@ -2238,7 +2508,7 @@ function update() {
             }
             m.invading = true; // 떨림 애니메이션 트리거
         }
-        if (cutsceneTimer <= 0) gameState = "gameover";
+        if (cutsceneTimer <= 0) { gameState = "gameover"; sfxGameOver(); stopBGM(); }
         return;
     }
 
@@ -2249,6 +2519,7 @@ function update() {
     if (gameState === "wave_interval") {
         wave++;
         setupWave(wave);
+        sfxWaveStart();
         saveGame(); // 라운드 시작 시점에도 세이브
         // 친밀도 증가 (기본 이브이만)
         for (const ee of eevees) {
@@ -2257,6 +2528,12 @@ function update() {
     }
 
     if (!testMode) waveTimer--;
+
+    // 자동 웨이브 시작
+    if (autoWaveDelay > 0) {
+        autoWaveDelay--;
+        if (autoWaveDelay <= 0 && isRoundClear()) waveTimer = 0;
+    }
 
     // 라운드 시간 종료 → 즉시 다음 라운드 시작
     if (!testMode && waveTimer <= 0) {
@@ -2403,6 +2680,7 @@ function update() {
                 let atkVal = getEeveeAtk(ee);
                 if (hasItem("fang") && Math.random() < 0.06) atkVal = Math.floor(atkVal * 1.6);
                 fireProjectile(ee.x, ee.y - 5, target.id, atkVal, ee.bulletType, ee.category || "phys", ee.type || "normal", ee);
+                if (frame % 8 === 0) sfxAttack(); // 공격음 (과다 방지)
                 // 겨냥표적 더블샷
                 if (hasItem("target") && Math.random() < 0.20) {
                     fireProjectile(ee.x, ee.y - 5, target.id, atkVal, ee.bulletType, ee.category || "phys", ee.type || "normal", ee);
@@ -2653,8 +2931,9 @@ function update() {
                 continue;
             }
 
-            // 보스 카운트
-            if (m.isBoss) bossKillCount++;
+            // 보스 카운트 + 사운드
+            if (m.isBoss) { bossKillCount++; sfxBossDie(); }
+            else sfxMonsterDie();
             // 코인 보상
             let reward;
             if (m.isRaid) reward = 200 + wave * 30;
@@ -2672,6 +2951,7 @@ function update() {
                     const drop = unowned[Math.floor(Math.random() * unowned.length)];
                     inventory.add(drop.id);
                     coinTexts.push({ x: m.x, y: m.y - 35, text: `${drop.name} 획득!`, life: 90, color: "#FFEB3B" });
+                    sfxItemDrop();
                     for (let k = 0; k < 20; k++) {
                         const a = Math.random() * Math.PI * 2;
                         particles.push({
@@ -3942,7 +4222,7 @@ function drawHUD() {
             ctx.font = "bold 24px system-ui";
             ctx.textAlign = "center"; ctx.textBaseline = "middle";
             ctx.strokeStyle = "rgba(0,0,0,0.7)"; ctx.lineWidth = 4;
-            const msg = "▶ 화면을 탭하여 다음 라운드";
+            const msg = autoWaveEnabled ? `▶ 자동 시작 중...` : "▶ 화면을 탭하여 다음 라운드";
             ctx.strokeText(msg, CW / 2, CH / 2);
             ctx.fillText(msg, CW / 2, CH / 2);
         }
@@ -4831,6 +5111,7 @@ function draw() {
     }
     drawCoinTexts();
     drawHUD();
+    drawSoundBtns();
     drawTestPanel();
     drawTutorialOverlay();
     drawLeaderboardPopup();
@@ -4930,12 +5211,21 @@ function sellEevee(ee) {
     if (idx < 0) return;
     coins += getSellPrice(ee);
     coinTexts.push({ x: ee.x, y: ee.y - 15, text: `+${fmtGold(getSellPrice(ee))}`, life: 50, color: "#FFD700" });
+    sfxSell();
     eevees.splice(idx, 1);
     if (selectedEevee === ee) selectedEevee = null;
 }
 
+let prevRoundClear = false;
+let autoWaveDelay = 0;
 function isRoundClear() {
-    return waveSpawnQueue.length === 0 && monsters.filter(m => m.hp > 0).length === 0;
+    const clear = waveSpawnQueue.length === 0 && monsters.filter(m => m.hp > 0).length === 0;
+    if (clear && !prevRoundClear && gameState === "playing") {
+        sfxWaveClear();
+        if (autoWaveEnabled) autoWaveDelay = 90; // 1.5초 후 자동시작
+    }
+    prevRoundClear = clear;
+    return clear;
 }
 
 function getCanvasPos(e) {
@@ -4960,9 +5250,11 @@ function buyEevee() {
     coins -= cost;
     eeveesBought++;
     spawnEevee("이브이.png", 5, 70, 110, "normal");
+    sfxBuy();
 }
 
 function applyEvolution(ee, evoIdx) {
+    sfxEvolution();
     const evo = EVOLUTIONS[evoIdx];
     ee.sprite = evo.sprite;
     ee.atk = evo.atk;
@@ -5064,8 +5356,16 @@ function buyShopItem(ee, itemId) {
 
 function onDown(e) {
     e.preventDefault();
+    // 첫 터치 시 오디오 초기화
+    if (!audioCtx) { initAudio(); if (bgmEnabled) startBGM(); }
+    if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
     const pos = getCanvasPos(e);
     downPos = { x: pos.x, y: pos.y };
+
+    // 사운드 버튼
+    if (hitRect(pos, SFX_BTN)) { toggleSfx(); sfxTap(); downPos = null; return; }
+    if (hitRect(pos, BGM_BTN)) { toggleBgm(); downPos = null; return; }
+    if (hitRect(pos, AUTO_BTN)) { toggleAutoWave(); sfxTap(); downPos = null; return; }
 
     // 테스트 패널 — 가장 높은 우선순위 (스플래시/게임오버 제외 어디서나)
     if (TEST_PANEL_VISIBLE && gameState !== "splash" && gameState !== "gameover" && !nicknameInputActive) {
