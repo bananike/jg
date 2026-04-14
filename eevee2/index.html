@@ -10,7 +10,7 @@
 <script>
 // 버전 불일치 시 캐시 무시 강제 리로드
 (function() {
-    var CURRENT = "v1.81";
+    var CURRENT = "v1.90";
     var KEY = "eevee2_cached_ver";
     try {
         var prev = localStorage.getItem(KEY);
@@ -38,7 +38,7 @@ canvas { display:block; }
 const canvas = document.getElementById("c");
 const ctx = canvas.getContext("2d");
 const CW = 480, CH = 960;
-const GAME_VERSION = "v1.81";
+const GAME_VERSION = "v1.90";
 
 // =============================================
 // 🔊 사운드 시스템 (Web Audio API 합성)
@@ -333,6 +333,8 @@ const IMAGE_LIST = [
     "mon/네크로즈마.png","mon/무한다이노.png","mon/울트라네크로즈마.png","mon/무한다이노다이맥스.png",
     "item/달인의띠.png","item/광각렌즈.png","item/박식안경.png","item/예리한이빨.png",
     "item/빛의점토.png","item/선제공격발톱.png","item/울퉁불퉁멧.png","item/초점렌즈.png","item/겨냥표적.png",
+    "item/약점보험.png","item/생명의구슬.png","item/메트로놈.png","item/검은철구.png","item/먹다남은음식.png",
+    "item/돌격조끼.png","item/끈기갈고리손톱.png",
     // 팬메이드 11종
     "왕이브이.png","이브이메가.png","이브이격투.png","이브이고스트.png","이브이드래곤.png",
     "이브이땅.png","이브이바위.png","이브이비행.png","이브이강철.png","이브이독.png","이브이벌레.png",
@@ -597,6 +599,14 @@ function saveGame() {
                 killNames: ee.killNames || {},
                 x: ee.x, y: ee.y,
             })),
+            bosses: monsters.filter(m => m.isBoss && m.hp > 0).map(m => ({
+                name: m.name, sprite: m.sprite, hp: m.hp, maxHp: m.maxHp,
+                mDef: m.mDef, sDef: m.sDef, spd: m.spd,
+                types: m.types, isBoss: true, isRaid: m.isRaid,
+                phase2Data: m.phase2Data, spawnWave: m.spawnWave || 0,
+                x: m.x, y: m.y, phase: m.phase,
+                orbitAngle: m.orbitAngle, entryAngle: m.entryAngle,
+            })),
         };
         localStorage.setItem(SAVE_KEY, JSON.stringify(data));
     } catch (_) {}
@@ -655,6 +665,17 @@ function loadGame() {
             ee.killNames = saved.killNames || {};
             ee.x = saved.x || ee.x;
             ee.y = saved.y || ee.y;
+        }
+
+        // 보스 복원
+        for (const b of (data.bosses || [])) {
+            const m = spawnMonster(b.name, b.sprite, b.hp, b.mDef || 0, b.sDef || 0, b.spd, b.types, true, { isRaid: b.isRaid, phase2: b.phase2Data, spawnWave: b.spawnWave || 0 });
+            m.maxHp = b.maxHp || b.hp;
+            m.hp = b.hp;
+            m.x = b.x; m.y = b.y;
+            m.phase = b.phase || "orbit";
+            m.orbitAngle = b.orbitAngle || 0;
+            m.entryAngle = b.entryAngle || 0;
         }
 
         // 세이브 유지 (다음 세이브 시점에 자연스럽게 덮어씀, 게임오버 시 삭제)
@@ -805,18 +826,27 @@ function nextTestEevee() {
 // 아이템 (글로벌 패시브, 보스 드롭)
 // ═══════════════════════════════════════════
 const ITEMS = [
-    { id:"belt",       name:"달인의띠",   sprite:"item/달인의띠.png",   desc:"효과적 데미지 ↑" },
-    { id:"wide",       name:"광각렌즈",   sprite:"item/광각렌즈.png",   desc:"이브이즈 사거리 +15%" },
-    { id:"glasses",    name:"박식안경",   sprite:"item/박식안경.png",   desc:"특수공격 +25%" },
-    { id:"fang",       name:"예리한이빨", sprite:"item/예리한이빨.png", desc:"평타 15% 크리티컬 ×1.8" },
-    { id:"clay",       name:"빛의점토",   sprite:"item/빛의점토.png",   desc:"바위 버프 반경 ×1.5" },
-    { id:"claw",       name:"선제공격발톱",sprite:"item/선제공격발톱.png", desc:"이브이즈 공속 +15%" },
-    { id:"helmet",     name:"울퉁불퉁멧", sprite:"item/울퉁불퉁멧.png", desc:"몬스터 진입 시 도트 데미지" },
-    { id:"focus",      name:"초점렌즈",   sprite:"item/초점렌즈.png",   desc:"별로 상성 무시" },
-    { id:"target",     name:"겨냥표적",   sprite:"item/겨냥표적.png",   desc:"평타 30% 확률 더블샷" },
+    // === 기존 9종 ===
+    { id:"belt",       name:"달인의띠",     sprite:"item/달인의띠.png",     desc:"효과적 데미지 ↑" },
+    { id:"wide",       name:"광각렌즈",     sprite:"item/광각렌즈.png",     desc:"이브이즈 사거리 +15%" },
+    { id:"glasses",    name:"박식안경",     sprite:"item/박식안경.png",     desc:"특수공격 +25%" },
+    { id:"fang",       name:"예리한이빨",   sprite:"item/예리한이빨.png",   desc:"평타 15% 크리티컬 ×1.8" },
+    { id:"clay",       name:"빛의점토",     sprite:"item/빛의점토.png",     desc:"바위 버프 반경 ×1.5" },
+    { id:"claw",       name:"선제공격발톱", sprite:"item/선제공격발톱.png", desc:"이브이즈 공속 +15%" },
+    { id:"helmet",     name:"울퉁불퉁멧",   sprite:"item/울퉁불퉁멧.png",   desc:"몬스터 진입 시 도트 데미지" },
+    { id:"focus",      name:"약점보험",     sprite:"item/약점보험.png",     desc:"별로 상성 무시" },
+    { id:"target",     name:"겨냥표적",     sprite:"item/겨냥표적.png",     desc:"평타 30% 확률 더블샷" },
+    // === 신규 7종 ===
+    { id:"lifeorb",    name:"생명의구슬",       sprite:"item/생명의구슬.png",       desc:"모든 데미지 +10%" },
+    { id:"metronome",  name:"메트로놈",         sprite:"item/메트로놈.png",         desc:"연속 공격 시 데미지 누적 +8% (최대 +40%)" },
+    { id:"ironball",   name:"검은철구",         sprite:"item/검은철구.png",         desc:"몬스터 이동속도 -15%" },
+    { id:"leftovers",  name:"먹다남은음식",     sprite:"item/먹다남은음식.png",     desc:"라운드 클리어 골드 +10%" },
+    { id:"assaultvest",name:"돌격조끼",         sprite:"item/돌격조끼.png",         desc:"스킬 시 특수방어 20% 무시" },
+    { id:"focuslens",  name:"초점렌즈",         sprite:"item/초점렌즈.png",         desc:"스킬 발동 확률 +50%" },
+    { id:"gripclaw",   name:"끈기갈고리손톱",   sprite:"item/끈기갈고리손톱.png",   desc:"상태이상 지속시간 +50%" },
 ];
 const inventory = new Set(); // 보유 아이템 id
-const BOSS_DROP_RATE = 0.25;
+const BOSS_DROP_RATE = 0.33;
 let currentVisibleShop = []; // 매 프레임 갱신, 클릭 시 사용
 
 function hasItem(id) { return inventory.has(id); }
@@ -824,7 +854,7 @@ function hasItem(id) { return inventory.has(id); }
 // 아이템 적용된 effective 스탯
 function getEeveeRange(ee) {
     let r = ee.range * (hasItem("wide") ? 1.08 : 1);
-    if (ee.boostBuff > 0) r *= 1.3;
+    // 나인이볼부스트 사거리 증가 제거
     if (ee.skillBuff && ee.skillBuff.range > 0) r *= 1.20;
     // 이끼바위 주변 사거리 +20%
     const mossR = getRockBuffRadius("moss");
@@ -1046,11 +1076,11 @@ const SHOP_ITEMS = [
     { id:"mega_stone",    name:"메가스톤", cost:350, type:"itemHeld", evoIdx:9,  reqLevel:20, reqFriend:15, sprite:"이브이메가.png", tier:"fan", reqItemId:"glasses" },
     { id:"metal_rock",    name:"강철바위", cost:300, type:"itemHeld", evoIdx:10, reqLevel:20, reqFriend:15, sprite:"이브이강철.png", tier:"fan", reqItemId:"focus" },
     { id:"rock_buddy",    name:"록기파트너", cost:350, type:"itemHeld", evoIdx:16, reqLevel:20, reqFriend:15, sprite:"이브이바위.png", tier:"fan", reqItemId:"claw" },
-    { id:"dragon_proof",  name:"드래곤증표", cost:320, type:"bossKill", evoIdx:13, reqLevel:20, reqFriend:15, sprite:"이브이드래곤.png", tier:"fan", reqBossKills:5 },
+    { id:"dragon_proof",  name:"드래곤증표", cost:320, type:"bossKill", evoIdx:14, reqLevel:20, reqFriend:15, sprite:"이브이드래곤.png", tier:"fan", reqBossKills:5 },
     { id:"shadow_charm",  name:"어둠의부적", cost:280, type:"timed", evoIdx:12, reqLevel:20, reqFriend:15, sprite:"이브이고스트.png", tier:"fan", reqDay:false },
     { id:"sky_charm",     name:"바람의부적", cost:280, type:"timed", evoIdx:18, reqLevel:20, reqFriend:15, sprite:"이브이비행.png", tier:"fan", reqDay:true },
     { id:"fight_belt",    name:"투지의띠", cost:270, type:"itemHeld", evoIdx:11, reqLevel:20, reqFriend:15, sprite:"이브이격투.png", tier:"fan", reqItemId:"belt" },
-    { id:"venom_fang",    name:"독니",     cost:270, type:"itemHeld", evoIdx:14, reqLevel:20, reqFriend:15, sprite:"이브이독.png", tier:"fan", reqItemId:"fang" },
+    { id:"venom_fang",    name:"독니",     cost:270, type:"itemHeld", evoIdx:13, reqLevel:20, reqFriend:15, sprite:"이브이독.png", tier:"fan", reqItemId:"fang" },
     { id:"earth_helmet",  name:"대지의투구", cost:270, type:"itemHeld", evoIdx:15, reqLevel:20, reqFriend:15, sprite:"이브이땅.png", tier:"fan", reqItemId:"helmet" },
     { id:"bug_charm",     name:"벌레부적", cost:250, type:"friend2", evoIdx:17, reqLevel:20, reqFriend:20, sprite:"이브이벌레.png", tier:"fan" },
 ];
@@ -1361,10 +1391,14 @@ function applySkillDamage(target, ee, skill, isSpec) {
     if (!target || target.hp <= 0) return;
     const baseAtk = isSpec ? getEeveeSpAtk(ee) : ee.atk;
     const defStat = getMonsterDef(target, isSpec);
-    const baseDmg = Math.max(1, baseAtk * skill.mul - defStat * 0.3);
+    // 돌격조끼: 스킬 시 특수방어 20% 무시
+    const effDef = (isSpec && hasItem("assaultvest")) ? defStat * 0.8 : defStat;
+    const baseDmg = Math.max(1, baseAtk * skill.mul - effDef * 0.3);
     const mul = totalTypeMul(ee.type, target);
     const dn = getDayNightMul(ee.type, skill);
-    const dmg = Math.max(1, Math.round(baseDmg * mul * dn.mul));
+    // 생명의구슬: 데미지 +10%
+    const orbMul = hasItem("lifeorb") ? 1.10 : 1;
+    const dmg = Math.max(1, Math.round(baseDmg * mul * dn.mul * orbMul));
     const wasAlive = target.hp > 0;
     target.hp -= dmg;
     if (wasAlive && target.hp <= 0 && ee) {
@@ -2165,6 +2199,7 @@ function spawnMonster(name, sprite, hp, mDef, sDef, spd, typeOrTypes, isBoss, op
         hitAnim: 0,
         deathAnim: 0,
         statuses: {},
+        spawnWave: opts && opts.spawnWave ? opts.spawnWave : 0,
     };
     monsters.push(m);
     if (m.isBoss) sfxBossAppear();
@@ -2177,7 +2212,12 @@ function spawnMonster(name, sprite, hp, mDef, sDef, spd, typeOrTypes, isBoss, op
 function applyStatus(target, type, data) {
     if (!target || target.hp <= 0) return;
     target.statuses = target.statuses || {};
-    target.statuses[type] = { ...data };
+    // 끈기갈고리손톱: 상태이상 지속시간 +50%
+    const adjusted = { ...data };
+    if (hasItem("gripclaw") && adjusted.duration) {
+        adjusted.duration = Math.floor(adjusted.duration * 1.5);
+    }
+    target.statuses[type] = adjusted;
 }
 
 function updateStatuses() {
@@ -2207,14 +2247,17 @@ function updateStatuses() {
     }
 }
 
-// 몬스터 effective 이동속도 (상태이상 적용)
+// 몬스터 effective 이동속도 (상태이상 + 검은철구 적용)
 function getMonsterSpdMul(m) {
-    if (!m.statuses) return 1;
-    if (m.statuses.paralysis) return 0;  // 마비 = 완전 정지
-    if (m.statuses.sleep) return 0;       // 잠듦 = 정지
-    if (m.statuses.freeze) return 0.4;    // 빙결 = 느려짐
-    if (m.statuses.slow) return 0.6;      // 둔화 = 약하게 느려짐
-    return 1;
+    let mul = 1;
+    if (m.statuses) {
+        if (m.statuses.paralysis) return 0;  // 마비 = 완전 정지
+        if (m.statuses.sleep) return 0;       // 잠듦 = 정지
+        if (m.statuses.freeze) mul = 0.4;    // 빙결 = 느려짐
+        else if (m.statuses.slow) mul = 0.6; // 둔화 = 약하게 느려짐
+    }
+    if (hasItem("ironball")) mul *= 0.85; // 검은철구: 전역 -15%
+    return mul;
 }
 
 // 몬스터 effective 방어력
@@ -2355,7 +2398,7 @@ function setupWave(w) {
             sDef: Math.floor(raid.baseSDef * waveMul * 0.25),
             spd: spdBase * (raid.baseSpd / 100) * 0.4,
             isBoss: true, isRaid: true, phase2: raid.phase2,
-            waveMul: waveMul,
+            waveMul: waveMul, spawnWave: w,
             delay: 0,
         });
         count = 0; // 레이드는 단독
@@ -2369,7 +2412,7 @@ function setupWave(w) {
             mDef: Math.floor(cal.baseMDef * waveMul * 0.2),
             sDef: Math.floor(cal.baseSDef * waveMul * 0.2),
             spd: spdBase * (cal.baseSpd / 100) * 0.4,
-            isBoss: true,
+            isBoss: true, spawnWave: w,
             delay: 0,
         });
         count = Math.floor(count * 0.4);
@@ -2541,8 +2584,8 @@ function update() {
         saveGame();
         wave++;
         setupWave(wave);
-        // 라운드 클리어 보상: 라운드 번호 × 3 골드
-        const reward = wave * 3;
+        // 라운드 클리어 보상: 라운드 번호 × 3 골드 (먹다남은음식 +10%)
+        const reward = Math.floor(wave * 3 * (hasItem("leftovers") ? 1.10 : 1));
         coins += reward;
         coinTexts.push({ x: CW / 2, y: 200, text: `라운드 보상 +${fmtGold(reward)}`, life: 100, color: "#FFD700" });
         coinTexts.push({ x: CW - 80, y: 80, text: `+${fmtGold(reward)}`, life: 60, color: "#FFD700" });
@@ -2583,7 +2626,7 @@ function update() {
     for (let i = waveSpawnQueue.length - 1; i >= 0; i--) {
         if (waveSpawnTimer >= waveSpawnQueue[i].delay) {
             const m = waveSpawnQueue[i];
-            spawnMonster(m.name, m.sprite, m.hp, m.mDef || 0, m.sDef || 0, m.spd, m.types || m.type, m.isBoss, { isRaid: m.isRaid, phase2: m.phase2 ? { ...m.phase2, waveMul: m.waveMul } : null });
+            spawnMonster(m.name, m.sprite, m.hp, m.mDef || 0, m.sDef || 0, m.spd, m.types || m.type, m.isBoss, { isRaid: m.isRaid, phase2: m.phase2 ? { ...m.phase2, waveMul: m.waveMul } : null, spawnWave: m.spawnWave || 0 });
             waveSpawnQueue.splice(i, 1);
         }
     }
@@ -2699,15 +2742,16 @@ function update() {
                         castSkill(ee, target, ee.skill3, ee.skill3.effect === "buff" ? false : true);
                     }
                 } else {
-                    if (ee.skill1 && ee.level >= getSkill1Unlock(ee) && ee.skill1Cd <= 0 && Math.random() < 0.06) {
+                    const _skillProb = hasItem("focuslens") ? 0.09 : 0.06; // 초점렌즈: +50%
+                    if (ee.skill1 && ee.level >= getSkill1Unlock(ee) && ee.skill1Cd <= 0 && Math.random() < _skillProb) {
                         castSkill(ee, target, ee.skill1, false);
                         ee.skill1Cd = ee.skill1.cd;
                     }
-                    if (ee.skill2 && ee.level >= getSkill2Unlock(ee) && ee.skill2Cd <= 0 && Math.random() < 0.06) {
+                    if (ee.skill2 && ee.level >= getSkill2Unlock(ee) && ee.skill2Cd <= 0 && Math.random() < _skillProb) {
                         castSkill(ee, target, ee.skill2, true);
                         ee.skill2Cd = ee.skill2.cd;
                     }
-                    if (ee.skill3 && ee.level >= getSkill3Unlock(ee) && ee.skill3Cd <= 0 && Math.random() < 0.06) {
+                    if (ee.skill3 && ee.level >= getSkill3Unlock(ee) && ee.skill3Cd <= 0 && Math.random() < _skillProb) {
                         castSkill(ee, target, ee.skill3, ee.skill3.effect === "buff" ? false : true);
                         ee.skill3Cd = ee.skill3.cd;
                     }
@@ -2827,7 +2871,19 @@ function update() {
             // 타입 상성
             const mul = totalTypeMul(p.attackerType, target);
             const dn = getDayNightMul(p.attackerType, null);
-            const dmg = Math.max(1, Math.round(baseDmg * mul * dn.mul));
+            // 생명의구슬 +10%, 메트로놈 연속공격 누적
+            const orbMul = hasItem("lifeorb") ? 1.10 : 1;
+            let metMul = 1;
+            if (hasItem("metronome") && p.attackerEe) {
+                if (p.attackerEe._lastTargetId === target.id) {
+                    p.attackerEe._metroCount = Math.min((p.attackerEe._metroCount || 0) + 1, 5);
+                } else {
+                    p.attackerEe._metroCount = 0;
+                }
+                p.attackerEe._lastTargetId = target.id;
+                metMul = 1 + p.attackerEe._metroCount * 0.08;
+            }
+            const dmg = Math.max(1, Math.round(baseDmg * mul * dn.mul * orbMul * metMul));
             const wasAlive = target.hp > 0;
             target.hp -= dmg;
             // 라스트힛 카운트
@@ -2944,7 +3000,7 @@ function update() {
 
             // 보스/레이드 처치 시 아이템 드롭 (레이드는 100%, 보스는 25%)
             // 첫 보스(W10)는 75% 드롭, 그 외 25%, 레이드는 100%
-            const dropChance = m.isRaid ? 1.0 : (m.isBoss ? (wave <= 10 ? 0.75 : BOSS_DROP_RATE) : 0);
+            const dropChance = m.isRaid ? 1.0 : (m.isBoss ? ((m.spawnWave || wave) <= 10 ? 1.0 : BOSS_DROP_RATE) : 0);
             if (dropChance > 0 && Math.random() < dropChance) {
                 const unowned = ITEMS.filter(it => !inventory.has(it.id));
                 if (unowned.length > 0) {
