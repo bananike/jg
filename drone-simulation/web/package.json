@@ -1,0 +1,31 @@
+{
+  "name": "web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "UV_THREADPOOL_SIZE=2 NODE_OPTIONS=--max-old-space-size=2048 nice -n 15 next dev --webpack 2>&1 | grep -v MallocStackLogging",
+    "dev:turbo": "next dev",
+    "build": "next build --webpack",
+    "start": "next start",
+    "lint": "eslint",
+    "clean": "lsof -ti:3000,3100 | xargs kill -9 2>/dev/null; pkill -f next-server 2>/dev/null; echo cleaned"
+  },
+  "dependencies": {
+    "@types/leaflet": "^1.9.21",
+    "leaflet": "^1.9.4",
+    "next": "16.2.6",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "zustand": "^5.0.13"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.6",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
